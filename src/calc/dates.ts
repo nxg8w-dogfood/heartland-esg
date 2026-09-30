@@ -37,3 +37,30 @@ export function periodShare(line: Dated, period: Period): number {
   const daysTotal = Math.round((to - from) / DAY_MS) + 1
   return daysInside / daysTotal
 }
+
+// Annual figures (a commuting survey, an investee's emissions) stand for the calendar year
+// they're dated in, and count for the share of that year inside the reporting period.
+
+const daysBetween = (from: number, to: number) => Math.round((to - from) / DAY_MS) + 1
+
+/** Share of a calendar year that falls in the period, 0 to 1. 0 for an invalid or reversed period. */
+export function yearShare(year: number, period: Period): number {
+  const start = dayValue(period.start)
+  const end = dayValue(period.end)
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 0
+  const yearStart = Date.UTC(year, 0, 1)
+  const yearEnd = Date.UTC(year, 11, 31)
+  const from = Math.max(start, yearStart)
+  const to = Math.min(end, yearEnd)
+  return to < from ? 0 : daysBetween(from, to) / daysBetween(yearStart, yearEnd)
+}
+
+/** The calendar years a period touches. */
+export function periodYearsList(period: Period): number[] {
+  const start = dayValue(period.start)
+  const end = dayValue(period.end)
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return []
+  const first = new Date(start).getUTCFullYear()
+  const last = new Date(end).getUTCFullYear()
+  return Array.from({ length: last - first + 1 }, (_, i) => first + i)
+}

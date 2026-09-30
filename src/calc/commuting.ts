@@ -12,7 +12,7 @@
 // period's days ÷ 365, so two surveys in a two-year period counted the commuting twice.
 
 import type { Factor } from '../data/factors'
-import { dayValue, type Period } from './dates'
+import { dayValue, periodYearsList, yearShare, type Period } from './dates'
 import { findFactor } from './findFactor'
 
 export const commutingModes = [
@@ -92,32 +92,6 @@ export type Category7 = {
 
 const finiteOrZero = (n: number | null | undefined): number =>
   typeof n === 'number' && Number.isFinite(n) ? n : 0
-
-const DAY_MS = 86_400_000
-
-const daysBetween = (from: number, to: number) => Math.round((to - from) / DAY_MS) + 1
-
-/** Share of a calendar year that falls in the period, 0 to 1. 0 for an invalid or reversed period. */
-export function yearShare(year: number, period: Period): number {
-  const start = dayValue(period.start)
-  const end = dayValue(period.end)
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 0
-  const yearStart = Date.UTC(year, 0, 1)
-  const yearEnd = Date.UTC(year, 11, 31)
-  const from = Math.max(start, yearStart)
-  const to = Math.min(end, yearEnd)
-  return to < from ? 0 : daysBetween(from, to) / daysBetween(yearStart, yearEnd)
-}
-
-/** The calendar years a period touches. */
-export function periodYearsList(period: Period): number[] {
-  const start = dayValue(period.start)
-  const end = dayValue(period.end)
-  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return []
-  const first = new Date(start).getUTCFullYear()
-  const last = new Date(end).getUTCFullYear()
-  return Array.from({ length: last - first + 1 }, (_, i) => first + i)
-}
 
 export function surveyResult(survey: Survey, factors: readonly Factor[], period: Period): SurveyResult {
   const totalRespondents = commutingModes.reduce((t, m) => t + finiteOrZero(survey.modes[m.id]?.respondents), 0)

@@ -115,7 +115,7 @@ export function Scope3Page(props: Props) {
 
       <CommutingSection cat7={cat7} surveys={surveys} setSurveys={setSurveys} factors={factors} period={period} />
 
-      <InvestmentsSection cat15={cat15} investments={investments} setInvestments={setInvestments} defaultDate={period.start} />
+      <InvestmentsSection cat15={cat15} investments={investments} setInvestments={setInvestments} period={period} />
 
       <ActivityLinesSection
         title="Kategori 5 — affald genereret i driften"

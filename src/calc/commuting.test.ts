@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { factors } from '../data/factors'
-import { category7, commutingModes, periodYearsList, surveyResult, yearShare, type Survey } from './commuting'
+import { category7, commutingModes, surveyResult, type Survey } from './commuting'
+import { periodYearsList, yearShare } from './dates'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 

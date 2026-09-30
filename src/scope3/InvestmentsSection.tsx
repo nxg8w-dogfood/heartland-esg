@@ -1,5 +1,6 @@
 import { useId, type Dispatch, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
+import type { Period } from '../calc/dates'
 import { investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
 import { formatNumber } from '../format'
 import { newId } from '../newId'
@@ -21,10 +22,11 @@ type Props = {
   cat15: Category15
   investments: Investment[]
   setInvestments: Dispatch<SetStateAction<Investment[]>>
-  defaultDate: string
+  period: Period
 }
 
-export function InvestmentsSection({ cat15, investments, setInvestments, defaultDate }: Props) {
+export function InvestmentsSection({ cat15, investments, setInvestments, period }: Props) {
+  const defaultDate = period.end
   const id = useId()
   const counted = new Set(cat15.rows.map((r) => r.investment.id))
   const update = (invId: string, patch: Partial<Investment>) =>
@@ -40,13 +42,15 @@ export function InvestmentsSection({ cat15, investments, setInvestments, default
         Den forholdsmæssige andel af investeringernes udledninger: selskabets udledning × ejerandel.
         Kun ejerandele på højst 50 % tæller med; større ejerandele er konsolideret i Scope 1 og 2.
         Udledningen er enten selskabets rapporterede tal i kg CO2e, eller et skøn ud fra omsætning i
-        EUR × en faktor pr. EUR. En investering tæller med, når dens dato ligger i perioden.
+        EUR × en faktor pr. EUR. Tallene er årstal: hver investering gælder for det kalenderår, den er
+        dateret i, og tæller med for den del af året, der ligger i perioden.
       </p>
 
-      {cat15.periodUnderOneYear && (
+      {cat15.duplicates.length > 0 && (
         <p className="warning">
-          <strong>Perioden er kortere end et år.</strong> Selskabernes tal er årstal og tæller fuldt
-          med, så kategori 15 er overvurderet for en kortere periode.
+          <strong>Samme selskab flere gange for samme år:</strong>{' '}
+          {cat15.duplicates.map((d) => `${d.company} (${d.year})`).join(', ')}. Hver linje tæller med, så
+          året tælles dobbelt.
         </p>
       )}
       {cat15.pendingCount > 0 && (
@@ -66,7 +70,7 @@ export function InvestmentsSection({ cat15, investments, setInvestments, default
       {investments.map((inv) => (
         <InvestmentCard
           key={inv.id}
-          result={investmentResult(inv, currencyRates)}
+          result={investmentResult(inv, currencyRates, period)}
           counted={counted.has(inv.id)}
           onChange={(patch) => update(inv.id, patch)}
           onDelete={() => {
@@ -91,7 +95,7 @@ function InvestmentCard({ result, counted, onChange, onDelete }: { result: Inves
   const id = useId()
   const inv = result.investment
   const status = !counted
-    ? 'Dateret uden for perioden — tæller ikke med'
+    ? `${result.year ?? 'Datoens år'} ligger uden for perioden — tæller ikke med`
     : inv.ownershipPct === null
       ? 'Angiv ejerandel'
       : !result.included
@@ -164,7 +168,8 @@ function InvestmentCard({ result, counted, onChange, onDelete }: { result: Inves
 
       <p className={status ? 'warning' : 'muted'}>
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
-        Andel {formatNumber(result.share * 100, 1)} % · {formatNumber(result.kgCO2e / 1000, 3)} tCO2e
+        Ejerandel {formatNumber(result.share * 100, 1)} % · hele {result.year ?? 'året'}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
+        {' '}· {formatNumber(result.yearShare * 100, 1)} % af året i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
         {status && <> — <strong>{status}</strong></>}
       </p>
     </article>
