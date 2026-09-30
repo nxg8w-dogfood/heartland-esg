@@ -7,8 +7,9 @@
 ## Context
 
 The only existing copy of Heartland ESG is a single compiled HTML file,
-`Heartland_Klimaregnskab_App (1).html` (about 1.7 MB), exported from the AI tool it was
-built in. It is a minified React 19 build with no source map, so the original source
+[`reference/heartland-klimaregnskab-app.html`](../../reference/heartland-klimaregnskab-app.html)
+(about 1.7 MB, originally `Heartland_Klimaregnskab_App (1).html`), exported from the AI tool it
+was built in. It is a minified React 19 build with no source map, so the original source
 cannot be recovered.
 
 The app works. It is a Danish greenhouse-gas accounting tool covering Scope 1, 2 and 3,
@@ -82,5 +83,10 @@ reference, and the logic would be harder to cover with unit tests in CI.
 - **Runtime model.** The brief says the app ships a model (GPT-4o on Azure OpenAI is
   approved), but the current app uses none. Whether an AI feature is planned needs its own
   decision and ADR, including the token budget and per-request cap from the cost policy.
-- **The bundle in the repository.** Should the HTML file be committed as the reference
-  spec? Not yet decided.
+
+## Follow-up decisions
+
+- **2026-09-30, the bundle is committed as the reference spec** under `reference/`, unchanged
+  (@mortengad). It was scanned with gitleaks before being committed, and nothing was found.
+  It isn't part of the build and must not be edited. Open it in a browser to compare
+  behaviour.
