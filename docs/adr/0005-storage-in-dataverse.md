@@ -4,7 +4,7 @@
   are answered.
 - **Date:** 2026-09-30
 - **Proposed to:** @mortengad (tech lead)
-- **Decided so far:** the publisher prefix, `hlesg`, and one climate account per environment (both 2026-09-30)
+- **Decided so far:** the publisher prefix `hlesg`, one climate account per environment, 7-year retention, and locking of reported periods (all 2026-09-30)
 
 ## Context
 
@@ -74,7 +74,39 @@ the rest of it. Only *entered* values are stored.
 - **Auditing is on** for all `hlesg_` tables, so every change records who made it and when. This
   also covers the "a person made every change" trail that ADR 0002 needs for AI suggestions.
 
-### 5. Saving to Dataverse (proposed)
+### 5. Retention: 7 years (decided), and how (proposed)
+
+@mortengad decided on 2026-09-30 that data is kept for **7 years**.
+- **The audit log** is set to retain entries for 7 years (2,557 days) *before go-live*. Dataverse
+  applies a changed retention period only to entries created after the change
+  ([Microsoft Learn](https://learn.microsoft.com/power-platform/admin/manage-dataverse-auditing)).
+- **Account data** is kept for at least 7 years after the end of the period it belongs to.
+  Removing older data is a **recurring bulk-deletion job**, tested in dev and previewed before it
+  runs ([governance policies](https://learn.microsoft.com/power-platform/admin/dataverse-governance-policies)).
+  Moving data to Dataverse long-term retention (read-only) is the alternative if old data must
+  stay readable; it needs a Managed Environment.
+
+### 6. Locking reported periods (decided), and how (proposed)
+
+@mortengad decided on 2026-09-30 that **reported periods are locked**.
+
+- **A new table, `hlesg_rapportering`,** records each reported period: the period, when it was
+  reported and by whom, and an **immutable snapshot** of what was reported (all inputs and totals,
+  as `AccountData` plus the calculated figures, as JSON). Blocking edits alone doesn't lock a
+  period's numbers, because account-wide settings also change them: entered factor values,
+  category 3 parameters, relevance, ledger rules and price deflation. The snapshot is the record of
+  the report; later changes to settings can't alter it.
+- **Enforced on the server by a Dataverse .NET plug-in** (pre-operation, on create, update and
+  delete). It rejects any change to a line, survey, investment or posting whose dates fall in a
+  locked period, and any change to or deletion of a `hlesg_rapportering` row. Security roles
+  can't express a rule based on dates, and Dataverse's low-code (Power Fx) plug-ins are still in
+  preview, "not meant for production use"
+  ([Microsoft Learn](https://learn.microsoft.com/power-apps/maker/data-platform/low-code-plug-ins)).
+  The plug-in adds a small C# project to the solution, built and unit-tested in CI.
+- **The app** shows locked periods, disables editing there (presentation only), and warns when an
+  account-wide setting is changed that the reported snapshot is kept as it was.
+
+### 7. Saving to Dataverse (proposed)
 
 Per record, not per account: the app keeps what it loaded, and on save it sends only the
 records that were created, changed or deleted, with only the changed columns (as Microsoft's
@@ -87,6 +119,10 @@ guidance says, so auditing isn't polluted by false updates).
   ledger import can exceed the column size limit (about 1 MB for text).
 - **A table per line type (rejected for now).** Scope 1, categories 1, 5 and 6 and Scope 2 lines
   share almost all their columns. One `hlesg_linje` table keeps the model small, as in the original.
+- **Lock periods in the app only (rejected).** Hiding edit buttons is presentation; any other
+  client or a direct Web API call could still change reported data.
+- **Lock with a low-code Power Fx plug-in (rejected for now).** It's server-side and simpler, but a
+  preview feature. Revisit when it's generally available.
 - **Keep the browser store (rejected).** Data isn't shared, is lost when site data is cleared,
   and permissions can't be enforced. That's why ADR 0001 chose Dataverse.
 
@@ -108,5 +144,9 @@ guidance says, so auditing isn't polluted by false updates).
 
 1. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
    hold them?
-2. **Retention:** how long must accounts and imported postings be kept, and must old periods
-   be locked once reported?
+2. **Unlocking:** can a reported period ever be reopened? The options are:
+   - Never; corrections go in as correction lines in an open period.
+   - The *Ansvarlig* role can reopen, with a required reason, and it's audited. The earlier
+     snapshot is kept, and a new report supersedes it.
+3. **After 7 years:** delete the data (bulk deletion), or move it to read-only long-term
+   retention?
