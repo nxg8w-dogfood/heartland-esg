@@ -4,6 +4,7 @@
   are answered.
 - **Date:** 2026-09-30
 - **Proposed to:** @mortengad (tech lead)
+- **Decided so far:** the publisher prefix, `hlesg` (2026-09-30)
 
 ## Context
 
@@ -36,19 +37,20 @@ store is **not** the product's storage. It's removed when the Dataverse store is
 
 ### 3. Tables (proposed)
 
-These use the publisher prefix `hl_` (for Heartland). All tables are user or team owned.
+These use the publisher prefix **`hlesg`**, decided by @mortengad on 2026-09-30, so table
+names start with `hlesg_`. All tables are user or team owned.
 
 | Table | Holds | Notes |
 | --- | --- | --- |
-| `hl_klimaregnskab` | One climate account: name, period, category 3 parameters | The parent of everything below |
-| `hl_linje` | Every line with quantity or amount: Scope 1, Scope 2 (with location), categories 1, 5 and 6 | One table, as in the original's `linjer`. Columns: scope, category, type (group), date, end date, quantity, amount, currency, factor id, custom factor, description |
-| `hl_lokation` | Scope 2 locations: market instrument, heating factor | |
-| `hl_pendling` | Commuting surveys | The answers per mode (9 modes × 5 numbers) go in one JSON column |
-| `hl_investering` | Category 15 holdings | |
-| `hl_faktorvaerdi` | Values entered for factors that ship blank (residual mix, local heating, …) | A separate table so auditing shows who entered which value, and when |
-| `hl_relevans` | Relevance and justification per Scope 3 category | |
-| `hl_indekspunkt` | Price-index values per series and year, and base year per spend factor | |
-| `hl_import`, `hl_postering`, `hl_regel` | Ledger imports, postings (with the manual action as columns) and rules | Rule conditions go in a JSON column |
+| `hlesg_klimaregnskab` | One climate account: name, period, category 3 parameters | The parent of everything below |
+| `hlesg_linje` | Every line with quantity or amount: Scope 1, Scope 2 (with location), categories 1, 5 and 6 | One table, as in the original's `linjer`. Columns: scope, category, type (group), date, end date, quantity, amount, currency, factor id, custom factor, description |
+| `hlesg_lokation` | Scope 2 locations: market instrument, heating factor | |
+| `hlesg_pendling` | Commuting surveys | The answers per mode (9 modes × 5 numbers) go in one JSON column |
+| `hlesg_investering` | Category 15 holdings | |
+| `hlesg_faktorvaerdi` | Values entered for factors that ship blank (residual mix, local heating, …) | A separate table so auditing shows who entered which value, and when |
+| `hlesg_relevans` | Relevance and justification per Scope 3 category | |
+| `hlesg_indekspunkt` | Price-index values per series and year, and base year per spend factor | |
+| `hlesg_import`, `hlesg_postering`, `hlesg_regel` | Ledger imports, postings (with the manual action as columns) and rules | Rule conditions go in a JSON column |
 
 The factor table itself stays in the code (`src/data/factors.ts`), versioned and reviewed like
 the rest of it. Only *entered* values are stored.
@@ -65,7 +67,7 @@ the rest of it. Only *entered* values are stored.
   **Entra ID security groups**, so access is managed in Entra, not per user.
 - The app may hide what a role can't do, but that's presentation only. Every request is
   checked by Dataverse, which meets the *authorisation checked server-side* guardrail.
-- **Auditing is on** for all `hl_` tables, so every change records who made it and when. This
+- **Auditing is on** for all `hlesg_` tables, so every change records who made it and when. This
   also covers the "a person made every change" trail that ADR 0002 needs for AI suggestions.
 
 ### 5. Saving to Dataverse (proposed)
@@ -80,7 +82,7 @@ guidance says, so auditing isn't polluted by false updates).
   but there's no auditing per record, two people editing overwrite each other, and a large
   ledger import can exceed the column size limit (about 1 MB for text).
 - **A table per line type (rejected for now).** Scope 1, categories 1, 5 and 6 and Scope 2 lines
-  share almost all their columns. One `hl_linje` table keeps the model small, as in the original.
+  share almost all their columns. One `hlesg_linje` table keeps the model small, as in the original.
 - **Keep the browser store (rejected).** Data isn't shared, is lost when site data is cleared,
   and permissions can't be enforced. That's why ADR 0001 chose Dataverse.
 
@@ -98,10 +100,9 @@ guidance says, so auditing isn't polluted by false updates).
 
 ## Open questions
 
-1. **Publisher prefix:** `hl_`, or does itm8 or Heartland already have a publisher to use?
-2. **One account or several:** one climate account per environment, or several (for example
+1. **One account or several:** one climate account per environment, or several (for example
    per company or subsidiary)? The model supports several; the UI currently assumes one.
-3. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
+2. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
    hold them?
-4. **Retention:** how long must accounts and imported postings be kept, and must old periods
+3. **Retention:** how long must accounts and imported postings be kept, and must old periods
    be locked once reported?
