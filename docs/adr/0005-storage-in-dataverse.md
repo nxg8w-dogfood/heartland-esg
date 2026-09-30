@@ -4,7 +4,7 @@
   are answered.
 - **Date:** 2026-09-30
 - **Proposed to:** @mortengad (tech lead)
-- **Decided so far:** the publisher prefix `hlesg`, one climate account per environment, 7-year retention, and locking of reported periods (all 2026-09-30)
+- **Decided so far:** the publisher prefix `hlesg`; one climate account per environment; 7-year retention, then archive; reported periods locked, and reopenable by *Ansvarlig* with a reason (all 2026-09-30)
 
 ## Context
 
@@ -80,11 +80,16 @@ the rest of it. Only *entered* values are stored.
 - **The audit log** is set to retain entries for 7 years (2,557 days) *before go-live*. Dataverse
   applies a changed retention period only to entries created after the change
   ([Microsoft Learn](https://learn.microsoft.com/power-platform/admin/manage-dataverse-auditing)).
-- **Account data** is kept for at least 7 years after the end of the period it belongs to.
-  Removing older data is a **recurring bulk-deletion job**, tested in dev and previewed before it
-  runs ([governance policies](https://learn.microsoft.com/power-platform/admin/dataverse-governance-policies)).
-  Moving data to Dataverse long-term retention (read-only) is the alternative if old data must
-  stay readable; it needs a Managed Environment.
+- **Account data** is kept for at least 7 years after the end of the period it belongs to, and
+  **then archived to Dataverse long-term retention** (decided by @mortengad on 2026-09-30). That
+  means a solution-aware retention policy, built and tested in dev and moved with the solution
+  ([long-term retention](https://learn.microsoft.com/power-apps/maker/data-platform/data-retention-overview)).
+  - Archived data is **read-only** and can't be brought back into active use.
+  - **It needs a Managed Environment**, which an admin switches on per environment. It adds no
+    licensing: code-app users already need Power Apps Premium (ADR 0001).
+  - Archived rows can only be queried with FetchXml (`datasource="retained"`), not through the
+    app's generated services. Viewing archived periods would need a separate read-only view,
+    which isn't planned yet.
 
 ### 6. Locking reported periods (decided), and how (proposed)
 
@@ -98,7 +103,14 @@ the rest of it. Only *entered* values are stored.
   the report; later changes to settings can't alter it.
 - **Enforced on the server by a Dataverse .NET plug-in** (pre-operation, on create, update and
   delete). It rejects any change to a line, survey, investment or posting whose dates fall in a
-  locked period, and any change to or deletion of a `hlesg_rapportering` row. Security roles
+  locked period, and any change to or deletion of a `hlesg_rapportering` row, with **one
+  exception: reopening**.
+- **Reopening (decided by @mortengad on 2026-09-30):** a user with the *Klimaregnskab – Ansvarlig*
+  role can reopen a reported period by setting its report's status to *reopened* with a
+  **required reason**. The plug-in checks both the role and the reason; everything else on the
+  row, including the snapshot, stays unchangeable. Reopening is audited. When the period is
+  reported again, a new `hlesg_rapportering` row with a new snapshot supersedes the old one,
+  which is kept. So every version that was ever reported survives. Security roles
   can't express a rule based on dates, and Dataverse's low-code (Power Fx) plug-ins are still in
   preview, "not meant for production use"
   ([Microsoft Learn](https://learn.microsoft.com/power-apps/maker/data-platform/low-code-plug-ins)).
@@ -123,6 +135,8 @@ guidance says, so auditing isn't polluted by false updates).
   client or a direct Web API call could still change reported data.
 - **Lock with a low-code Power Fx plug-in (rejected for now).** It's server-side and simpler, but a
   preview feature. Revisit when it's generally available.
+- **Delete data after 7 years with bulk deletion (rejected by the tech lead).** It's simpler and
+  needs no Managed Environment, but the history would be gone. Archiving keeps it read-only.
 - **Keep the browser store (rejected).** Data isn't shared, is lost when site data is cleared,
   and permissions can't be enforced. That's why ADR 0001 chose Dataverse.
 
@@ -144,9 +158,4 @@ guidance says, so auditing isn't polluted by false updates).
 
 1. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
    hold them?
-2. **Unlocking:** can a reported period ever be reopened? The options are:
-   - Never; corrections go in as correction lines in an open period.
-   - The *Ansvarlig* role can reopen, with a required reason, and it's audited. The earlier
-     snapshot is kept, and a new report supersedes it.
-3. **After 7 years:** delete the data (bulk deletion), or move it to read-only long-term
-   retention?
+*(Unlocking and the after-7-years policy were decided on 2026-09-30; see sections 5 and 6.)*
