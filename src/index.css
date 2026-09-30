@@ -385,3 +385,40 @@ input.reason {
 .value-input input {
   max-width: 7rem;
 }
+
+ul.plain {
+  list-style: none;
+  padding: 0;
+}
+
+.conditions {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.condition {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.rule-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.rule-footer .spacer {
+  flex: 1;
+}
+
+button.link:disabled {
+  color: var(--muted);
+  cursor: default;
+  text-decoration: none;
+}

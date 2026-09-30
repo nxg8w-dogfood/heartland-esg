@@ -28,7 +28,8 @@ const examples = (year: string): Omit<SpendLine, 'id'>[] => [
 
 export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflation, factors, defaultDate }: Props) {
   const id = useId()
-  const hiddenCount = lines.length - cat1.lines.length
+  const hiddenCount = lines.length - cat1.lines.filter((r) => r.source === 'manual').length
+  const fromLedger = cat1.lines.filter((r) => r.source === 'ledger').length
   const usedFactors = [...new Map(cat1.lines.filter((r) => r.factor?.method === 'spend').map((r) => [r.factor!.id, r.factor!])).values()]
   const blankGroups = category1Groups.filter((g) => !g.excluded && factors.find((f) => f.id === g.factorId)?.value == null)
 
@@ -38,7 +39,9 @@ export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflatio
       <p className="muted">
         Spendbaseret: beløbet omregnes til DKK og videre til faktorens valuta (EUR for EXIOBASE), og
         ganges med faktoren i kg CO2e pr. EUR for indkøbstypens EXIOBASE-sektor. Priserne kan
-        indeksreguleres til faktorens prisår (se nedenfor).
+        indeksreguleres til faktorens prisår (se nedenfor). Posteringer, der er tagget på{' '}
+        <a href="#/kontoplan">Kontoplan</a>, kommer med her automatisk
+        {fromLedger > 0 && <> ({fromLedger} i perioden)</>}.
       </p>
       {blankGroups.length > 0 && (
         <p className="warning">
@@ -112,9 +115,13 @@ export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflatio
                     {r.warning && <span className="sub warning-text">{r.warning}</span>}
                   </td>
                   <td>
-                    <button type="button" className="link" onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))} aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}>
-                      Slet
-                    </button>
+                    {r.source === 'ledger' ? (
+                      <a href="#/kontoplan" className="muted">Fra kontoplan</a>
+                    ) : (
+                      <button type="button" className="link" onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))} aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}>
+                        Slet
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

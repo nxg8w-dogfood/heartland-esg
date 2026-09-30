@@ -231,7 +231,8 @@ export const category1Groups: readonly SpendGroup[] = [
 ]
 
 export type Category1 = {
-  lines: SpendResult[]
+  /** Manual lines and lines from tagged ledger postings */
+  lines: (SpendResult & { source: 'manual' | 'ledger' })[]
   total: number
   pendingCount: number
   excludedCount: number
@@ -246,14 +247,16 @@ export function category1(
   rates: readonly CurrencyRate[],
   deflation: Deflation,
   period: Period,
+  /** Postings tagged to category 1 (see ledgerSpendLines) */
+  ledger: readonly { line: SpendLine; group: SpendGroup }[] = [],
 ): Category1 {
-  const results = lines
-    .map((line) => {
-      const group = category1Groups.find((g) => g.id === line.group)
-      if (!group) throw new Error(`Unknown group: ${line.group}`)
-      return spendLine(line, group, factors, rates, deflation, period)
-    })
-    .filter((r) => r.share > 0)
+  const manual = lines.map((line) => {
+    const group = category1Groups.find((g) => g.id === line.group)
+    if (!group) throw new Error(`Unknown group: ${line.group}`)
+    return { ...spendLine(line, group, factors, rates, deflation, period), source: 'manual' as const }
+  })
+  const fromLedger = ledger.map(({ line, group }) => ({ ...spendLine(line, group, factors, rates, deflation, period), source: 'ledger' as const }))
+  const results = [...manual, ...fromLedger].filter((r) => r.share > 0)
   return {
     lines: results,
     total: results.reduce((t, r) => t + r.tCO2e, 0),

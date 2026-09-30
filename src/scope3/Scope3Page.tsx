@@ -6,6 +6,7 @@ import type { ActivityLine } from '../calc/activity'
 import { category7, type Survey } from '../calc/commuting'
 import { category15, type Investment } from '../calc/investments'
 import type { Deflation, SpendLine } from '../calc/spend'
+import type { LedgerSpendLine } from '../calc/ledger'
 import { currencyRates } from '../data/currencies'
 import type { Scope1Line } from '../calc/scope1'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
@@ -55,17 +56,19 @@ type Props = {
   setCat1Lines: Dispatch<SetStateAction<SpendLine[]>>
   deflation: Deflation
   setDeflation: Dispatch<SetStateAction<Deflation>>
+  /** Postings tagged to category 1 on the Kontoplan screen */
+  ledgerLines: readonly LedgerSpendLine[]
 }
 
 export function Scope3Page(props: Props) {
-  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation } = props
+  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledgerLines } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
   const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
   const cat15 = useMemo(() => category15(investments, currencyRates, period), [investments, period])
-  const cat1 = useMemo(() => category1(cat1Lines, factors, currencyRates, deflation, period), [cat1Lines, factors, deflation, period])
+  const cat1 = useMemo(() => category1(cat1Lines, factors, currencyRates, deflation, period, ledgerLines), [cat1Lines, factors, deflation, period, ledgerLines])
 
   /** Categories calculated so far, by number. The rest are listed but not calculated yet. */
   const calculated: Record<number, number> = { 1: cat1.total, 3: cat3.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
