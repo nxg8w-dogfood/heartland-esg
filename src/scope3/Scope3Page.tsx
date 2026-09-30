@@ -5,13 +5,15 @@ import { parseNumber } from '../calc/parseNumber'
 import type { ActivityLine } from '../calc/activity'
 import { category7, type Survey } from '../calc/commuting'
 import { category15, type Investment } from '../calc/investments'
+import type { Deflation, SpendLine } from '../calc/spend'
 import { currencyRates } from '../data/currencies'
 import type { Scope1Line } from '../calc/scope1'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
-import { category3, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
+import { category1, category3, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
 import { ActivityLinesSection } from '../activity/ActivityLinesSection'
 import { CommutingSection } from './CommutingSection'
 import { InvestmentsSection } from './InvestmentsSection'
+import { PurchasesSection } from './PurchasesSection'
 import { formatFactor, formatNumber } from '../format'
 import { Tile } from '../ui'
 import type { Relevance } from './relevance'
@@ -49,19 +51,24 @@ type Props = {
   setSurveys: Dispatch<SetStateAction<Survey[]>>
   investments: Investment[]
   setInvestments: Dispatch<SetStateAction<Investment[]>>
+  cat1Lines: SpendLine[]
+  setCat1Lines: Dispatch<SetStateAction<SpendLine[]>>
+  deflation: Deflation
+  setDeflation: Dispatch<SetStateAction<Deflation>>
 }
 
 export function Scope3Page(props: Props) {
-  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments } = props
+  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
   const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
   const cat15 = useMemo(() => category15(investments, currencyRates, period), [investments, period])
+  const cat1 = useMemo(() => category1(cat1Lines, factors, currencyRates, deflation, period), [cat1Lines, factors, deflation, period])
 
   /** Categories calculated so far, by number. The rest are listed but not calculated yet. */
-  const calculated: Record<number, number> = { 3: cat3.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
+  const calculated: Record<number, number> = { 1: cat1.total, 3: cat3.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
   const isIncluded = (nr: number) => relevance[nr]?.relevant ?? false
   const total = Object.entries(calculated).reduce((t, [nr, v]) => (isIncluded(Number(nr)) ? t + v : t), 0)
   const pendingRelevant = scope3Categories.filter((c) => isIncluded(c.nr) && !(c.nr in calculated))
@@ -82,6 +89,7 @@ export function Scope3Page(props: Props) {
         <h2 id="s3-totals" className="visually-hidden">Totaler</h2>
         <dl className="tiles" aria-live="polite">
           <Tile label="Scope 3, beregnet indtil videre" value={total} accent />
+          <Tile label="1 — indkøb" value={cat1.total} note={excludedNote(1) ?? (cat1.pendingCount > 0 ? `${cat1.pendingCount} linjer afventer faktor` : undefined)} />
           <Tile label="3 — brændstof og energi" value={cat3.total} note={excludedNote(3)} />
           <Tile label="5 — affald" value={cat5.total} note={excludedNote(5)} />
           <Tile label="6 — forretningsrejser" value={cat6.total} note={excludedNote(6)} />
@@ -97,6 +105,8 @@ export function Scope3Page(props: Props) {
           </p>
         )}
       </section>
+
+      <PurchasesSection cat1={cat1} lines={cat1Lines} setLines={setCat1Lines} deflation={deflation} setDeflation={setDeflation} factors={factors} defaultDate={period.start} />
 
       <Category3Section cat3={cat3} params={params} setParams={setParams} />
 

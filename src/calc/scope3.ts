@@ -4,6 +4,8 @@
 import type { Factor } from '../data/factors'
 import { activitySummary, type ActivityGroup, type ActivityLine, type ActivitySummary } from './activity'
 import type { Period } from './dates'
+import type { CurrencyRate } from '../data/currencies'
+import { spendLine, type Deflation, type SpendGroup, type SpendLine, type SpendResult } from './spend'
 import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
 import { scope1Groups, type Scope1GroupId, type Scope1Line } from './scope1'
@@ -198,4 +200,66 @@ export function category6(lines: readonly ActivityLine[], factors: readonly Fact
 
 export function category5(lines: readonly ActivityLine[], factors: readonly Factor[], period: Period): ActivitySummary {
   return activitySummary(lines, category5Groups, factors, period)
+}
+
+// Category 1 is spend-based: each purchase type maps to an EXIOBASE sector, as in the original.
+// Most Danish EXIOBASE factors ship without a value ("afventer fuld EXIOBASE-upload"), so
+// those lines are pending until a verified value is entered under Faktorer.
+
+export const category1Groups: readonly SpendGroup[] = [
+  { id: 'k1-software', label: 'Software/IT-licenser', sector: 'Computer and Related Services', factorId: 'f-exio-computer' },
+  { id: 'k1-hardware', label: 'Hardware', sector: 'Office Machinery and Computers', factorId: 'f-exio-office' },
+  { id: 'k1-tele', label: 'Telekommunikation', sector: 'Post and Telecommunication', factorId: 'f-exio-post' },
+  { id: 'k1-marketing-online', label: 'Online marketing', sector: 'Printed Matter and Recorded Media', factorId: 'f-exio-print' },
+  { id: 'k1-marketing-fysisk', label: 'Fysisk marketing', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+  { id: 'k1-events', label: 'Events og konferencer', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+  { id: 'k1-gaver', label: 'Gaver og blomster', sector: 'Retail trade', factorId: 'f-exio-retail' },
+  { id: 'k1-porto', label: 'Porto og gebyrer', sector: 'Post and Telecommunication', factorId: 'f-exio-post' },
+  { id: 'k1-kantine', label: 'Kantine/catering', sector: 'Food products', factorId: 'f-exio-food' },
+  { id: 'k1-rengoering', label: 'Rengøring', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+  { id: 'k1-vedligehold', label: 'Vedligehold generelt', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+  { id: 'k1-vedligehold-bygning', label: 'Vedligehold bygninger', sector: 'Construction Work', factorId: 'f-exio-construction' },
+  { id: 'k1-moebler', label: 'Møbler/småanskaffelser', sector: 'Furniture', factorId: 'f-exio-furniture' },
+  { id: 'k1-kontorartikler', label: 'Kontorartikler', sector: 'Office Machinery and Computers', factorId: 'f-exio-office' },
+  { id: 'k1-vand', label: 'Vandforbrug', sector: '—', factorId: '', excluded: 'Ekskluderet fra klimaregnskabet' },
+  { id: 'k1-raadgivning', label: 'Rådgivning/revision/jura', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+  { id: 'k1-bank', label: 'Bank og finansielle services', sector: '—', factorId: '', excluded: 'Ekskluderet fra klimaregnskabet' },
+  { id: 'k1-hr', label: 'HR-services', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+  { id: 'k1-sikkerhed', label: 'Sikkerhed', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+  { id: 'k1-forsikring', label: 'Forsikring', sector: 'Insurance and pension funding', factorId: 'f-exio-insurance' },
+  { id: 'k1-medlemskaber', label: 'Medlemskaber', sector: 'Other Business Services', factorId: 'f-exio-obs-dk' },
+]
+
+export type Category1 = {
+  lines: SpendResult[]
+  total: number
+  pendingCount: number
+  excludedCount: number
+  deflatedCount: number
+  warningCount: number
+}
+
+/** Lines outside the period are left out, but not deleted. A line with an unknown group throws. */
+export function category1(
+  lines: readonly SpendLine[],
+  factors: readonly Factor[],
+  rates: readonly CurrencyRate[],
+  deflation: Deflation,
+  period: Period,
+): Category1 {
+  const results = lines
+    .map((line) => {
+      const group = category1Groups.find((g) => g.id === line.group)
+      if (!group) throw new Error(`Unknown group: ${line.group}`)
+      return spendLine(line, group, factors, rates, deflation, period)
+    })
+    .filter((r) => r.share > 0)
+  return {
+    lines: results,
+    total: results.reduce((t, r) => t + r.tCO2e, 0),
+    pendingCount: results.filter((r) => r.pending).length,
+    excludedCount: results.filter((r) => r.excluded).length,
+    deflatedCount: results.filter((r) => r.deflation.status === 'applied').length,
+    warningCount: results.filter((r) => r.warning).length,
+  }
 }
