@@ -20,7 +20,7 @@ npm ci
 npm run dev
 ```
 
-Vite prints a local URL. This runs the UI on its own, outside Power Platform, which is
+Vite prints a local URL. Until Dataverse is in place (ADR 0005), data is kept as a draft in your browser, and the app offers backup export and import. This runs the UI on its own, outside Power Platform, which is
 enough for UI work and for the calculation engine in `src/calc/`.
 
 ### Check your change
@@ -65,6 +65,7 @@ environments and the service principal being created. Until then, don't deploy f
 | `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
 | `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
+| `src/storage/` | Saving and loading the account (`AccountStore`). For now a browser draft store with backup export and import; Dataverse per ADR 0005. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
 | `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |

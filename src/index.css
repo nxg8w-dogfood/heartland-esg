@@ -422,3 +422,19 @@ button.link:disabled {
   cursor: default;
   text-decoration: none;
 }
+
+.databar p {
+  margin: 0 0 0.5rem;
+}
+
+.databar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.loading {
+  padding: 2rem 1rem;
+  text-align: center;
+}
