@@ -158,4 +158,5 @@ guidance says, so auditing isn't polluted by false updates).
 
 1. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
    hold them?
+
 *(Unlocking and the after-7-years policy were decided on 2026-09-30; see sections 5 and 6.)*
