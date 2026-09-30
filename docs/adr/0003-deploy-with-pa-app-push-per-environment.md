@@ -1,8 +1,8 @@
 # 3. Deploy by publishing to each environment from GitHub Actions
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-30
-- **Proposed to:** @mortengad (tech lead)
+- **Decided by:** @mortengad (tech lead). The environments are named `dev`, `test` and `prod`.
 
 ## Context
 
