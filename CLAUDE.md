@@ -21,14 +21,20 @@ branch takes pull requests only, and `.github/CODEOWNERS` says who reviews.
 
 ## Code that already exists
 
-_Location not recorded — ask._
+The original app exists only as a compiled single-file HTML build, exported from the AI tool
+it was built in. It has no recoverable source and no history. It's committed unchanged as
+`reference/heartland-klimaregnskab-app.html` and is the functional spec: check ported
+features against it, and don't edit it (`reference/README.md`).
 
-This project starts from working code. **Do not restructure it to match a template.** Add
-what is missing — documentation, CI, licence — and leave the source layout alone. Before
-any history is pushed anywhere, scan it for credentials with a secret scanner (gitleaks or
-equivalent; installing one is expected, not a question), and rotate anything you find:
-deleting the line does not remove it from history. If it came from an AI tool, assume there
-is something to find until the scan says otherwise.
+With no source to preserve, the app is being **rebuilt** as a Power Apps code app rather
+than restructured around the old code (`docs/adr/0001`, decided by @mortengad on
+2026-09-30). The layout the rebuild set up is described in the README's *Layout* section.
+Follow that layout, not a template.
+
+Anything brought in from outside later, such as code, exports or history, is scanned for
+credentials with gitleaks before it's pushed. Anything found is rotated: deleting the line
+doesn't remove it from history. Treat output from an AI tool as containing something until
+the scan says otherwise. CI runs the same scan over the full history on every pull request.
 
 ## Guardrails — not negotiable
 
