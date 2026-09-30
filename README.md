@@ -56,6 +56,8 @@ Deploys run from `.github/workflows/deploy.yml`, never from a laptop:
 
 - **dev** deploys on every push to `main`.
 - **test** and **prod** deploy when started by hand: **Actions → deploy → Run workflow**.
+  To send prod exactly what was checked on test, give that commit's SHA (see
+  [docs/deploy.md](docs/deploy.md#promote-a-tested-commit-to-prod)).
 
 Each environment needs a one-time setup first (a Power Platform environment, a service
 principal and a GitHub environment). Until then its deploy run warns and deploys nothing.

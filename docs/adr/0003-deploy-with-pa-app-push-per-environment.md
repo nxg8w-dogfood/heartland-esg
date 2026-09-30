@@ -19,7 +19,10 @@ One GitHub Actions workflow, `.github/workflows/deploy.yml`, publishes the app w
 `pa app push --non-interactive` to one GitHub environment per Power Platform environment:
 
 - **dev** deploys on every push to `main`. **test** and **prod** deploy only when started by
-  hand. Runs from branches other than `main` are refused.
+  hand. A run started from any branch other than `main` fails and deploys nothing.
+- A manual run can name the **commit** to deploy. The run fails unless that commit is on
+  `main`. Promoting to prod means deploying the SHA that was checked on test. Every run
+  writes the deployed SHA to its summary.
 - Each environment has its own service principal, `power.config.json` (committed under
   `deploy/<env>/`) and GitHub environment variables and secret.
 - Each run lints, tests and builds before publishing.
@@ -48,6 +51,7 @@ One GitHub Actions workflow, `.github/workflows/deploy.yml`, publishes the app w
 - Client secrets expire and must be rotated. `docs/deploy.md` describes how.
 - Until an environment is set up, its deploy run warns and does nothing, so merges to
   `main` don't fail for that reason.
-- Test and prod are rebuilt from `main` at deploy time, not promoted from the dev build. A
-  test deploy and a prod deploy of the same commit produce the same build, because the
-  dependencies are locked.
+- Test and prod are rebuilt at deploy time, not promoted from the dev build. Deploying the
+  same SHA gives the same build, because the dependencies are locked. But prod gets the
+  tested commit only if whoever starts the run passes that SHA; left empty, it deploys the
+  latest `main`. `docs/deploy.md` describes the promotion step.

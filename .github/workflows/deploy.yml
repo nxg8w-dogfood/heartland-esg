@@ -12,14 +12,16 @@ on:
         type: choice
         options: [dev, test, prod]
         required: true
+      commit:
+        description: Commit to deploy (SHA on main). Leave empty for the latest main. Use the SHA deployed to test when deploying to prod.
+        type: string
+        required: false
 
 permissions:
   contents: read
 
 jobs:
   deploy:
-    # Only reviewed code: a manual run from any other branch is refused.
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'dev' }}
     concurrency:
@@ -28,7 +30,42 @@ jobs:
     env:
       TARGET: ${{ inputs.environment || 'dev' }}
     steps:
+      # Only reviewed code: a manual run from any other branch fails.
+      - name: Refuse runs from branches other than main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Deploys run only from main. This run was started from $GITHUB_REF_NAME, so nothing was deployed."
+          exit 1
+
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Deploy exactly the commit asked for, and only if it's on main.
+      - name: Pick the commit to deploy
+        id: commit
+        env:
+          COMMIT: ${{ inputs.commit }}
+        run: |
+          if [ -z "$COMMIT" ]; then
+            sha=$(git rev-parse HEAD)
+          else
+            if ! printf '%s' "$COMMIT" | grep -Eq '^[0-9a-f]{7,40}$'; then
+              echo "::error::'$COMMIT' isn't a commit SHA."
+              exit 1
+            fi
+            if ! sha=$(git rev-parse --verify --quiet "$COMMIT^{commit}"); then
+              echo "::error::Commit $COMMIT wasn't found."
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$sha" origin/main; then
+              echo "::error::Commit $sha isn't on main, so it hasn't been reviewed. Nothing was deployed."
+              exit 1
+            fi
+            git checkout --quiet --detach "$sha"
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Deploying \`$sha\` to $TARGET"
 
       - name: Check the environment is set up
         id: setup
@@ -39,6 +76,7 @@ jobs:
         run: |
           if [ ! -f "deploy/$TARGET/power.config.json" ]; then
             echo "::warning::$TARGET isn't set up yet (no deploy/$TARGET/power.config.json), so nothing was deployed. See docs/deploy.md."
+          echo "Nothing deployed: **$TARGET** isn't set up yet. See \`docs/deploy.md\`." >> "$GITHUB_STEP_SUMMARY"
             echo "ready=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -82,3 +120,4 @@ jobs:
           if [ -n "$SOLUTION_ID" ]; then export PA_CLI_SOLUTION_ID="$SOLUTION_ID"; fi
           cp "deploy/$TARGET/power.config.json" power.config.json
           npx pa app push --non-interactive
+          echo "Deployed \`${{ steps.commit.outputs.sha }}\` to **$TARGET**." >> "$GITHUB_STEP_SUMMARY"

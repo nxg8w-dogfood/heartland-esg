@@ -7,13 +7,27 @@ Deploys run from `.github/workflows/deploy.yml`, never from a laptop:
 | `dev` | Automatically, on every push to `main` |
 | `test`, `prod` | Only when started by hand: **Actions → deploy → Run workflow**, then pick the environment |
 
-The workflow only deploys from `main`. A manual run from any other branch is refused. Each
-run installs, lints, tests and builds before publishing with the Power Apps CLI
+The workflow only deploys reviewed code. A manual run started from any branch other than
+`main` fails with an error and deploys nothing. Each run installs, lints, tests and builds before publishing with the Power Apps CLI
 (`pa app push --non-interactive`), signed in as a service principal
 ([Microsoft Learn](https://learn.microsoft.com/power-apps/developer/code-apps/how-to/use-service-principal)).
 
 Until an environment has been set up as described below, its deploy run ends with a warning
 ("isn't set up yet") and deploys nothing.
+
+## Promote a tested commit to prod
+
+A manual run deploys the latest `main` unless you name a commit. So that prod gets exactly
+what was checked on test:
+
+1. Deploy to **test** with *Commit* left empty. The run summary shows which commit it
+   deployed, for example ``Deployed `3f2a…` to test``.
+2. Check the app on test.
+3. Deploy to **prod** and paste that SHA into *Commit*. The run fails unless the commit is on
+   `main`.
+
+The commit must already contain `deploy/prod/power.config.json`. The config comes from the
+same commit as the code, so a deploy is always one consistent snapshot.
 
 ## Set up an environment (once per environment)
 
