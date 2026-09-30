@@ -42,9 +42,9 @@ describe('factorSegments', () => {
   })
 
   it('uses the fallback (the latest member) for days no member covers', () => {
-    // 2025 is the latest; December 2025 → February 2026 all falls back to 2025, as one segment.
-    const segs = factorSegments(factors, grid, { date: '2025-12-01', dateTo: '2026-02-28' }, { start: '2025-01-01', end: '2026-12-31' })
-    expect(ids(segs)).toEqual(['f-s2-el-dk-2025'])
+    // 2035 is the latest; December 2035 → February 2036 all falls back to 2035, as one segment.
+    const segs = factorSegments(factors, grid, { date: '2035-12-01', dateTo: '2036-02-28' }, { start: '2035-01-01', end: '2036-12-31' })
+    expect(ids(segs)).toEqual(['f-s2-el-dk-2035'])
     expect(segs[0].share).toBeCloseTo(1, 12)
   })
 

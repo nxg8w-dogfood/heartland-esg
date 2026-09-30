@@ -1,56 +1,60 @@
 import { useId, useState } from 'react'
 import type { Factor } from '../data/factors'
+import type { FactorPublication } from '../data/factorPublications'
+import { apiProviders, sourceOptions, type FactorSourceChoice, type FactorSources } from '../calc/factorSources'
 import { parseNumber } from '../calc/parseNumber'
 import { formatDate, formatFactor } from '../format'
 
 type Props = {
-  /** The factor table as shipped, before any entered values */
+  /** The factor table as shipped */
   base: readonly Factor[]
-  entered: Record<string, number>
-  onEnter: (id: string, value: number | null) => void
+  /** The factor table with each factor's chosen source applied */
+  factors: readonly Factor[]
+  publications: readonly FactorPublication[]
+  sources: FactorSources
+  onChoose: (id: string, choice: FactorSourceChoice) => void
 }
 
-export function FactorsPage({ base, entered, onEnter }: Props) {
-  const blank = base.filter((f) => f.value === null)
+export function FactorsPage({ base, factors, publications, sources, onChoose }: Props) {
+  const pending = factors.filter((f) => f.value === null)
   const scopes = ['Scope 1', 'Scope 2', 'Scope 3'] as const
   return (
     <>
       <h1>Emissionsfaktorer</h1>
       <p className="lead">
         Faktortabellen fra det oprindelige klimaregnskab: {base.length} faktorer med kilde,
-        enhed og gyldighed. Faktorer uden værdi må ikke gættes; indtast dem her, når en
-        verificeret værdi foreligger.
+        enhed og gyldighed. For hver faktor vælger du, hvor værdien kommer fra: den indbyggede
+        tabel, en officiel publikation, et API eller en anden kilde, du angiver selv. Valget
+        gemmes med kilde og dato. Faktorer uden værdi må ikke gættes.
       </p>
 
+      <section aria-labelledby="api-sources">
+        <h2 id="api-sources">API-kilder</h2>
+        <ul>
+          {apiProviders.map((a) => (
+            <li key={a.id}>
+              <strong>{a.name}:</strong> {a.unavailable ? <>ikke tilgængelig endnu. {a.unavailable}</> : 'tilgængelig.'}
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section aria-labelledby="pending-factors">
-        <h2 id="pending-factors">Afventer indtastning ({blank.length})</h2>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Faktor</th>
-                <th scope="col">Kategori</th>
-                <th scope="col">Enhed</th>
-                <th scope="col">Værdi</th>
-                <th scope="col">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {blank.map((f) => (
-                <tr key={f.id}>
-                  <th scope="row">
-                    {f.name}
-                    <span className="sub">{f.region}</span>
-                  </th>
-                  <td>{f.scope} · {f.category}</td>
-                  <td>{f.unit}</td>
-                  <td><ValueInput factor={f} value={entered[f.id]} onEnter={(v) => onEnter(f.id, v)} /></td>
-                  <td className="muted">{f.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <h2 id="pending-factors">Afventer en kilde ({pending.length})</h2>
+        {pending.length === 0 ? (
+          <p className="muted">Alle faktorer har en værdi.</p>
+        ) : (
+          <ul>
+            {pending.map((f) => (
+              <li key={f.id}>
+                <a href={`#factor-${f.id}`} onClick={(e) => { e.preventDefault(); document.getElementById(`factor-${f.id}`)?.scrollIntoView() }}>
+                  {f.name}
+                </a>{' '}
+                <span className="muted">({f.region}{f.note ? `. ${f.note}` : ''})</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {scopes.map((scope) => (
@@ -70,20 +74,22 @@ export function FactorsPage({ base, entered, onEnter }: Props) {
               </thead>
               <tbody>
                 {base.filter((f) => f.scope === scope).map((f) => {
-                  const value = f.value ?? entered[f.id] ?? null
+                  const applied = factors.find((x) => x.id === f.id) ?? f
                   return (
-                    <tr key={f.id}>
+                    <tr key={f.id} id={`factor-${f.id}`}>
                       <th scope="row">
                         {f.name}
                         <span className="sub">{f.region}</span>
                       </th>
                       <td>{f.category}</td>
                       <td className="num">
-                        {value === null ? <span className="pending">Afventer</span> : formatFactor(value)}
-                        {f.value === null && value !== null && <span className="sub">Indtastet</span>}
+                        {applied.value === null ? <span className="pending">Afventer</span> : formatFactor(applied.value)}
                       </td>
                       <td>{f.unit}</td>
-                      <td>{f.source}</td>
+                      <td>
+                        <SourcePicker factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
+                        <span className="sub">{applied.source}{applied.reference && applied.reference !== f.reference ? ` · ${applied.reference}` : ''}</span>
+                      </td>
                       <td>{validity(f)}</td>
                     </tr>
                   )
@@ -104,37 +110,82 @@ function validity(f: Factor): string {
   return '—'
 }
 
-function ValueInput({ factor, value, onEnter }: { factor: Factor; value: number | undefined; onEnter: (v: number | null) => void }) {
-  const id = useId()
-  const [text, setText] = useState(value === undefined ? '' : formatFactor(value))
-  const [error, setError] = useState<string | null>(null)
+const optionKey = (c: FactorSourceChoice | undefined): string =>
+  !c || c.kind === 'builtin' ? 'builtin'
+    : c.kind === 'publication' ? `publication:${c.publicationId}`
+      : c.kind === 'api' ? `api:${c.providerId}`
+        : 'manual'
 
-  function commit() {
-    const v = parseNumber(text)
-    if (v !== null && Number.isNaN(v)) {
-      setError('Ikke et gyldigt tal.')
-      return
-    }
-    setError(null)
-    onEnter(v)
+function SourcePicker({ factor, publications, choice, onChoose }: {
+  factor: Factor
+  publications: readonly FactorPublication[]
+  choice: FactorSourceChoice | undefined
+  onChoose: (c: FactorSourceChoice) => void
+}) {
+  const id = useId()
+  const [selected, setSelected] = useState(optionKey(choice))
+  const options = sourceOptions(factor, publications)
+
+  function change(key: string) {
+    setSelected(key)
+    if (key === 'builtin') onChoose({ kind: 'builtin' })
+    else if (key.startsWith('publication:')) onChoose({ kind: 'publication', publicationId: key.slice('publication:'.length) })
+    // Manual needs a value first; API providers can't be chosen yet.
   }
 
   return (
-    <div className="value-input">
-      <label htmlFor={id} className="visually-hidden">Værdi for {factor.name} ({factor.unit})</label>
-      <input
-        id={id}
-        inputMode="decimal"
-        autoComplete="off"
-        placeholder="Afventer"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit() }}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${id}-err` : undefined}
-      />
-      {error && <p id={`${id}-err`} className="error">{error}</p>}
+    <div className="source-picker">
+      <label htmlFor={id} className="visually-hidden">Kilde for {factor.name}</label>
+      <select id={id} value={selected} onChange={(e) => change(e.target.value)}>
+        {options.map((o) => {
+          if (o.kind === 'builtin') return <option key="builtin" value="builtin">{o.value === null ? 'Indbygget tabel (ingen værdi)' : 'Indbygget tabel'}</option>
+          if (o.kind === 'publication') return <option key={o.publication.id} value={`publication:${o.publication.id}`}>{o.label}</option>
+          if (o.kind === 'manual') return <option key="manual" value="manual">{o.label}</option>
+          return <option key={o.provider.id} value={`api:${o.provider.id}`} disabled={!!o.provider.unavailable}>{o.label}{o.provider.unavailable ? ' (ikke tilgængelig)' : ''}</option>
+        })}
+      </select>
+      {selected === 'manual' && (
+        <ManualEntry factor={factor} initial={choice?.kind === 'manual' ? choice : undefined} onSave={onChoose} />
+      )}
     </div>
+  )
+}
+
+function ManualEntry({ factor, initial, onSave }: {
+  factor: Factor
+  initial: Extract<FactorSourceChoice, { kind: 'manual' }> | undefined
+  onSave: (c: FactorSourceChoice) => void
+}) {
+  const id = useId()
+  const [value, setValue] = useState(initial ? formatFactor(initial.value) : '')
+  const [source, setSource] = useState(initial?.source ?? '')
+  const [date, setDate] = useState(initial?.date ?? '')
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(!!initial)
+
+  function save(e: React.FormEvent) {
+    e.preventDefault()
+    const v = parseNumber(value)
+    if (v === null || Number.isNaN(v)) return setError('Angiv værdien som et tal.')
+    if (!source.trim()) return setError('Angiv, hvor værdien kommer fra.')
+    setError(null)
+    setSaved(true)
+    onSave({ kind: 'manual', value: v, source: source.trim(), date })
+  }
+
+  const edited = () => setSaved(false)
+
+  return (
+    <form className="manual-entry" onSubmit={save} aria-label={`Anden kilde for ${factor.name}`}>
+      <label htmlFor={`${id}-v`}>Værdi ({factor.unit})</label>
+      <input id={`${id}-v`} inputMode="decimal" autoComplete="off" value={value} onChange={(e) => { setValue(e.target.value); edited() }} />
+      <label htmlFor={`${id}-s`}>Kilde</label>
+      <input id={`${id}-s`} autoComplete="off" placeholder="Fx leverandørens deklaration 2025" value={source} onChange={(e) => { setSource(e.target.value); edited() }} />
+      <label htmlFor={`${id}-d`}>Kildens dato</label>
+      <input id={`${id}-d`} type="date" value={date} onChange={(e) => { setDate(e.target.value); edited() }} />
+      <button type="submit" className="secondary">Gem</button>
+      {saved && !error && <span className="muted" role="status">Gemt</span>}
+      {error && <p className="error" role="alert">{error}</p>}
+    </form>
   )
 }

@@ -80,9 +80,9 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
         {summary.pendingMarket && (
           <p className="warning">
             <strong>Market-based faktor afventer.</strong> En eller flere lokationer bruger
-            residualmiks, og Energinets værdi er ikke indtastet. Den må ikke gættes, så
-            market-based totalen er ufuldstændig. Indtast den under Faktorer, når den er
-            offentliggjort.
+            residualmiks for et år, hvor der ikke er valgt en kilde til Energinets værdi. Den må
+            ikke gættes, så market-based totalen er ufuldstændig. Vælg kilden under Faktorer, når
+            værdien er offentliggjort.
           </p>
         )}
         {summary.pendingHeating && (
