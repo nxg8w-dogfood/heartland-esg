@@ -40,6 +40,11 @@ export type LineResult = {
 const finiteOrZero = (n: number | null | undefined): number =>
   typeof n === 'number' && Number.isFinite(n) ? n : 0
 
+// A value that was entered but isn't a usable number, e.g. NaN from a failed parse.
+// Deviates from the original app, which counted these as 0 without flagging the line.
+const isInvalid = (n: number | null | undefined): boolean =>
+  typeof n === 'number' && !Number.isFinite(n)
+
 /** The unit a factor is expressed per: "kg CO2e/liter" -> "liter". */
 export function factorDenominator(unit: string): string {
   const slash = unit.indexOf('/')
@@ -51,26 +56,37 @@ export function factorDenominator(unit: string): string {
  */
 export function lineEmissions(line: Line, periodShare: number): LineResult {
   if (line.method === 'direct') {
+    const invalid = isInvalid(line.tCO2e)
     return {
       tCO2e: finiteOrZero(line.tCO2e) * periodShare,
       quantityInPeriod: null,
-      pending: line.tCO2e === null,
-      warning: null,
+      pending: line.tCO2e === null || invalid,
+      warning: invalid ? 'Udledningen er ikke et gyldigt tal.' : null,
     }
   }
 
   const factorValue = line.customFactor ?? line.factor?.value ?? null
-  const quantityInPeriod = line.quantity === null ? null : line.quantity * periodShare
+  const invalidQuantity = isInvalid(line.quantity)
+  const invalidFactor = isInvalid(factorValue)
+  const quantityInPeriod =
+    line.quantity === null || invalidQuantity ? null : line.quantity * periodShare
   const denominator = line.factor ? factorDenominator(line.factor.unit) : ''
   const unitMismatch = line.factor && denominator && line.unit && denominator !== line.unit
+
+  let warning: string | null = null
+  if (invalidQuantity) warning = 'Mængden er ikke et gyldigt tal.'
+  else if (invalidFactor) warning = 'Faktoren er ikke et gyldigt tal.'
+  else if (unitMismatch)
+    warning = `Faktorens enhed er ${line.factor!.unit}, men linjen er angivet i ${line.unit}.`
 
   return {
     // Factors are kg CO2e per unit; results are tonnes.
     tCO2e: (finiteOrZero(quantityInPeriod) * finiteOrZero(factorValue)) / 1000,
     quantityInPeriod,
-    pending: factorValue === null && finiteOrZero(line.quantity) !== 0,
-    warning: unitMismatch
-      ? `Faktorens enhed er ${line.factor!.unit}, men linjen er angivet i ${line.unit}.`
-      : null,
+    pending:
+      invalidQuantity ||
+      invalidFactor ||
+      (factorValue === null && finiteOrZero(line.quantity) !== 0),
+    warning,
   }
 }

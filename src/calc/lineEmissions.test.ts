@@ -62,9 +62,31 @@ describe('lineEmissions, activity lines', () => {
     expect(r.tCO2e).toBe(0)
   })
 
-  it('treats non-finite input as zero instead of propagating NaN', () => {
-    expect(lineEmissions(activity({ quantity: Number.NaN }), 1).tCO2e).toBe(0)
-    expect(lineEmissions(activity({ customFactor: Number.POSITIVE_INFINITY }), 1).tCO2e).toBe(0)
+  it('flags a quantity that is not a valid number instead of counting it as 0', () => {
+    // e.g. Number('1.000,5') from a Danish-formatted import
+    const r = lineEmissions(activity({ quantity: Number.NaN }), 1)
+    expect(r.tCO2e).toBe(0)
+    expect(r.quantityInPeriod).toBeNull()
+    expect(r.pending).toBe(true)
+    expect(r.warning).toBe('Mængden er ikke et gyldigt tal.')
+  })
+
+  it('flags a custom factor that is not a valid number', () => {
+    const r = lineEmissions(activity({ customFactor: Number.POSITIVE_INFINITY }), 1)
+    expect(r.tCO2e).toBe(0)
+    expect(r.pending).toBe(true)
+    expect(r.warning).toBe('Faktoren er ikke et gyldigt tal.')
+  })
+
+  it('flags a table factor that is not a valid number', () => {
+    const r = lineEmissions(activity({ factor: { value: Number.NaN, unit: 'kg CO2e/liter' } }), 1)
+    expect(r.pending).toBe(true)
+    expect(r.warning).toBe('Faktoren er ikke et gyldigt tal.')
+  })
+
+  it('reports an invalid number ahead of a unit mismatch', () => {
+    const r = lineEmissions(activity({ quantity: Number.NaN, unit: 'kWh' }), 1)
+    expect(r.warning).toBe('Mængden er ikke et gyldigt tal.')
   })
 
   it('handles negative quantities, such as corrections, without clamping', () => {
@@ -95,6 +117,14 @@ describe('lineEmissions, direct lines', () => {
     const r = lineEmissions({ method: 'direct', tCO2e: null }, 1)
     expect(r.tCO2e).toBe(0)
     expect(r.pending).toBe(true)
+    expect(r.warning).toBeNull()
+  })
+
+  it('flags a value that is not a valid number instead of counting it as 0', () => {
+    const r = lineEmissions({ method: 'direct', tCO2e: Number.NaN }, 1)
+    expect(r.tCO2e).toBe(0)
+    expect(r.pending).toBe(true)
+    expect(r.warning).toBe('Udledningen er ikke et gyldigt tal.')
   })
 })
 
