@@ -4,7 +4,7 @@
   are answered.
 - **Date:** 2026-09-30
 - **Proposed to:** @mortengad (tech lead)
-- **Decided so far:** the publisher prefix, `hlesg` (2026-09-30)
+- **Decided so far:** the publisher prefix, `hlesg`, and one climate account per environment (both 2026-09-30)
 
 ## Context
 
@@ -40,9 +40,13 @@ store is **not** the product's storage. It's removed when the Dataverse store is
 These use the publisher prefix **`hlesg`**, decided by @mortengad on 2026-09-30, so table
 names start with `hlesg_`. All tables are user or team owned.
 
+**There is one climate account per environment** (decided by @mortengad on 2026-09-30). The
+account's settings are a single row, and the other tables don't need a lookup to an account.
+Another company or subsidiary gets its own environment, with its own data and access.
+
 | Table | Holds | Notes |
 | --- | --- | --- |
-| `hlesg_klimaregnskab` | One climate account: name, period, category 3 parameters | The parent of everything below |
+| `hlesg_klimaregnskab` | The account's settings: name, period, category 3 parameters | Exactly one row per environment |
 | `hlesg_linje` | Every line with quantity or amount: Scope 1, Scope 2 (with location), categories 1, 5 and 6 | One table, as in the original's `linjer`. Columns: scope, category, type (group), date, end date, quantity, amount, currency, factor id, custom factor, description |
 | `hlesg_lokation` | Scope 2 locations: market instrument, heating factor | |
 | `hlesg_pendling` | Commuting surveys | The answers per mode (9 modes × 5 numbers) go in one JSON column |
@@ -88,6 +92,8 @@ guidance says, so auditing isn't polluted by false updates).
 
 ## Consequences
 
+- Separate companies are separated by environment, so their data and access can't mix, and
+  there is no account picker in the app.
 - Nothing further happens until an environment exists. The next steps are:
   1. Create the tables and roles in a solution in dev.
   2. `pa app add data-source` for each table.
@@ -100,9 +106,7 @@ guidance says, so auditing isn't polluted by false updates).
 
 ## Open questions
 
-1. **One account or several:** one climate account per environment, or several (for example
-   per company or subsidiary)? The model supports several; the UI currently assumes one.
-2. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
+1. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
    hold them?
-3. **Retention:** how long must accounts and imported postings be kept, and must old periods
+2. **Retention:** how long must accounts and imported postings be kept, and must old periods
    be locked once reported?
