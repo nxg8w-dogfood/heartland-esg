@@ -3,10 +3,12 @@ import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { parseNumber } from '../calc/parseNumber'
 import type { ActivityLine } from '../calc/activity'
+import { category7, type Survey } from '../calc/commuting'
 import type { Scope1Line } from '../calc/scope1'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
 import { category3, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
 import { ActivityLinesSection } from '../activity/ActivityLinesSection'
+import { CommutingSection } from './CommutingSection'
 import { formatFactor, formatNumber } from '../format'
 import { Tile } from '../ui'
 import type { Relevance } from './relevance'
@@ -40,17 +42,20 @@ type Props = {
   setCat5Lines: Dispatch<SetStateAction<ActivityLine[]>>
   cat6Lines: ActivityLine[]
   setCat6Lines: Dispatch<SetStateAction<ActivityLine[]>>
+  surveys: Survey[]
+  setSurveys: Dispatch<SetStateAction<Survey[]>>
 }
 
 export function Scope3Page(props: Props) {
-  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines } = props
+  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
+  const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
 
   /** Categories calculated so far, by number. The rest are listed but not calculated yet. */
-  const calculated: Record<number, number> = { 3: cat3.total, 5: cat5.total, 6: cat6.total }
+  const calculated: Record<number, number> = { 3: cat3.total, 5: cat5.total, 6: cat6.total, 7: cat7.total }
   const isIncluded = (nr: number) => relevance[nr]?.relevant ?? false
   const total = Object.entries(calculated).reduce((t, [nr, v]) => (isIncluded(Number(nr)) ? t + v : t), 0)
   const pendingRelevant = scope3Categories.filter((c) => isIncluded(c.nr) && !(c.nr in calculated))
@@ -74,10 +79,11 @@ export function Scope3Page(props: Props) {
           <Tile label="3 — brændstof og energi" value={cat3.total} note={excludedNote(3)} />
           <Tile label="5 — affald" value={cat5.total} note={excludedNote(5)} />
           <Tile label="6 — forretningsrejser" value={cat6.total} note={excludedNote(6)} />
+          <Tile label="7 — pendling" value={cat7.total} note={excludedNote(7)} />
         </dl>
         {pendingRelevant.length > 0 && (
           <p className="warning">
-            <strong>Scope 3 er ikke komplet.</strong> Kategori 3, 5 og 6 beregnes.{' '}
+            <strong>Scope 3 er ikke komplet.</strong> Kategori 3, 5, 6 og 7 beregnes.{' '}
             {pendingRelevant.length === 1 ? 'Kategori' : 'Kategorierne'}{' '}
             {pendingRelevant.map((c) => c.nr).join(', ')} er markeret relevante, men
             mangler stadig i appen.
@@ -99,6 +105,8 @@ export function Scope3Page(props: Props) {
         emptyText="Ingen forretningsrejser i perioden."
         examples={cat6Examples}
       />
+
+      <CommutingSection cat7={cat7} surveys={surveys} setSurveys={setSurveys} factors={factors} period={period} />
 
       <ActivityLinesSection
         title="Kategori 5 — affald genereret i driften"

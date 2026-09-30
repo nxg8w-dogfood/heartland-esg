@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ActivityLine } from './calc/activity'
+import type { Survey } from './calc/commuting'
 import type { Period } from './calc/dates'
 import type { Scope1Line } from './calc/scope1'
 import type { Location, Scope2Line } from './calc/scope2'
@@ -38,6 +39,7 @@ function App() {
   const [category3Params, setCategory3Params] = useState<Category3Params>(() => defaultCategory3Params(baseFactors))
   const [cat5Lines, setCat5Lines] = useState<ActivityLine[]>([])
   const [cat6Lines, setCat6Lines] = useState<ActivityLine[]>([])
+  const [surveys, setSurveys] = useState<Survey[]>([])
 
   const factors = useMemo(
     () => baseFactors.map((f) => (f.value === null && f.id in entered ? { ...f, value: entered[f.id] } : f)),
@@ -97,6 +99,8 @@ function App() {
             setCat5Lines={setCat5Lines}
             cat6Lines={cat6Lines}
             setCat6Lines={setCat6Lines}
+            surveys={surveys}
+            setSurveys={setSurveys}
           />
         )}
         {page === 'faktorer' && (
