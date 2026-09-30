@@ -26,5 +26,5 @@ Guardrails this project carries:
 
 ## Licence and ownership
 
-Proprietary, all rights reserved. Copyright © 2026 Heartland. See `LICENSE`.
+Proprietary, all rights reserved. Copyright © 2026 Heartland A/S. See `LICENSE`.
 Maintained by @mortengad (see `.github/CODEOWNERS`).
