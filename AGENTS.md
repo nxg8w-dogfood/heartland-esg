@@ -1,0 +1,105 @@
+You are picking up a project inside our organisation. Everything below was agreed
+before any code was written. Treat it as the brief, not as suggestions.
+
+## The project
+
+**Heartland ESG** — a Power Platform app
+
+A tool used to measure co2 emissions on a company
+
+- Started as: an app built with an AI tool, brought into the organisation
+- Ships a model at runtime: yes
+- Security level: Low
+
+## Where the code lives
+
+You are reading this from inside the repository: https://github.com/nxg8w-dogfood/heartland-esg. `AGENTS.md`,
+`.cursor/rules/aig8way.mdc` and `.github/copilot-instructions.md` hold this same brief, one
+per tool. `SECURITY.md` lists the controls and why each applies. `README.md`'s *Running it*
+section is a placeholder: writing it is the first commit. Work on a branch; the default
+branch takes pull requests only, and `.github/CODEOWNERS` says who reviews.
+
+## Code that already exists
+
+_Location not recorded — ask._
+
+This project starts from working code. **Do not restructure it to match a template.** Add
+what is missing — documentation, CI, licence — and leave the source layout alone. Before
+any history is pushed anywhere, scan it for credentials with a secret scanner (gitleaks or
+equivalent; installing one is expected, not a question), and rotate anything you find:
+deleting the line does not remove it from history. If it came from an AI tool, assume there
+is something to find until the scan says otherwise.
+
+## Guardrails — not negotiable
+
+- **README with run instructions** — Every repository opens with a README that states what the project is, how to run it locally, and how to deploy it. A newcomer should be productive without asking anyone.
+- **Automated tests run on every pull request** — A test suite exists and CI blocks a merge when it fails. Coverage targets are per-project; the non-negotiable part is that the suite runs unattended.
+- **Protected default branch** — No direct pushes to the default branch. Changes land through a pull request with at least one review.
+- **CI builds the project from a clean checkout** — The pipeline installs, lints, tests and builds from scratch. "Works on my machine" is not a build.
+- **Deployment is automated per environment** — Deploys are triggered from the pipeline, not from a laptop, and each environment has its own configuration.
+- **No secrets in source control** — Secrets live in Key Vault or environment configuration. The repository is scanned for committed credentials and the scan blocks the merge.
+- **Dependency and vulnerability scanning** — Dependencies are scanned on a schedule, and known-vulnerable versions are patched inside the agreed window.
+- **Authorisation checked server-side** — Permissions are enforced in the backend. Hiding a button in the UI is presentation, never protection.
+- **License and ownership declared** — The repository states its licence and the owning team, so it is clear who maintains it and on what terms it may be reused.
+- **Architecture decisions recorded** — Significant technical decisions are written down as short ADRs in docs/adr/, including the options rejected and why.
+
+If one of these cannot be met, say so and stop. It gets waived on the project, with a
+reason, by a person. It does not get worked around in the code.
+
+## Security controls that apply
+
+Profile: Internal · No personal data · Internal only · Entra ID
+
+- **Secrets in Key Vault, never in the repository** — Connection strings, keys and certificates live in Key Vault or environment configuration, injected at deploy time. The repository is scanned and the scan blocks the merge.
+- **TLS 1.2 or better on every hop** — No plaintext anywhere, including between internal services. HTTP redirects to HTTPS and HSTS is set.
+- **Authorisation enforced on the server** — Every request re-checks what the caller is allowed to do. Hiding a button in the UI is presentation, never protection.
+- **Dependencies patched inside the agreed window** — Automated scanning on a schedule, with known-vulnerable versions upgraded before the window closes.
+
+Each of these applies because of an answer someone gave about this project's data and
+exposure. They are not a checklist to negotiate down.
+
+## How we work here
+
+- **Code review checklist** — The org playbook for reviewing a pull request: correctness first, then simplification, then style. Keeps reviews consistent between teams.
+- **Microsoft docs lookup** — Grounds Azure, .NET and Power Platform work in the official documentation instead of recalled API signatures.
+- **Test-writing skill** — Generates meaningful test cases from a spec — edge cases and failure modes, not just the happy path.
+- **Accessibility review** — Checks an interface against WCAG 2.2 AA: keyboard paths, contrast, focus order, and screen-reader labelling.
+
+## Models this project may use
+
+- **GPT-4o (Azure OpenAI)** — General-purpose chat and reasoning with vision. The default choice when you need one model to do most things well.
+
+Anything not on this list needs approval before you wire it in.
+
+## Cost policy
+
+- **Budget with alerts on every subscription** — A monthly budget with alerts at 50, 80 and 100 percent, addressed to the owning team rather than a shared mailbox.
+- **Cost-allocation tags on every resource** — Owner, project and environment tags are applied at deployment. Untagged spend cannot be attributed and becomes everyone-and-no-one problem.
+- **Token spend budget and per-request cap** — AI features get their own budget line and a hard per-request ceiling, so a prompt-loop bug cannot become an invoice.
+
+## Who is responsible
+
+- **Tech lead** — Owns the technical direction and the definition of done. Makes the call when the team is split on an approach.
+- **Code review agent** — Reviews every pull request before a human does — correctness bugs, dead code, and missed edge cases.
+- **Accessibility QA agent** — Runs the accessibility checklist against each user-facing change and reports what fails and where.
+- **Documentation agent** — Keeps the README and the architecture notes in step with the code as it changes.
+- **Product owner** — Owns the problem and the priorities. Decides what ships and what waits, and is the single point of escalation for scope.
+- **Developer** — Builds the thing, writes the tests, and keeps the documentation honest.
+
+## Definition of done
+
+- Lead time for changes — How long a commit takes to reach production. The clearest single signal of whether the delivery pipeline is healthy.
+- Service availability — Successful requests as a share of total, measured against the promise made to the people who depend on it.
+- Weekly active users — Whether the thing is actually used. A project that ships perfectly and is ignored has still failed.
+
+Beyond the metrics: every guardrail above is satisfied or explicitly waived, the tests
+pass, and a newcomer can run the project from the README without asking anyone.
+
+## Open questions — do not guess these
+
+- Who owns this? `.github/CODEOWNERS` is a placeholder naming the roles (Tech lead, Code review agent, Accessibility QA agent, Documentation agent, Product owner, Developer) but no people. Ask for the owning team's GitHub handles and put them in.
+- Which licence? The guardrail requires one and none was recorded. An internal tool is usually proprietary, all rights reserved; that is a decision, not a default.
+- Which copy of the code is the source of truth, and does its history come with it? Do not guess; a history that comes along may carry credentials and must be scanned before it is pushed.
+
+Where this brief is silent, ask. A guess that looks like a decision is worse than a
+question, because nobody can tell them apart afterwards.
