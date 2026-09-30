@@ -2,6 +2,7 @@
 // activities), which is derived from Scope 1 and 2 data. Ported from the original app.
 
 import type { Factor } from '../data/factors'
+import { activitySummary, type ActivityGroup, type ActivityLine, type ActivitySummary } from './activity'
 import type { Period } from './dates'
 import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
@@ -155,4 +156,46 @@ export function category3(
     heatingPending: heatingLossFactor?.value == null && scope2.heatingKWh > 0,
     total: fuelT + electricityT + heatingT,
   }
+}
+
+// Categories 5 and 6 are entered as activity lines, one row type per factor, as in the original.
+
+export const category6Groups: readonly ActivityGroup[] = [
+  { id: 'k6-fly-kort', label: 'Fly – kort distance', unit: 'passagerkm', factorId: 'f-t-fly-kort' },
+  { id: 'k6-fly-lang', label: 'Fly – lang distance', unit: 'passagerkm', factorId: 'f-t-fly-lang' },
+  { id: 'k6-fly-indenrigs', label: 'Fly – indenrigs', unit: 'passagerkm', factorId: 'f-t-fly-indenrigs' },
+  { id: 'k6-bus', label: 'Bus', unit: 'passagerkm', factorId: 'f-t-bus' },
+  { id: 'k6-tog', label: 'Tog', unit: 'passagerkm', factorId: 'f-t-tog' },
+  { id: 'k6-taxi', label: 'Taxi', unit: 'passagerkm', factorId: 'f-t-taxi' },
+  { id: 'k6-faerge', label: 'Færge', unit: 'passagerkm', factorId: 'f-t-faerge' },
+  { id: 'k6-bil-diesel', label: 'Firmabil – diesel', unit: 'km', factorId: 'f-t-bil-diesel' },
+  { id: 'k6-bil-benzin', label: 'Firmabil – benzin', unit: 'km', factorId: 'f-t-bil-benzin' },
+  // Starts on Denmark, which BEIS doesn't cover (blank by design): pick the hotel's country or a proxy.
+  { id: 'k6-hotel', label: 'Hotelovernatning', unit: 'værelsesnat', factorId: 'f-hotel-dk', factorChoices: 'Kat 6 – hotel' },
+]
+
+export const category5Groups: readonly ActivityGroup[] = [
+  { id: 'k5-papir-dep', label: 'Pap/papir – deponi', unit: 'tonne', factorId: 'f-w-papir-dep' },
+  { id: 'k5-papir-gen', label: 'Pap/papir – genanvendelse', unit: 'tonne', factorId: 'f-w-papir-gen' },
+  { id: 'k5-trae-dep', label: 'Paller/træaffald – deponi', unit: 'tonne', factorId: 'f-w-trae-dep' },
+  { id: 'k5-trae-gen', label: 'Paller/træaffald – genanvendelse', unit: 'tonne', factorId: 'f-w-trae-gen' },
+  { id: 'k5-plast-forbr', label: 'Plast – forbrænding m/energi', unit: 'tonne', factorId: 'f-w-plast-forbr' },
+  { id: 'k5-plast-gen', label: 'Plast – genanvendelse', unit: 'tonne', factorId: 'f-w-plast-gen' },
+  { id: 'k5-hush-forbr', label: 'Blandet husholdningsaffald – forbrænding', unit: 'tonne', factorId: 'f-w-hush-forbr' },
+  { id: 'k5-blandet-forbr', label: 'Blandet plast/metal – forbrænding', unit: 'tonne', factorId: 'f-w-blandet-forbr' },
+  { id: 'k5-blandet-gen', label: 'Blandet plast/metal – genanvendelse', unit: 'tonne', factorId: 'f-w-blandet-gen' },
+  { id: 'k5-andet-dep', label: 'Andet (elektronik/metal/glas) – deponi', unit: 'tonne', factorId: 'f-w-andet-dep' },
+  { id: 'k5-andet-gen', label: 'Andet (elektronik/metal/glas) – genanvendelse', unit: 'tonne', factorId: 'f-w-andet-gen' },
+]
+
+export type Category6 = ActivitySummary & { travelT: number; hotelT: number }
+
+export function category6(lines: readonly ActivityLine[], factors: readonly Factor[], period: Period): Category6 {
+  const s = activitySummary(lines, category6Groups, factors, period)
+  const hotelT = s.lines.filter((r) => r.group.id === 'k6-hotel').reduce((t, r) => t + r.tCO2e, 0)
+  return { ...s, travelT: s.total - hotelT, hotelT }
+}
+
+export function category5(lines: readonly ActivityLine[], factors: readonly Factor[], period: Period): ActivitySummary {
+  return activitySummary(lines, category5Groups, factors, period)
 }

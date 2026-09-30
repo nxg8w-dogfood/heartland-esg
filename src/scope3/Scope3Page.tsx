@@ -2,15 +2,29 @@ import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 're
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { parseNumber } from '../calc/parseNumber'
+import type { ActivityLine } from '../calc/activity'
 import type { Scope1Line } from '../calc/scope1'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
-import { category3, scope3Categories, type Category3Params } from '../calc/scope3'
+import { category3, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
+import { ActivityLinesSection } from '../activity/ActivityLinesSection'
 import { formatFactor, formatNumber } from '../format'
 import { Tile } from '../ui'
 import type { Relevance } from './relevance'
 
-/** Categories with a calculation so far. The rest are listed but not calculated yet. */
-const calculated = new Set([3])
+const cat6Examples: Omit<ActivityLine, 'id'>[] = [
+  { group: 'k6-fly-kort', date: '2025-03-12', quantity: 2 * 1250, description: 'København–Frankfurt t/r, 2 personer' },
+  { group: 'k6-fly-lang', date: '2025-05-20', quantity: 12_800, description: 'København–New York t/r' },
+  { group: 'k6-tog', date: '2025-09-04', quantity: 620, description: 'København–Aarhus t/r' },
+  { group: 'k6-hotel', factorId: 'f-hotel-de', date: '2025-03-12', quantity: 4, description: 'Frankfurt, 2 nætter × 2' },
+  { group: 'k6-hotel', factorId: 'f-hotel-us', date: '2025-05-20', quantity: 3, description: 'New York' },
+  { group: 'k6-hotel', date: '2025-09-04', quantity: 1, description: 'Aarhus — vælg proxy-land' },
+]
+
+const cat5Examples: Omit<ActivityLine, 'id'>[] = [
+  { group: 'k5-papir-gen', date: '2025-01-01', dateTo: '2025-12-31', quantity: 3.2, description: 'Papircontainer' },
+  { group: 'k5-hush-forbr', date: '2025-01-01', dateTo: '2025-12-31', quantity: 5.8, description: 'Restaffald' },
+  { group: 'k5-andet-gen', date: '2025-06-15', quantity: 0.4, description: 'Kasseret IT-udstyr' },
+]
 
 type Props = {
   period: Period
@@ -22,14 +36,25 @@ type Props = {
   setRelevance: Dispatch<SetStateAction<Relevance>>
   params: Category3Params
   setParams: Dispatch<SetStateAction<Category3Params>>
+  cat5Lines: ActivityLine[]
+  setCat5Lines: Dispatch<SetStateAction<ActivityLine[]>>
+  cat6Lines: ActivityLine[]
+  setCat6Lines: Dispatch<SetStateAction<ActivityLine[]>>
 }
 
-export function Scope3Page({ period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams }: Props) {
+export function Scope3Page(props: Props) {
+  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
-  const cat3Included = relevance[3]?.relevant ?? true
-  const total = cat3Included ? cat3.total : 0
-  const pendingRelevant = scope3Categories.filter((c) => relevance[c.nr]?.relevant && !calculated.has(c.nr))
+  const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
+  const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
+
+  /** Categories calculated so far, by number. The rest are listed but not calculated yet. */
+  const calculated: Record<number, number> = { 3: cat3.total, 5: cat5.total, 6: cat6.total }
+  const isIncluded = (nr: number) => relevance[nr]?.relevant ?? false
+  const total = Object.entries(calculated).reduce((t, [nr, v]) => (isIncluded(Number(nr)) ? t + v : t), 0)
+  const pendingRelevant = scope3Categories.filter((c) => isIncluded(c.nr) && !(c.nr in calculated))
+  const excludedNote = (nr: number) => (isIncluded(nr) ? undefined : 'Markeret ikke relevant — tæller ikke med')
 
   const update = (nr: number, patch: Partial<Relevance[number]>) =>
     setRelevance((r) => ({ ...r, [nr]: { ...r[nr], ...patch } }))
@@ -46,11 +71,13 @@ export function Scope3Page({ period, factors, scope1Lines, locations, scope2Line
         <h2 id="s3-totals" className="visually-hidden">Totaler</h2>
         <dl className="tiles" aria-live="polite">
           <Tile label="Scope 3, beregnet indtil videre" value={total} accent />
-          <Tile label="Kategori 3 — brændstof og energi" value={cat3.total} note={cat3Included ? undefined : 'Markeret ikke relevant — tæller ikke med'} />
+          <Tile label="3 — brændstof og energi" value={cat3.total} note={excludedNote(3)} />
+          <Tile label="5 — affald" value={cat5.total} note={excludedNote(5)} />
+          <Tile label="6 — forretningsrejser" value={cat6.total} note={excludedNote(6)} />
         </dl>
         {pendingRelevant.length > 0 && (
           <p className="warning">
-            <strong>Scope 3 er ikke komplet.</strong> Kun kategori 3 beregnes endnu.{' '}
+            <strong>Scope 3 er ikke komplet.</strong> Kategori 3, 5 og 6 beregnes.{' '}
             {pendingRelevant.length === 1 ? 'Kategori' : 'Kategorierne'}{' '}
             {pendingRelevant.map((c) => c.nr).join(', ')} er markeret relevante, men
             mangler stadig i appen.
@@ -59,6 +86,32 @@ export function Scope3Page({ period, factors, scope1Lines, locations, scope2Line
       </section>
 
       <Category3Section cat3={cat3} params={params} setParams={setParams} />
+
+      <ActivityLinesSection
+        title="Kategori 6 — forretningsrejser"
+        intro="Rejser i firmaets ærinde med fly, tog, bus, taxi, færge og firmabil, samt hotelovernatninger. Flyrejser angives i passagerkm (afstand × antal rejsende). Hotelnætter bruger BEIS' faktor for landet; Danmark findes ikke hos BEIS, så vælg et proxy-land eller angiv en verificeret egen faktor."
+        groups={category6Groups}
+        factors={factors}
+        summary={cat6}
+        lines={cat6Lines}
+        setLines={setCat6Lines}
+        defaultDate={period.start}
+        emptyText="Ingen forretningsrejser i perioden."
+        examples={cat6Examples}
+      />
+
+      <ActivityLinesSection
+        title="Kategori 5 — affald genereret i driften"
+        intro="Affald fra egen drift pr. fraktion og behandlingsform, i tons."
+        groups={category5Groups}
+        factors={factors}
+        summary={cat5}
+        lines={cat5Lines}
+        setLines={setCat5Lines}
+        defaultDate={period.start}
+        emptyText="Intet affald registreret i perioden."
+        examples={cat5Examples}
+      />
 
       <section aria-labelledby="s3-categories">
         <h2 id="s3-categories">Kategorier og relevans</h2>
@@ -96,8 +149,8 @@ export function Scope3Page({ period, factors, scope1Lines, locations, scope2Line
                     <td className="num">
                       {!r.relevant ? (
                         <span className="muted">Ikke relevant</span>
-                      ) : calculated.has(c.nr) ? (
-                        formatNumber(cat3.total, 3)
+                      ) : c.nr in calculated ? (
+                        formatNumber(calculated[c.nr], 3)
                       ) : (
                         <span className="pending">Kommer senere</span>
                       )}

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { factors, type Factor } from '../data/factors'
 import type { Scope1Line } from './scope1'
 import { scope2Summary, type Location, type Scope2Line } from './scope2'
-import { category3, defaultCategory3Params, scope3Categories } from './scope3'
+import { category3, category5, category5Groups, category6, category6Groups, defaultCategory3Params, scope3Categories } from './scope3'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 const hq: Location = { id: 'hq', name: 'HQ', gridFamily: 'el-dk-location', marketInstrument: 'ppa', heatingFactorId: 'f-s2-fjernvarme-beis' }
@@ -90,5 +90,49 @@ describe('category 3', () => {
 
   it('treats an invalid fuel quantity as 0 here; Scope 1 flags it', () => {
     expect(cat3([fuel({ quantity: Number.NaN })], []).fuelT).toBe(0)
+  })
+})
+
+describe('category 6, business travel', () => {
+  const trip = (group: string, quantity: number, o = {}) => ({ id: group, group, date: '2025-04-10', quantity, ...o })
+
+  it('has the original rows, each with a factor that exists', () => {
+    expect(category6Groups).toHaveLength(10)
+    for (const g of category6Groups) expect(factors.some((f) => f.id === g.factorId), g.id).toBe(true)
+  })
+
+  // Expected values were checked against the original app's own calculation.
+  it.each([
+    ['k6-fly-kort', 1200, 0.153432],
+    ['k6-fly-lang', 9000, 1.37538],
+    ['k6-fly-indenrigs', 300, 0.068784],
+    ['k6-tog', 2000, 0.07092],
+    ['k6-bil-diesel', 500, 0.08652],
+  ] as const)('%s: %d units give %d tCO2e', (group, quantity, expected) => {
+    expect(category6([trip(group, quantity)], factors, year2025).total).toBeCloseTo(expected, 10)
+  })
+
+  it('splits travel and hotels', () => {
+    const r = category6([trip('k6-tog', 2000), trip('k6-hotel', 3, { factorId: 'f-hotel-fr' })], factors, year2025)
+    expect(r.travelT).toBeCloseTo(0.07092, 10)
+    expect(r.hotelT).toBeCloseTo(0.0201, 10)
+    expect(r.total).toBeCloseTo(r.travelT + r.hotelT, 12)
+  })
+
+  it('flags a hotel night left on Denmark as pending', () => {
+    expect(category6([trip('k6-hotel', 2)], factors, year2025).pendingCount).toBe(1)
+  })
+})
+
+describe('category 5, waste', () => {
+  it('has the original 11 rows, each with a factor that exists', () => {
+    expect(category5Groups).toHaveLength(11)
+    for (const g of category5Groups) expect(factors.some((f) => f.id === g.factorId), g.id).toBe(true)
+  })
+
+  it('multiplies tonnes by the factor per tonne', () => {
+    const r = category5([{ id: '1', group: 'k5-papir-dep', date: '2025-06-01', quantity: 2.5 }, { id: '2', group: 'k5-plast-gen', date: '2025-06-01', quantity: 1 }], factors, year2025)
+    expect(r.total).toBeCloseTo((2.5 * 1164.4894 + 4.68568) / 1000, 10)
+    expect(r.pendingCount).toBe(0)
   })
 })
