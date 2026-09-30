@@ -1,0 +1,97 @@
+{
+  "generatedBy": "aiG8way",
+  "checks": [
+    {
+      "control": "README with run instructions",
+      "kind": "file-contains",
+      "path": "README.md",
+      "pattern": "^##\\s*(running it|getting started|how to run|run(ning)? locally|quick ?start|usage)",
+      "notPattern": "_How to run this locally, and how to deploy it\\. Fill this in",
+      "fix": "Replace the README placeholder under \"Running it\" with the real steps to run and deploy."
+    },
+    {
+      "control": "Automated tests run on every pull request",
+      "kind": "file-exists",
+      "anyOf": [
+        "tests/",
+        "test/",
+        "__tests__/",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "**/*_test.*"
+      ],
+      "fix": "Add a test suite the pipeline can run."
+    },
+    {
+      "control": "Automated tests run on every pull request",
+      "kind": "file-contains",
+      "path": ".github/workflows/*.yml",
+      "pattern": "\\b(npm test|npm run test|vitest|jest|pytest|dotnet test|go test|mvn (test|verify)|gradle test|cargo test)\\b",
+      "fix": "Run the test suite in a workflow triggered on pull_request."
+    },
+    {
+      "control": "CI builds the project from a clean checkout",
+      "kind": "file-contains",
+      "path": ".github/workflows/*.yml",
+      "pattern": "\\b(npm ci|npm install|pnpm install|yarn install|dotnet (restore|build)|pip install|go build|mvn|gradle|cargo build)\\b",
+      "fix": "Add a workflow that installs, lints, tests and builds from a clean checkout on every pull request."
+    },
+    {
+      "control": "CI builds the project from a clean checkout",
+      "kind": "file-contains",
+      "path": ".github/workflows/*.yml",
+      "pattern": "pull_request",
+      "fix": "Trigger the build workflow on pull_request, not only on push."
+    },
+    {
+      "control": "Deployment is automated per environment",
+      "kind": "file-contains",
+      "path": ".github/workflows/*.yml",
+      "pattern": "^\\s*environment:\\s*\\S",
+      "fix": "Deploy from a workflow job that names a GitHub environment (environment: production), one per target."
+    },
+    {
+      "control": "No secrets in source control",
+      "kind": "file-contains",
+      "path": ".gitignore",
+      "pattern": "^\\.env(\\.\\*|\\*|$)",
+      "fix": "Ignore .env files so local credentials never get committed."
+    },
+    {
+      "control": "Dependency and vulnerability scanning",
+      "kind": "file-exists",
+      "anyOf": [
+        ".github/dependabot.yml"
+      ],
+      "fix": "Add .github/dependabot.yml with a schedule for every package ecosystem in use."
+    },
+    {
+      "control": "License and ownership declared",
+      "kind": "file-exists",
+      "anyOf": [
+        "LICENSE",
+        "LICENSE.md",
+        "LICENSE.txt",
+        "LICENCE",
+        "LICENCE.md"
+      ],
+      "fix": "Add a LICENSE file stating the terms this code may be reused under."
+    },
+    {
+      "control": "Architecture decisions recorded",
+      "kind": "file-exists",
+      "anyOf": [
+        "docs/adr/"
+      ],
+      "fix": "Add docs/adr/ with one file per significant decision."
+    },
+    {
+      "control": "Dependencies patched inside the agreed window",
+      "kind": "file-exists",
+      "anyOf": [
+        ".github/dependabot.yml"
+      ],
+      "fix": "Add .github/dependabot.yml so patches arrive as pull requests on a schedule."
+    }
+  ]
+}
