@@ -4,8 +4,12 @@
 // For each transport mode:
 //   km per year = one-way km × 2 × office days per week × work weeks per year
 //                 × (mode's respondents ÷ all respondents) × employees
-//   km in period = km per year × days in period ÷ 365
-// A survey counts when its date lies inside the reporting period.
+//
+// Each survey stands for the calendar year it's dated in, and counts for the days of the
+// reporting period that fall in that year, as a share of that year's days. A full year counts
+// exactly once; a July–June period takes half of each year's survey. This deliberately
+// differs from the original, which scaled every survey dated in the period by the whole
+// period's days ÷ 365, so two surveys in a two-year period counted the commuting twice.
 
 import type { Factor } from '../data/factors'
 import { dayValue, type Period } from './dates'
@@ -67,21 +71,23 @@ export type SurveyResult = {
   totalRespondents: number
   /** Replies ÷ employees, as a percentage; null when either is missing */
   responseRate: number | null
-  /** Days in the period ÷ 365 */
-  periodYears: number
+  /** The calendar year the survey stands for, or null for an invalid date */
+  year: number | null
+  /** Share of the survey's year that falls in the period, 0 to 1 */
+  yearShare: number
   /** tCO2e for a whole year, before scaling to the period */
   annualT: number
   total: number
 }
 
 export type Category7 = {
+  /** Surveys whose year overlaps the period */
   surveys: SurveyResult[]
   total: number
-  /**
-   * More than one survey falls in the period. Each is scaled to the whole period, as in the
-   * original, so commuting may be counted more than once. Flagged, not changed.
-   */
-  overlappingSurveys: boolean
+  /** Years with more than one survey. Each would count for the year, so commuting is counted twice. */
+  duplicateYears: number[]
+  /** Years (or parts of years) in the period that no survey covers, so nothing is counted for them */
+  yearsWithoutSurvey: number[]
 }
 
 const finiteOrZero = (n: number | null | undefined): number =>
@@ -89,31 +95,49 @@ const finiteOrZero = (n: number | null | undefined): number =>
 
 const DAY_MS = 86_400_000
 
-/** Days in the period, inclusive, ÷ 365. 0 for an invalid or reversed period. */
-export function periodYears(period: Period): number {
+const daysBetween = (from: number, to: number) => Math.round((to - from) / DAY_MS) + 1
+
+/** Share of a calendar year that falls in the period, 0 to 1. 0 for an invalid or reversed period. */
+export function yearShare(year: number, period: Period): number {
   const start = dayValue(period.start)
   const end = dayValue(period.end)
   if (Number.isNaN(start) || Number.isNaN(end) || end < start) return 0
-  return (Math.round((end - start) / DAY_MS) + 1) / 365
+  const yearStart = Date.UTC(year, 0, 1)
+  const yearEnd = Date.UTC(year, 11, 31)
+  const from = Math.max(start, yearStart)
+  const to = Math.min(end, yearEnd)
+  return to < from ? 0 : daysBetween(from, to) / daysBetween(yearStart, yearEnd)
+}
+
+/** The calendar years a period touches. */
+export function periodYearsList(period: Period): number[] {
+  const start = dayValue(period.start)
+  const end = dayValue(period.end)
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return []
+  const first = new Date(start).getUTCFullYear()
+  const last = new Date(end).getUTCFullYear()
+  return Array.from({ length: last - first + 1 }, (_, i) => first + i)
 }
 
 export function surveyResult(survey: Survey, factors: readonly Factor[], period: Period): SurveyResult {
   const totalRespondents = commutingModes.reduce((t, m) => t + finiteOrZero(survey.modes[m.id]?.respondents), 0)
   const employees = finiteOrZero(survey.employees)
   const weeks = finiteOrZero(survey.workWeeksPerYear)
-  const years = periodYears(period)
+  const day = dayValue(survey.date)
+  const year = Number.isNaN(day) ? null : new Date(day).getUTCFullYear()
+  const share = year === null ? 0 : yearShare(year, period)
 
   const modes = commutingModes.map((mode): ModeResult => {
     const answers = survey.modes[mode.id]
-    const share = totalRespondents > 0 ? finiteOrZero(answers?.respondents) / totalRespondents : 0
-    const kmPerYear = finiteOrZero(answers?.distanceKm) * 2 * finiteOrZero(answers?.officeDaysPerWeek) * weeks * share * employees
-    const kmInPeriod = kmPerYear * years
+    const modeShare = totalRespondents > 0 ? finiteOrZero(answers?.respondents) / totalRespondents : 0
+    const kmPerYear = finiteOrZero(answers?.distanceKm) * 2 * finiteOrZero(answers?.officeDaysPerWeek) * weeks * modeShare * employees
+    const kmInPeriod = kmPerYear * share
     const factor = findFactor(factors, answers?.factorId ?? mode.factorId, survey.date)
     const factorValue = answers?.customFactor ?? factor?.value ?? null
     return {
       mode,
       answers,
-      share,
+      share: modeShare,
       kmPerYear,
       kmInPeriod,
       factor,
@@ -129,23 +153,21 @@ export function surveyResult(survey: Survey, factors: readonly Factor[], period:
     modes,
     totalRespondents,
     responseRate: survey.responses != null && employees > 0 ? (replies / employees) * 100 : null,
-    periodYears: years,
+    year,
+    yearShare: share,
     annualT: modes.reduce((t, m) => t + (m.kmPerYear * finiteOrZero(m.factorValue)) / 1000, 0),
     total: modes.reduce((t, m) => t + m.tCO2e, 0),
   }
 }
 
 export function category7(surveys: readonly Survey[], factors: readonly Factor[], period: Period): Category7 {
-  const start = dayValue(period.start)
-  const end = dayValue(period.end)
-  const inPeriod = surveys.filter((s) => {
-    const d = dayValue(s.date)
-    return !Number.isNaN(d) && d >= start && d <= end
-  })
-  const results = inPeriod.map((s) => surveyResult(s, factors, period))
+  const results = surveys.map((s) => surveyResult(s, factors, period)).filter((r) => r.yearShare > 0)
+  const perYear = new Map<number, number>()
+  for (const r of results) perYear.set(r.year!, (perYear.get(r.year!) ?? 0) + 1)
   return {
     surveys: results,
     total: results.reduce((t, r) => t + r.total, 0),
-    overlappingSurveys: results.length > 1,
+    duplicateYears: [...perYear].filter(([, n]) => n > 1).map(([y]) => y),
+    yearsWithoutSurvey: periodYearsList(period).filter((y) => !perYear.has(y)),
   }
 }

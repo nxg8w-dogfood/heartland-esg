@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { factors } from '../data/factors'
-import { category7, commutingModes, periodYears, surveyResult, type Survey } from './commuting'
+import { category7, commutingModes, periodYearsList, surveyResult, yearShare, type Survey } from './commuting'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 
@@ -20,16 +20,35 @@ const survey = (o: Partial<Survey> = {}): Survey => ({
   ...o,
 })
 
-describe('periodYears', () => {
-  it('counts days inclusive over 365', () => {
-    expect(periodYears(year2025)).toBe(1)
-    expect(periodYears({ start: '2024-01-01', end: '2024-12-31' })).toBe(366 / 365)
-    expect(periodYears({ start: '2025-01-01', end: '2025-03-31' })).toBe(90 / 365)
+describe('yearShare', () => {
+  it('is 1 for a whole calendar year, leap years included', () => {
+    expect(yearShare(2025, year2025)).toBe(1)
+    expect(yearShare(2024, { start: '2024-01-01', end: '2024-12-31' })).toBe(1)
+  })
+
+  it('counts the period days in that year over the year length', () => {
+    expect(yearShare(2025, { start: '2025-01-01', end: '2025-03-31' })).toBe(90 / 365)
+    expect(yearShare(2024, { start: '2024-01-01', end: '2024-03-31' })).toBe(91 / 366)
+  })
+
+  it('splits a financial year between the two calendar years', () => {
+    const fy = { start: '2025-07-01', end: '2026-06-30' }
+    expect(yearShare(2025, fy)).toBe(184 / 365)
+    expect(yearShare(2026, fy)).toBe(181 / 365)
+    expect(yearShare(2027, fy)).toBe(0)
   })
 
   it('is 0 for a reversed or invalid period', () => {
-    expect(periodYears({ start: '2025-12-31', end: '2025-01-01' })).toBe(0)
-    expect(periodYears({ start: '', end: '2025-01-01' })).toBe(0)
+    expect(yearShare(2025, { start: '2025-12-31', end: '2025-01-01' })).toBe(0)
+    expect(yearShare(2025, { start: '', end: '2025-01-01' })).toBe(0)
+  })
+})
+
+describe('periodYearsList', () => {
+  it('lists the calendar years a period touches', () => {
+    expect(periodYearsList({ start: '2024-07-01', end: '2026-02-28' })).toEqual([2024, 2025, 2026])
+    expect(periodYearsList(year2025)).toEqual([2025])
+    expect(periodYearsList({ start: '2025-12-31', end: '2025-01-01' })).toEqual([])
   })
 })
 
@@ -64,6 +83,12 @@ describe('surveyResult', () => {
     expect(q1.annualT).toBeCloseTo(r.total, 9)
   })
 
+  it('stands for the calendar year it is dated in', () => {
+    expect(r.year).toBe(2025)
+    expect(r.yearShare).toBe(1)
+    expect(surveyResult(survey({ date: 'nope' }), factors, year2025)).toMatchObject({ year: null, yearShare: 0, total: 0 })
+  })
+
   it('uses the Danish-adjusted factor for electric cars when chosen', () => {
     const answers = { respondents: 10, distanceKm: 20, officeDaysPerWeek: 5 }
     const beis = surveyResult(survey({ modes: { 'k7-el': answers } }), factors, year2025)
@@ -92,20 +117,47 @@ describe('surveyResult', () => {
 })
 
 describe('category7', () => {
-  it('only counts surveys dated inside the period', () => {
+  const twoYears = { start: '2024-01-01', end: '2025-12-31' }
+
+  it('counts a survey for the part of its year inside the period', () => {
     const c = category7([survey({ id: 'a' }), survey({ id: 'b', date: '2024-06-01' })], factors, year2025)
     expect(c.surveys.map((s) => s.survey.id)).toEqual(['a'])
-    expect(c.overlappingSurveys).toBe(false)
+    expect(c.total).toBeCloseTo(surveyResult(survey(), factors, year2025).total, 9)
   })
 
-  it('flags more than one survey in the period, since each is scaled to the whole period', () => {
-    const twoYears = { start: '2024-01-01', end: '2025-12-31' }
+  it('counts each survey once for its own year in a two-year period', () => {
+    const annual = surveyResult(survey(), factors, year2025).annualT
     const c = category7([survey({ id: 'a' }), survey({ id: 'b', date: '2024-06-01' })], factors, twoYears)
-    expect(c.overlappingSurveys).toBe(true)
-    expect(c.total).toBeCloseTo(2 * surveyResult(survey(), factors, twoYears).total, 9)
+    expect(c.total).toBeCloseTo(2 * annual, 9)
+    expect(c.duplicateYears).toEqual([])
+    expect(c.yearsWithoutSurvey).toEqual([])
+  })
+
+  it('takes half of each year for a July–June financial year', () => {
+    const fy = { start: '2025-07-01', end: '2026-06-30' }
+    const c = category7([survey({ id: 'a', date: '2025-03-01' }), survey({ id: 'b', date: '2026-02-01', employees: 200 })], factors, fy)
+    const annual = surveyResult(survey(), factors, year2025).annualT
+    expect(c.total).toBeCloseTo(annual * (184 / 365) + 2 * annual * (181 / 365), 9)
+  })
+
+  it('counts a survey dated outside the period if its year overlaps it', () => {
+    // Dated March 2025; the period starts in July 2025.
+    const c = category7([survey({ date: '2025-03-01' })], factors, { start: '2025-07-01', end: '2025-12-31' })
+    expect(c.surveys).toHaveLength(1)
+    expect(c.surveys[0].yearShare).toBe(184 / 365)
+  })
+
+  it('flags two surveys for the same year', () => {
+    const c = category7([survey({ id: 'a' }), survey({ id: 'b', date: '2025-10-01' })], factors, year2025)
+    expect(c.duplicateYears).toEqual([2025])
+  })
+
+  it('flags years in the period without a survey', () => {
+    expect(category7([survey({})], factors, twoYears).yearsWithoutSurvey).toEqual([2024])
+    expect(category7([], factors, year2025).yearsWithoutSurvey).toEqual([2025])
   })
 
   it('gives zero with no surveys', () => {
-    expect(category7([], factors, year2025)).toEqual({ surveys: [], total: 0, overlappingSurveys: false })
+    expect(category7([], factors, year2025)).toMatchObject({ surveys: [], total: 0, duplicateYears: [] })
   })
 })

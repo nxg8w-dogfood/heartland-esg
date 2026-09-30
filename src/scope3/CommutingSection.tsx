@@ -57,15 +57,21 @@ export function CommutingSection({ cat7, surveys, setSurveys, factors, period }:
       <p className="muted">
         Opgøres ud fra en pendlingsundersøgelse, der skaleres op til hele medarbejderstaben: for
         hvert transportmiddel er km pr. år = afstand én vej × 2 × kontordage pr. uge × arbejdsuger
-        × andel af besvarelserne × antal medarbejdere. Perioden får sin andel af året (dage ÷ 365).
-        En undersøgelse tæller med, når dens dato ligger i perioden.
+        × andel af besvarelserne × antal medarbejdere. Hver undersøgelse gælder for det kalenderår,
+        den er dateret i, og tæller med for den del af året, der ligger i perioden. Et regnskabsår fra
+        juli til juni bruger altså halvdelen af hvert års undersøgelse.
       </p>
 
-      {cat7.overlappingSurveys && (
+      {cat7.duplicateYears.length > 0 && (
         <p className="warning">
-          <strong>Flere undersøgelser i perioden.</strong> Hver undersøgelse skaleres til hele
-          perioden, så pendlingen tælles én gang pr. undersøgelse. Behold kun én undersøgelse pr.
-          periode, eller vælg en periode på højst ét år.
+          <strong>Flere undersøgelser for samme år ({cat7.duplicateYears.join(', ')}).</strong> Hver
+          tæller med for hele året, så pendlingen tælles dobbelt. Behold én undersøgelse pr. år.
+        </p>
+      )}
+      {surveys.length > 0 && cat7.yearsWithoutSurvey.length > 0 && (
+        <p className="warning">
+          <strong>Ingen undersøgelse for {cat7.yearsWithoutSurvey.join(', ')}.</strong> Pendlingen i
+          den del af perioden tæller ikke med. Tilføj en undersøgelse dateret i det år.
         </p>
       )}
 
@@ -133,8 +139,8 @@ function SurveyCard({ result, counted, factors, onChange, onModeChange, onDelete
       </div>
       {!counted && (
         <p className="warning">
-          Undersøgelsen er dateret uden for perioden og tæller ikke med. Tallene herunder viser, hvad
-          den ville give.
+          Undersøgelsen gælder for {result.year ?? 'et ukendt år'}, som ligger uden for perioden, så den
+          tæller ikke med. Tallene herunder viser kun hele året.
         </p>
       )}
       {!survey.employees && <p className="warning">Angiv antal medarbejdere — ellers kan besvarelserne ikke skaleres op.</p>}
@@ -195,7 +201,7 @@ function SurveyCard({ result, counted, factors, onChange, onModeChange, onDelete
               <th scope="row">I alt</th>
               <td className="num strong">{formatNumber(result.totalRespondents, 0)}</td>
               <td colSpan={5} className="muted">
-                Hele året: {formatNumber(result.annualT, 3)} tCO2e · perioden er {formatNumber(result.periodYears, 3)} år
+                Hele {result.year ?? 'året'}: {formatNumber(result.annualT, 3)} tCO2e · perioden dækker {formatNumber(result.yearShare * 100, 1)} % af året
               </td>
               <td className="num strong">{formatNumber(result.total, 3)}</td>
             </tr>
