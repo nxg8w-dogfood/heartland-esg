@@ -74,16 +74,49 @@ export function parseCsv(input: string): { headers: string[]; rows: Record<strin
   }
   if (field !== '' || record.length > 0) { record.push(field); records.push(record) }
 
-  const nonEmpty = records.filter((r) => r.some((v) => v.trim() !== ''))
+  return tableToRows(records) as { headers: string[]; rows: Record<string, string>[] }
+}
+
+/**
+ * Header row plus data rows, from a parsed CSV or the first sheet of a spreadsheet. Blank rows
+ * are skipped. Blank headers become "Kolonne N" and repeated ones get a number, so no column
+ * is lost when rows become objects.
+ */
+export function tableToRows(table: readonly (readonly CellValue[])[]): { headers: string[]; rows: TableRow[] } {
+  const isBlank = (v: CellValue) => v == null || (typeof v === 'string' && v.trim() === '')
+  const nonEmpty = table.filter((r) => r.some((v) => !isBlank(v)))
   if (nonEmpty.length === 0) return { headers: [], rows: [] }
-  const headers = nonEmpty[0].map((h) => h.trim())
+  const width = Math.max(...nonEmpty.map((r) => r.length))
+  const seen = new Map<string, number>()
+  const headers = Array.from({ length: width }, (_, i) => {
+    const raw = cellText(nonEmpty[0][i]) || `Kolonne ${i + 1}`
+    const n = (seen.get(raw) ?? 0) + 1
+    seen.set(raw, n)
+    return n === 1 ? raw : `${raw} (${n})`
+  })
   const rows = nonEmpty.slice(1).map((r) => Object.fromEntries(headers.map((h, i) => [h, r[i] ?? ''])))
   return { headers, rows }
 }
 
-/** ISO date from "2025-03-31…", "31.03.2025", "31-3-25", "31/03/2025", or anything Date.parse reads. */
-export function parseLedgerDate(value: string | null | undefined): string {
-  if (value == null || value === '') return ''
+/** A cell value from a CSV (always text) or a spreadsheet (text, number, boolean or date). */
+export type CellValue = string | number | boolean | Date | null | undefined
+
+const EXCEL_EPOCH = Date.UTC(1899, 11, 30)
+
+/** ISO date for an Excel date serial (1900 date system), e.g. 45747 → "2025-03-31". */
+export function excelSerialToDate(serial: number): string {
+  if (!Number.isFinite(serial) || serial < 1 || serial > 2_958_465) return ''
+  return new Date(EXCEL_EPOCH + Math.floor(serial) * 86_400_000).toISOString().slice(0, 10)
+}
+
+/**
+ * ISO date from "2025-03-31…", "31.03.2025", "31-3-25", "31/03/2025", anything Date.parse reads,
+ * a spreadsheet date cell, or an Excel date serial (a date cell that lost its date format).
+ */
+export function parseLedgerDate(value: CellValue): string {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? '' : value.toISOString().slice(0, 10)
+  if (typeof value === 'number') return excelSerialToDate(value)
+  if (value == null || value === '' || typeof value === 'boolean') return ''
   const t = String(value).trim()
   const iso = t.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`
@@ -94,7 +127,7 @@ export function parseLedgerDate(value: string | null | undefined): string {
 }
 
 /** Amount from Danish or plain notation ("1.234,50", "-120", "1 234,5"). Null when unreadable. */
-export function parseLedgerAmount(value: string | number | null | undefined): number | null {
+export function parseLedgerAmount(value: CellValue): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
   if (typeof value !== 'string') return null
   const t = value.replace(/\s|\u00a0/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.')
@@ -122,16 +155,21 @@ export function guessMapping(headers: readonly string[]): ColumnMapping {
   return Object.fromEntries((Object.keys(ledgerFieldLabels) as LedgerField[]).map((f) => [f, guessColumn(headers, f)])) as ColumnMapping
 }
 
-export function rowsToPostings(rows: readonly Record<string, string>[], mapping: ColumnMapping): Omit<Posting, 'id' | 'importId'>[] {
-  const get = (row: Record<string, string>, f: LedgerField) => (mapping[f] ? row[mapping[f]] : undefined)
+export type TableRow = Record<string, CellValue>
+
+/** Text for a cell used as text (account, name, supplier…): numbers as written, dates as ISO. */
+const cellText = (v: CellValue) => (v instanceof Date ? parseLedgerDate(v) : v == null ? '' : String(v)).trim()
+
+export function rowsToPostings(rows: readonly TableRow[], mapping: ColumnMapping): Omit<Posting, 'id' | 'importId'>[] {
+  const get = (row: TableRow, f: LedgerField) => (mapping[f] ? row[mapping[f]] : undefined)
   return rows.map((row) => ({
     date: parseLedgerDate(get(row, 'date')),
-    account: String(get(row, 'account') ?? '').trim(),
-    accountName: String(get(row, 'accountName') ?? '').trim(),
-    supplier: String(get(row, 'supplier') ?? '').trim(),
-    text: String(get(row, 'text') ?? '').trim(),
+    account: cellText(get(row, 'account')),
+    accountName: cellText(get(row, 'accountName')),
+    supplier: cellText(get(row, 'supplier')),
+    text: cellText(get(row, 'text')),
     amount: parseLedgerAmount(get(row, 'amount')),
-    currency: String(get(row, 'currency') ?? 'DKK').trim() || 'DKK',
+    currency: cellText(get(row, 'currency')) || 'DKK',
   }))
 }
 

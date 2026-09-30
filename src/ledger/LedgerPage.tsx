@@ -1,9 +1,9 @@
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
 import {
-  classify, guessMapping, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings,
+  classify, guessMapping, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
   type ClassifiedPosting, type ColumnMapping, type Condition, type ConditionField, type ConditionOperator,
-  type LedgerField, type ManualAction, type Posting, type Rule,
+  type CellValue, type LedgerField, type ManualAction, type Posting, type Rule, type TableRow,
 } from '../calc/ledger'
 import type { LedgerState } from './state'
 import { formatDate, formatNumber } from '../format'
@@ -114,14 +114,20 @@ async function readText(file: File): Promise<string> {
   return utf8.includes('�') ? new TextDecoder('windows-1252').decode(bytes) : utf8
 }
 
+/** The first sheet of an .xlsx file. The reader is loaded only when an Excel file is chosen. */
+async function readXlsx(file: File): Promise<{ headers: string[]; rows: TableRow[] }> {
+  const { readSheet } = await import('read-excel-file/browser')
+  return tableToRows((await readSheet(file)) as CellValue[][])
+}
+
 function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<Posting, 'id' | 'importId'>[]) => void }) {
   const id = useId()
-  const [file, setFile] = useState<{ name: string; headers: string[]; rows: Record<string, string>[] } | null>(null)
+  const [file, setFile] = useState<{ name: string; headers: string[]; rows: TableRow[] } | null>(null)
   const [mapping, setMapping] = useState<ColumnMapping | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [reading, setReading] = useState(false)
 
-  const load = (name: string, text: string) => {
-    const parsed = parseCsv(text)
+  const load = (name: string, parsed: { headers: string[]; rows: TableRow[] }) => {
     if (parsed.rows.length === 0) {
       setFile(null)
       setError('Filen indeholder ingen rækker.')
@@ -141,30 +147,44 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
       <h2 id={`${id}-heading`}>Importer posteringer</h2>
       <div className="add-line">
         <div className="field wide">
-          <label htmlFor={`${id}-file`}>CSV-fil fra finanssystemet</label>
+          <label htmlFor={`${id}-file`}>Fil fra finanssystemet (CSV eller Excel)</label>
           <input
             id={`${id}-file`}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             aria-describedby={`${id}-hint`}
+            disabled={reading}
             onChange={async (e) => {
               const f = e.target.files?.[0]
               e.target.value = ''
               if (!f) return
-              if (!/\.csv$/i.test(f.name) && f.type !== 'text/csv') {
-                setError('Kun CSV understøttes endnu. Gem Excel-filen som CSV (semikolon-separeret) og prøv igen.')
+              if (/\.xls$/i.test(f.name)) {
+                setError('Gamle Excel-filer (XLS, Excel 97–2003) understøttes ikke. Gem filen som XLSX eller CSV og prøv igen.')
                 return
               }
-              load(f.name, await readText(f))
+              const isXlsx = /\.xlsx$/i.test(f.name) || f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+              if (!isXlsx && !/\.csv$/i.test(f.name) && f.type !== 'text/csv') {
+                setError('Vælg en CSV- eller XLSX-fil.')
+                return
+              }
+              setReading(true)
+              try {
+                load(f.name, isXlsx ? await readXlsx(f) : parseCsv(await readText(f)))
+              } catch {
+                setFile(null)
+                setError('Filen kunne ikke læses. Er det en gyldig CSV- eller XLSX-fil?')
+              } finally {
+                setReading(false)
+              }
             }}
           />
           <p id={`${id}-hint`} className="muted">
-            Semikolon-, komma- eller tabulatorsepareret. Kolonnerne genkendes automatisk og kan rettes
-            før import. Filen læses kun i browseren. Excel (XLS/XLSX) kommer senere: gem som CSV indtil
-            da.{' '}
-            <button type="button" className="link" onClick={() => load('eksempel.csv', exampleCsv)}>Prøv med eksempelfil</button>
+            CSV (semikolon-, komma- eller tabulatorsepareret) eller XLSX; for Excel bruges det første ark.
+            Kolonnerne genkendes automatisk og kan rettes før import. Filen læses kun i browseren.{' '}
+            <button type="button" className="link" onClick={() => load('eksempel.csv', parseCsv(exampleCsv))}>Prøv med eksempelfil</button>
           </p>
-          {error && <p className="error">{error}</p>}
+          {reading && <p className="muted" role="status">Læser filen …</p>}
+          {error && <p className="error" role="alert">{error}</p>}
         </div>
       </div>
 
