@@ -100,11 +100,13 @@ Anything not on this list needs approval before you wire it in.
 Beyond the metrics: every guardrail above is satisfied or explicitly waived, the tests
 pass, and a newcomer can run the project from the README without asking anyone.
 
-## Open questions — do not guess these
+## Open questions — answered
 
-- Who owns this? `.github/CODEOWNERS` is a placeholder naming the roles (Tech lead, Code review agent, Accessibility QA agent, Documentation agent, Product owner, Developer) but no people. Ask for the owning team's GitHub handles and put them in.
-- Which licence? The guardrail requires one and none was recorded. An internal tool is usually proprietary, all rights reserved; that is a decision, not a default.
-- Which copy of the code is the source of truth, and does its history come with it? Do not guess; a history that comes along may carry credentials and must be scanned before it is pushed.
+These were open when the brief was written. @mortengad (tech lead) answered them on 2026-09-30.
+
+- **Who owns this?** @mortengad, named in `.github/CODEOWNERS`. With a single owner, the required review has to come from someone else with write access, because GitHub doesn't let authors approve their own pull requests.
+- **Which licence?** Proprietary, all rights reserved. Copyright Heartland A/S; see `LICENSE`.
+- **Which copy of the code is the source of truth, and does its history come with it?** The only copy is a compiled single-file HTML build with no recoverable source and no history. It's committed unchanged as `reference/heartland-klimaregnskab-app.html` and serves as the functional spec. The app is being rebuilt as a Power Apps code app (`docs/adr/0001`), and the repository is the source of truth. gitleaks found no credentials in the file or in the repository history, and CI scans the full history on every pull request.
 
 Where this brief is silent, ask. A guess that looks like a decision is worse than a
 question, because nobody can tell them apart afterwards.
