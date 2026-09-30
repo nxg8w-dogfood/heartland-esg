@@ -63,7 +63,7 @@ environments and the service principal being created. Until then, don't deploy f
 | --- | --- |
 | `src/calc/` | Emission calculations as plain TypeScript, with tests next to them. No UI, no Power Platform dependencies. |
 | `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
-| `src/scope1/` | The Scope 1 screen. |
+| `src/scope1/`, `src/scope2/`, `src/factors/` | The Scope 1, Scope 2 and factor screens. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
 | `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |
