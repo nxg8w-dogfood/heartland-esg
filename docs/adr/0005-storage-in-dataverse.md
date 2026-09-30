@@ -4,7 +4,7 @@
   are answered.
 - **Date:** 2026-09-30
 - **Proposed to:** @mortengad (tech lead)
-- **Decided so far:** the publisher prefix `hlesg`; one climate account per environment; 7-year retention, then archive; reported periods locked, and reopenable by *Ansvarlig* with a reason (all 2026-09-30)
+- **Decided so far:** the publisher prefix `hlesg`; one climate account per environment; 7-year retention, then archive; reported periods locked, and reopenable by *Ansvarlig* with a reason; @mortengad is *Ansvarlig* (all 2026-09-30)
 
 ## Context
 
@@ -67,8 +67,15 @@ the rest of it. Only *entered* values are stored.
 | **Klimaregnskab – Bidragyder** | Also create and change lines, surveys, investments and imports |
 | **Klimaregnskab – Ansvarlig** | Also enter factor values, change rules, relevance and index values, and delete imports |
 
-- Access is at **business-unit level**. The roles are granted to Dataverse teams linked to
-  **Entra ID security groups**, so access is managed in Entra, not per user.
+- Access is at **business-unit level**.
+- **Who holds which role (decided by @mortengad on 2026-09-30):**
+  - **@mortengad is *Ansvarlig*,** assigned directly to the user.
+  - ***Bidragyder* and *Læser*** are granted later to Dataverse teams linked to **Entra ID
+    security groups**, so that access is managed in Entra, not per user. The groups don't exist
+    yet.
+  - **Risk:** with a single *Ansvarlig*, only one person can reopen periods, enter factor values,
+    change ledger rules or delete imports. A second *Ansvarlig* (a deputy) is recommended when
+    the Entra groups are set up.
 - The app may hide what a role can't do, but that's presentation only. Every request is
   checked by Dataverse, which meets the *authorisation checked server-side* guardrail.
 - **Auditing is on** for all `hlesg_` tables, so every change records who made it and when. This
@@ -156,7 +163,7 @@ guidance says, so auditing isn't polluted by false updates).
 
 ## Open questions
 
-1. **People per role:** who is *Ansvarlig*, *Bidragyder* and *Læser*, and which Entra groups
-   hold them?
-
-*(Unlocking and the after-7-years policy were decided on 2026-09-30; see sections 5 and 6.)*
+None. All were answered by @mortengad on 2026-09-30: people per role (section 4), unlocking and
+retention (sections 5 and 6), the publisher prefix and one account per environment (section 3).
+**Still to do when the Entra groups are created:** name the *Bidragyder* and *Læser* groups,
+and consider a second *Ansvarlig*.
