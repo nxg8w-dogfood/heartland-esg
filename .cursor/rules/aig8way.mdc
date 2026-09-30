@@ -21,8 +21,9 @@ A tool used to measure co2 emissions on a company
 You are reading this from inside the repository: https://github.com/nxg8w-dogfood/heartland-esg. `AGENTS.md`,
 `.cursor/rules/aig8way.mdc` and `.github/copilot-instructions.md` hold this same brief, one
 per tool. `SECURITY.md` lists the controls and why each applies. `README.md`'s *Running it*
-section is a placeholder: writing it is the first commit. Work on a branch; the default
-branch takes pull requests only, and `.github/CODEOWNERS` says who reviews.
+section explains how to run, check and deploy the project; keep it current when that
+changes. Work on a branch; the default branch takes pull requests only, and
+`.github/CODEOWNERS` says who reviews.
 
 ## Code that already exists
 
