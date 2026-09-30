@@ -1,5 +1,6 @@
 You are picking up a project inside our organisation. Everything below was agreed
-before any code was written. Treat it as the brief, not as suggestions.
+before any code was written, except where a section says otherwise: later decisions are
+dated and link to their ADR in `docs/adr/`. Treat it as the brief, not as suggestions.
 
 ## The project
 
