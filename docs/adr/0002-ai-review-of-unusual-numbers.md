@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Decided so far by:** @mortengad (tech lead). Scope, suggestions only, and the region.
+- **Decided so far by:** @mortengad (tech lead and model approver). Scope, suggestions only, the region, excluding line descriptions, and who approves models.
 
 ## Context
 
@@ -33,17 +33,23 @@ Constraints already in force:
 3. **Region:** the model runs in **Sweden Central**, as a **Standard (regional)**
    deployment so that data is processed in that region. Data Zone and Global deployment
    types are not used, because they can process data outside Sweden Central.
+4. **No line descriptions:** free-text line descriptions and supplier names are **never**
+   sent to the model. They can contain names of people or companies, and the security
+   profile says *no personal data*. The prompt holds structured fields only.
+5. **Model approval:** @mortengad approves which models this project may use. Any model
+   other than GPT-4o, including its successor, needs their approval, recorded in this ADR
+   or a new one.
 
 ### Proposed
 
-4. **Rules first, then the model.** Deterministic checks in `src/calc/` find the candidate
+6. **Rules first, then the model.** Deterministic checks in `src/calc/` find the candidate
    flags: change from the previous period above a threshold, a factor deviating from the
    factor table, a unit mismatch, missing values. They're plain TypeScript, unit-tested in
    CI, and cost nothing to run. The model then receives the flagged lines and the account's
    totals. It ranks the flags, explains each one in plain Danish, and may add flags the rules
    can't express, marked as model-generated. If the model is unavailable or over budget,
    users still get the rule-based flags.
-5. **Server-side call path:**
+7. **Server-side call path:**
 
    ```
    code app ──(user's Entra token)──▶ custom connector ──▶ Azure Function (Sweden Central)
@@ -63,11 +69,10 @@ Constraints already in force:
    - The Function calls Azure OpenAI with its **managed identity**. There is no API key to
      store, leak or rotate.
    - The Function returns flags only. Nothing is written to the account.
-6. **Data minimisation:** the prompt contains structured fields only: scope and category,
-   quantities, units, factors, period and totals. **Free-text line descriptions and supplier
-   names are left out** until question 2 below is answered. This also limits prompt
-   injection through imported text.
-7. **Cost controls:** every one of these is enforced outside the model:
+8. **Data minimisation:** the prompt contains structured fields only: scope and category,
+   quantities, units, factors, period and totals. Line descriptions are excluded (decision 4).
+   That also limits prompt injection through imported text.
+9. **Cost controls:** every one of these is enforced outside the model:
    - A hard **per-request cap** in the Function: a maximum number of lines per review, and a
      maximum number of output tokens (`max_completion_tokens`) on every call. A request over
      the cap is refused, not truncated silently.
@@ -79,6 +84,9 @@ Constraints already in force:
 
 ## Options considered
 
+- **Send line descriptions to the model (rejected by the tech lead).** Descriptions could
+  help the model tell a real anomaly from, say, a one-off purchase. But they can contain
+  personal data, and they're an injection path.
 - **Model only, no rules (rejected).** Every review would cost tokens, flags would be hard
   to test and could vary between runs, and nothing would work when the model is unavailable.
 - **Call Azure OpenAI from the browser (rejected).** The key or token would be visible to
@@ -102,8 +110,8 @@ Constraints already in force:
   Sweden Central
   ([region availability](https://learn.microsoft.com/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure-region-availability)),
   so we can build on it now. But the feature will need a successor model within about six
-  months of going live. Only an approved model may replace it, so **a successor needs
-  approval before April 2027**. To make the swap cheap:
+  months of going live. Only an approved model may replace it, so **@mortengad needs to
+  approve a successor before April 2027**. To make the swap cheap:
   - the Function calls a **deployment name** from configuration, never a model version;
   - the deployment's upgrade option is set explicitly;
   - a fixed set of test accounts with known expected flags is kept, so the successor can be
@@ -120,12 +128,9 @@ Constraints already in force:
 1. **Budget numbers.** The monthly token budget, the per-request cap (lines and output
    tokens) and the Azure subscription that pays. These are required before the feature
    ships.
-2. **Line descriptions.** May free-text descriptions, which can contain supplier or
-   employee names, be sent to the model? Until this is answered they're excluded. The
-   security profile says *no personal data*.
-3. **Successor model.** Who approves models for this project, and which successor to
-   GPT-4o should be evaluated? `gpt-5.1` is Microsoft's named replacement, but it retires
-   2027-05-15, a month later.
-4. **Thresholds.** What counts as "unusual" (for example a change of more than 25 % from the
+2. **Successor model.** Which successor to GPT-4o should be evaluated for @mortengad to
+   approve? `gpt-5.1` is Microsoft's named replacement, but it retires 2027-05-15, a month
+   after GPT-4o. Newer models available in Sweden Central last longer.
+3. **Thresholds.** What counts as "unusual" (for example a change of more than 25 % from the
    previous period) is a domain decision for the product owner. It should start from the
    CSRD data collection manual.
