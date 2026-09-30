@@ -166,3 +166,35 @@ describe('scope2Summary', () => {
     expect(scope2Summary([], lines, factors, year2025)).toMatchObject({ locationTotal: 0, marketTotal: 0, electricityKWh: 0, averageGridFactor: 0, pendingMarket: false })
   })
 })
+
+describe('electricity bills spanning two grid-mix years', () => {
+  const twoYears = { start: '2024-01-01', end: '2025-12-31' }
+  // 1 Dec 2024 – 28 Feb 2025: 31 days at the 2024 mix, 59 at the 2025 mix.
+  const bill = line({ date: '2024-12-01', dateTo: '2025-02-28', kWh: 9_000 })
+
+  it('uses each year’s grid mix for its own days', () => {
+    const r = scope2Line(bill, location({ marketInstrument: 'ppa' }), factors, twoYears)
+    expect(r.locationT).toBeCloseTo((3_100 * 0.0738 + 5_900 * 0.05892) / 1000, 10)
+    expect(r.locationParts.map((p) => [p.factor?.id, Math.round(p.kWh)])).toEqual([
+      ['f-s2-el-dk-2024', 3_100],
+      ['f-s2-el-dk-2025', 5_900],
+    ])
+    expect(r.locationFactor?.id).toBe('f-s2-el-dk-2025')
+    expect(r.locationValue! * r.kWh / 1000).toBeCloseTo(r.locationT, 10)
+  })
+
+  it('counts only the part inside the period, at that part’s year', () => {
+    const r = scope2Line(bill, location(), factors, year2025)
+    expect(r.kWh).toBeCloseTo(5_900, 10)
+    expect(r.locationT).toBeCloseTo((5_900 * 0.05892) / 1000, 10)
+  })
+
+  it('does not split the market-based figure, whose factor has no years', () => {
+    const r = scope2Line(bill, location(), withValues({ 'f-s2-el-residual': 0.35 }), twoYears)
+    expect(r.marketT).toBeCloseTo((9_000 * 0.35) / 1000, 10)
+  })
+
+  it('lets a custom factor cover the whole bill', () => {
+    expect(scope2Line({ ...bill, customFactor: 0.1 }, location(), factors, twoYears).locationT).toBeCloseTo(0.9, 10)
+  })
+})

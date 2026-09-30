@@ -218,7 +218,11 @@ function LocationCard({
                     {formatNumber(r.kWh, 0)}
                     {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
                   </td>
-                  <td className="num"><Figure t={r.locationT} value={r.locationValue} factor={r.locationFactor} custom={r.line.customFactor != null} /></td>
+                  <td className="num">
+                    {r.locationParts.length > 1 && r.line.customFactor == null
+                      ? <SplitFigure t={r.locationT} parts={r.locationParts} />
+                      : <Figure t={r.locationT} value={r.locationValue} factor={r.locationFactor} custom={r.line.customFactor != null} />}
+                  </td>
                   <td className="num">
                     {r.line.kind === 'heating'
                       ? <span className="muted">Som location-based</span>
@@ -259,6 +263,20 @@ function Figure({ t, value, factor, custom }: { t: number; value: number | null;
       <span className="sub">
         {formatFactor(value)} kg/kWh · {custom ? 'Egen faktor' : factor?.name}
       </span>
+    </>
+  )
+}
+
+/** A bill spanning two grid-mix years: show each year's part, so the total can be checked. */
+function SplitFigure({ t, parts }: { t: number; parts: { factor: Factor | null; kWh: number }[] }) {
+  return (
+    <>
+      <span className="strong">{formatNumber(t, 3)}</span>
+      {parts.map((p, i) => (
+        <span key={i} className="sub">
+          {p.factor?.validFrom?.slice(0, 4) ?? p.factor?.name}: {formatNumber(p.kWh, 0)} kWh × {p.factor?.value == null ? '—' : formatFactor(p.factor.value)}
+        </span>
+      ))}
     </>
   )
 }

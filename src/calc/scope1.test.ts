@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { factors } from '../data/factors'
+import { factors, type Factor } from '../data/factors'
 import { scope1Line, scope1Summary, type Scope1Line } from './scope1'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
@@ -91,5 +91,34 @@ describe('scope1Summary', () => {
     const r = scope1Summary([line({ date: '2024-12-01', dateTo: '2025-01-31', quantity: 620 })], factors, year2025)
     expect(r.lines[0].quantityInPeriod).toBeCloseTo(310, 10)
     expect(r.total).toBeCloseTo((310 * 2.57082) / 1000, 10)
+  })
+})
+
+describe('scope1Line across a change of factor', () => {
+  // No Scope 1 factor spans years yet; a 2026 BEIS update would. Simulate one.
+  const withDiesel2026: Factor[] = [
+    ...factors.map((f) => (f.id === 'f-s1-diesel' ? { ...f, family: 'diesel', validTo: '2025-12-31' } : f)),
+    { ...factors.find((f) => f.id === 'f-s1-diesel')!, id: 'f-s1-diesel-2026', value: 2.5, family: 'diesel', validFrom: '2026-01-01' },
+  ]
+  const twoYears = { start: '2025-01-01', end: '2026-12-31' }
+  // 1 Dec 2025 – 28 Feb 2026: 31 days in 2025, 59 in 2026.
+  const crossing = line({ date: '2025-12-01', dateTo: '2026-02-28', quantity: 900 })
+
+  it('uses each year’s factor for its own days', () => {
+    const r = scope1Line(crossing, withDiesel2026, twoYears)
+    expect(r.tCO2e).toBeCloseTo((310 * 2.57082 + 590 * 2.5) / 1000, 10)
+    expect(r.quantityInPeriod).toBeCloseTo(900, 10)
+    expect(r.factor?.id).toBe('f-s1-diesel-2026')
+    expect(r.factorValue! * r.quantityInPeriod! / 1000).toBeCloseTo(r.tCO2e, 10)
+  })
+
+  it('still uses a custom factor for the whole line', () => {
+    expect(scope1Line({ ...crossing, customFactor: 3 }, withDiesel2026, twoYears).tCO2e).toBeCloseTo(2.7, 10)
+  })
+
+  it('flags an invalid quantity on a split line too', () => {
+    const r = scope1Line({ ...crossing, quantity: Number.NaN }, withDiesel2026, twoYears)
+    expect(r.pending).toBe(true)
+    expect(r.quantityInPeriod).toBeNull()
   })
 })

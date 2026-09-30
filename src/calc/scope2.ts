@@ -8,6 +8,7 @@
 
 import type { Factor } from '../data/factors'
 import { periodShare, type Period } from './dates'
+import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
 
 export const marketInstruments = [
@@ -55,8 +56,12 @@ export type Scope2LineResult = {
   share: number
   /** kWh inside the period */
   kWh: number
+  /** For a line split across factor years: the factor covering most of it */
   locationFactor: Factor | null
+  /** For a split line: the kWh-weighted average of its parts */
   locationValue: number | null
+  /** Location-based parts when a line spans more than one grid-mix year; one entry otherwise */
+  locationParts: { factor: Factor | null; kWh: number; t: number }[]
   marketFactor: Factor | null
   marketValue: number | null
   locationT: number
@@ -122,10 +127,22 @@ export function scope2Line(
   let marketFactor: Factor | null
   let locationValue: number | null
   let marketValue: number | null
+  let locationParts: Scope2LineResult['locationParts']
   if (line.kind === 'electricity') {
     // The original looks the grid mix up by family; there's no factor with the family's id.
-    locationFactor = findFamilyMember(factors, location.gridFamily, line.date)
-    locationValue = line.customFactor ?? locationFactor?.value ?? null
+    // A bill spanning two years is split so each part uses its own year's grid mix.
+    const gridId = factors.find((f) => f.family === location.gridFamily)?.id
+    const quantity = finiteOrZero(line.kWh)
+    locationParts = factorSegments(factors, gridId, line, period).map(({ factor, share: part }) => {
+      const partKWh = quantity * part
+      return { factor, kWh: partKWh, t: (partKWh * finiteOrZero(line.customFactor ?? factor?.value)) / 1000 }
+    })
+    const largest = [...locationParts].sort((a, b) => b.kWh - a.kWh)[0]
+    locationFactor = largest?.factor ?? findFamilyMember(factors, location.gridFamily, line.date)
+    const partsT = locationParts.reduce((t, p) => t + p.t, 0)
+    locationValue =
+      line.customFactor ??
+      (locationParts.length > 1 && kWh > 0 ? (partsT * 1000) / kWh : (locationFactor?.value ?? null))
     marketFactor = findFactor(factors, marketFactorId(location), line.date)
     marketValue = marketFactor?.value ?? null
   } else {
@@ -134,6 +151,7 @@ export function scope2Line(
     locationValue = line.customFactor ?? locationFactor?.value ?? null
     marketFactor = locationFactor
     marketValue = locationValue
+    locationParts = [{ factor: locationFactor, kWh, t: (kWh * finiteOrZero(locationValue)) / 1000 }]
   }
 
   const invalid = isInvalid(line.kWh) || isInvalid(line.customFactor)
@@ -149,9 +167,10 @@ export function scope2Line(
     kWh,
     locationFactor,
     locationValue,
+    locationParts,
     marketFactor,
     marketValue,
-    locationT: (kWh * finiteOrZero(locationValue)) / 1000,
+    locationT: locationParts.reduce((t, p) => t + p.t, 0),
     marketT: (kWh * finiteOrZero(marketValue)) / 1000,
     pendingMarket: marketValue === null && kWh > 0,
     invalid,
