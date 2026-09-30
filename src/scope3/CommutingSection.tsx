@@ -1,10 +1,10 @@
-import { useId, useState, type Dispatch, type SetStateAction } from 'react'
+import { useId, type Dispatch, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { surveyResult, type Category7, type CommutingModeId, type ModeAnswers, type Survey, type SurveyResult } from '../calc/commuting'
-import { parseNumber } from '../calc/parseNumber'
 import { formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
+import { NumberField } from '../ui'
 
 type Props = {
   cat7: Category7
@@ -214,48 +214,5 @@ function SurveyCard({ result, counted, factors, onChange, onModeChange, onDelete
         </p>
       )}
     </article>
-  )
-}
-
-/** A number input that reads Danish formats and commits on blur or Enter. */
-function NumberField({ label, hint, value, onCommit, hideLabel, placeholder }: {
-  label: string
-  hint?: string
-  value: number | null
-  onCommit: (v: number | null) => void
-  hideLabel?: boolean
-  placeholder?: string
-}) {
-  const id = useId()
-  const [text, setText] = useState(value === null ? '' : formatFactor(value))
-  const [error, setError] = useState<string | null>(null)
-  function commit() {
-    const v = parseNumber(text)
-    if (v !== null && (Number.isNaN(v) || v < 0)) {
-      setError(Number.isNaN(v) ? 'Ikke et gyldigt tal.' : 'Kan ikke være negativ.')
-      return
-    }
-    setError(null)
-    onCommit(v)
-  }
-  return (
-    <div className={hideLabel ? 'value-input' : 'field'}>
-      <label htmlFor={id} className={hideLabel ? 'visually-hidden' : undefined}>
-        {label}{hint && <span className="optional"> ({hint})</span>}
-      </label>
-      <input
-        id={id}
-        inputMode="decimal"
-        autoComplete="off"
-        placeholder={placeholder}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === 'Enter') commit() }}
-        aria-invalid={!!error}
-        aria-describedby={error ? `${id}-err` : undefined}
-      />
-      {error && <p id={`${id}-err`} className="error">{error}</p>}
-    </div>
   )
 }
