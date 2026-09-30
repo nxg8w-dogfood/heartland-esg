@@ -2,14 +2,277 @@
   color-scheme: light dark;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
+
+  --bg: #ffffff;
+  --fg: #1a1f24;
+  --muted: #5a6470;
+  --border: #d5dae0;
+  --surface: #f5f7f9;
+  --accent: #0f766e;
+  --accent-surface: #e6f4f2;
+  --warn: #8a4b00;
+  --warn-surface: #fff4e0;
+  --error: #b42318;
+  --focus: #1d4ed8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14181c;
+    --fg: #e8ecef;
+    --muted: #a3adb8;
+    --border: #36404a;
+    --surface: #1d2328;
+    --accent: #5eead4;
+    --accent-surface: #12302d;
+    --warn: #f6c177;
+    --warn-surface: #33260f;
+    --error: #ff8a80;
+    --focus: #93b4ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   padding: 2rem 1rem;
+  background: var(--bg);
+  color: var(--fg);
 }
 
 main {
-  max-width: 48rem;
+  max-width: 72rem;
   margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 2rem 0 0.75rem;
+}
+
+.lead {
+  color: var(--muted);
+  max-width: 48rem;
+  margin-top: 0;
+}
+
+.muted,
+.sub,
+.optional {
+  color: var(--muted);
+}
+
+.sub {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: normal;
+}
+
+.notice {
+  background: var(--surface);
+  border-left: 4px solid var(--border);
+  padding: 0.5rem 0.75rem;
+}
+
+.warning,
+.pending {
+  color: var(--warn);
+}
+
+.warning {
+  background: var(--warn-surface);
+  padding: 0.5rem 0.75rem;
+}
+
+.warning-text {
+  color: var(--warn);
+}
+
+.error {
+  color: var(--error);
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+input,
+select {
+  background: var(--bg);
+  border: 1px solid var(--muted);
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
+  min-height: 2.5rem;
+}
+
+input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+button {
+  background: var(--accent);
+  color: var(--bg);
+  border: 0;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  min-height: 2.5rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button.link {
+  background: none;
+  color: var(--fg);
+  text-decoration: underline;
+  padding: 0.25rem;
+  min-height: auto;
+  font-weight: normal;
+}
+
+.period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.period .error {
+  flex-basis: 100%;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.tile {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.tile.accent {
+  background: var(--accent-surface);
+  border-color: var(--accent);
+}
+
+.tile dt {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.tile dd {
+  margin: 0.25rem 0 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile .unit {
+  font-size: 0.875rem;
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.add-line {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field.wide {
+  grid-column: 1 / -1;
+}
+
+.actions {
+  grid-column: 1 / -1;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+thead th {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+tfoot th,
+tfoot td {
+  border-top: 2px solid var(--accent);
+  border-bottom: 0;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.empty {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+footer {
+  margin-top: 2rem;
+  font-size: 0.875rem;
 }
