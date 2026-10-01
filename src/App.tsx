@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ActivityLine } from './calc/activity'
 import type { Survey } from './calc/commuting'
 import type { Investment } from './calc/investments'
+import { classify, ledgerSpendLines } from './calc/ledger'
 import { noDeflation, type Deflation, type SpendLine } from './calc/spend'
 import type { Period } from './calc/dates'
 import type { Scope1Line } from './calc/scope1'
@@ -9,6 +10,8 @@ import type { Location, Scope2Line } from './calc/scope2'
 import { defaultCategory3Params, type Category3Params } from './calc/scope3'
 import { factors as baseFactors } from './data/factors'
 import { FactorsPage } from './factors/FactorsPage'
+import { LedgerPage } from './ledger/LedgerPage'
+import { emptyLedger, type LedgerState } from './ledger/state'
 import { Scope1Page } from './scope1/Scope1Page'
 import { Scope2Page } from './scope2/Scope2Page'
 import { defaultLocation } from './scope2/defaultLocation'
@@ -20,6 +23,7 @@ const pages = [
   { id: 'scope1', label: 'Scope 1' },
   { id: 'scope2', label: 'Scope 2' },
   { id: 'scope3', label: 'Scope 3' },
+  { id: 'kontoplan', label: 'Kontoplan' },
   { id: 'faktorer', label: 'Faktorer' },
 ] as const
 type PageId = (typeof pages)[number]['id']
@@ -45,6 +49,11 @@ function App() {
   const [investments, setInvestments] = useState<Investment[]>([])
   const [cat1Lines, setCat1Lines] = useState<SpendLine[]>([])
   const [deflation, setDeflation] = useState<Deflation>(noDeflation)
+  const [ledger, setLedger] = useState<LedgerState>(emptyLedger)
+  const ledgerLines = useMemo(() => {
+    const manual = new Map(Object.entries(ledger.manual))
+    return ledgerSpendLines(ledger.postings.map((p) => classify(p, ledger.rules, manual)), 1)
+  }, [ledger])
 
   const factors = useMemo(
     () => baseFactors.map((f) => (f.value === null && f.id in entered ? { ...f, value: entered[f.id] } : f)),
@@ -77,7 +86,7 @@ function App() {
         <p className="notice" role="note">
           Data gemmes ikke endnu og forsvinder, når siden lukkes. Lagring i Dataverse kommer senere.
         </p>
-        {page !== 'faktorer' && <PeriodPicker period={period} onChange={setPeriod} />}
+        {page !== 'faktorer' && page !== 'kontoplan' && <PeriodPicker period={period} onChange={setPeriod} />}
         {page === 'scope1' && <Scope1Page period={period} factors={factors} lines={scope1Lines} setLines={setScope1Lines} />}
         {page === 'scope2' && (
           <Scope2Page
@@ -112,8 +121,10 @@ function App() {
             setCat1Lines={setCat1Lines}
             deflation={deflation}
             setDeflation={setDeflation}
+            ledgerLines={ledgerLines}
           />
         )}
+        {page === 'kontoplan' && <LedgerPage ledger={ledger} setLedger={setLedger} factors={factors} />}
         {page === 'faktorer' && (
           <FactorsPage
             base={baseFactors}
