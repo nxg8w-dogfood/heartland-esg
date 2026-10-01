@@ -80,9 +80,11 @@ exposure. They are not a checklist to negotiate down.
 
 ## Models this project may use
 
-- **GPT-4o (Azure OpenAI)** — General-purpose chat and reasoning with vision. The default choice when you need one model to do most things well.
+- **gpt-5.6-terra (Azure OpenAI, 2026-07-09)** — Approved 2026-09-30 by @mortengad for the AI review of unusual numbers (`docs/adr/0002`). Runs as a Data Zone Standard (EU) deployment from a Sweden Central resource. Supported until 2028-01-11.
+- **gpt-5.6-sol (Azure OpenAI, 2026-07-09)** — Approved alongside terra on the same terms. The two are evaluated against fixed test accounts, and the cheaper one that performs well enough ships.
+- **GPT-4o (Azure OpenAI)** — General-purpose chat and reasoning with vision. Still approved, but not planned for use: version 2024-11-20 retires 2027-04-14.
 
-Anything not on this list needs approval before you wire it in.
+Anything not on this list needs approval from @mortengad before you wire it in, recorded in an ADR. Never use a Global deployment type: processing must stay in the EU.
 
 ## Cost policy
 
