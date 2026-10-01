@@ -1,5 +1,6 @@
 You are picking up a project inside our organisation. Everything below was agreed
-before any code was written. Treat it as the brief, not as suggestions.
+before any code was written, except where a section says otherwise: later decisions are
+dated and link to their ADR in `docs/adr/`. Treat it as the brief, not as suggestions.
 
 ## The project
 
@@ -16,19 +17,26 @@ A tool used to measure co2 emissions on a company
 You are reading this from inside the repository: https://github.com/nxg8w-dogfood/heartland-esg. `AGENTS.md`,
 `.cursor/rules/aig8way.mdc` and `.github/copilot-instructions.md` hold this same brief, one
 per tool. `SECURITY.md` lists the controls and why each applies. `README.md`'s *Running it*
-section is a placeholder: writing it is the first commit. Work on a branch; the default
-branch takes pull requests only, and `.github/CODEOWNERS` says who reviews.
+section explains how to run, check and deploy the project; keep it current when that
+changes. Work on a branch; the default branch takes pull requests only, and
+`.github/CODEOWNERS` says who reviews.
 
 ## Code that already exists
 
-_Location not recorded — ask._
+The original app exists only as a compiled single-file HTML build, exported from the AI tool
+it was built in. It has no recoverable source and no history. It's committed unchanged as
+`reference/heartland-klimaregnskab-app.html` and is the functional spec: check ported
+features against it, and don't edit it (`reference/README.md`).
 
-This project starts from working code. **Do not restructure it to match a template.** Add
-what is missing — documentation, CI, licence — and leave the source layout alone. Before
-any history is pushed anywhere, scan it for credentials with a secret scanner (gitleaks or
-equivalent; installing one is expected, not a question), and rotate anything you find:
-deleting the line does not remove it from history. If it came from an AI tool, assume there
-is something to find until the scan says otherwise.
+With no source to preserve, the app is being **rebuilt** as a Power Apps code app rather
+than restructured around the old code (`docs/adr/0001`, decided by @mortengad on
+2026-09-30). The layout the rebuild set up is described in the README's *Layout* section.
+Follow that layout, not a template.
+
+Anything brought in from outside later, such as code, exports or history, is scanned for
+credentials with gitleaks before it's pushed. Anything found is rotated: deleting the line
+doesn't remove it from history. Treat output from an AI tool as containing something until
+the scan says otherwise. CI runs the same scan over the full history on every pull request.
 
 ## Guardrails — not negotiable
 
@@ -97,11 +105,13 @@ Anything not on this list needs approval from @mortengad before you wire it in, 
 Beyond the metrics: every guardrail above is satisfied or explicitly waived, the tests
 pass, and a newcomer can run the project from the README without asking anyone.
 
-## Open questions — do not guess these
+## Open questions — answered
 
-- Who owns this? `.github/CODEOWNERS` is a placeholder naming the roles (Tech lead, Code review agent, Accessibility QA agent, Documentation agent, Product owner, Developer) but no people. Ask for the owning team's GitHub handles and put them in.
-- Which licence? The guardrail requires one and none was recorded. An internal tool is usually proprietary, all rights reserved; that is a decision, not a default.
-- Which copy of the code is the source of truth, and does its history come with it? Do not guess; a history that comes along may carry credentials and must be scanned before it is pushed.
+These were open when the brief was written. @mortengad (tech lead) answered them on 2026-09-30.
+
+- **Who owns this?** @mortengad, named in `.github/CODEOWNERS`. GitHub doesn't let authors approve their own pull requests, so with a single owner @mortengad waived the required review on 2026-10-01 until a second developer joins (`docs/waivers.md`).
+- **Which licence?** Proprietary, all rights reserved. Copyright Heartland A/S; see `LICENSE`.
+- **Which copy of the code is the source of truth, and does its history come with it?** The only copy is a compiled single-file HTML build with no recoverable source and no history. It's committed unchanged as `reference/heartland-klimaregnskab-app.html` and serves as the functional spec. The app is being rebuilt as a Power Apps code app (`docs/adr/0001`), and the repository is the source of truth. gitleaks found no credentials in the file or in the repository history, and CI scans the full history on every pull request.
 
 Where this brief is silent, ask. A guess that looks like a decision is worse than a
 question, because nobody can tell them apart afterwards.

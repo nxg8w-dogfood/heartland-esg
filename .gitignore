@@ -3,3 +3,7 @@ dist/
 .env
 .env.*
 !.env.example
+*.local
+*.log
+.DS_Store
+/power.config.json
