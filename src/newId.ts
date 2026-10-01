@@ -1,4 +1,5 @@
-let nextId = 1
-
-/** Ids for lines and locations held in memory. Dataverse will assign real ids. */
-export const newId = () => String(nextId++)
+/**
+ * A unique id for lines, locations and other records. Random UUIDs, so saved data and new
+ * records never collide, and they match the GUID primary keys Dataverse uses.
+ */
+export const newId = (): string => crypto.randomUUID()
