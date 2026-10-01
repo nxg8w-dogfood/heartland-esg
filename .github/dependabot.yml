@@ -7,6 +7,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Node's types follow the Node version CI runs (node-version: 24 in ci.yml). Raise
+      # them together with that version, not ahead of it.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
