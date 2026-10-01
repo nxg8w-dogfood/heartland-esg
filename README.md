@@ -20,7 +20,7 @@ npm ci
 npm run dev
 ```
 
-Vite prints a local URL. This runs the UI on its own, outside Power Platform, which is
+Vite prints a local URL. Until Dataverse is in place (ADR 0005), data is kept as a draft in your browser, and the app offers backup export and import. This runs the UI on its own, outside Power Platform, which is
 enough for UI work and for the calculation engine in `src/calc/`.
 
 ### Check your change
@@ -37,34 +37,46 @@ Use `npm run test:watch` to rerun tests while you work.
 
 ### Run it inside Power Platform
 
-This needs a Power Platform environment with code apps enabled, and the
-[Power Apps CLI](https://learn.microsoft.com/power-apps/developer/code-apps/reference/cli):
+This needs a Power Platform environment with code apps enabled. The
+[Power Apps CLI](https://learn.microsoft.com/power-apps/developer/code-apps/reference/cli)
+is a dev dependency, so `npx pa` runs the project's pinned version:
 
 ```bash
-npm install --global @microsoft/power-apps-cli
-pa app init --display-name "Heartland ESG" --environment-id <environment-id>
-pa app run
+npx pa app init --display-name "Heartland ESG" --environment-id <environment-id>
+npx pa app run
 ```
 
 Open the URL labelled **Local Play** in the browser profile you use for the Power Platform
-tenant. `pa app init` writes `power.config.json`. The project's environments haven't been
-set up yet, so that file isn't committed.
+tenant. `pa app init` writes `power.config.json` for your own environment. It's git-ignored;
+the shared environments' configs live in `deploy/`.
 
 ### Deploy
 
-**Not automated yet.** Deploys will run from a GitHub Actions workflow, one GitHub
-environment per Power Platform environment, publishing with `pa app push` under a service
-principal whose credentials live in GitHub environment secrets. That workflow waits on the
-environments and the service principal being created. Until then, don't deploy from a laptop.
+Deploys run from `.github/workflows/deploy.yml`, never from a laptop:
+
+- **dev** deploys on every push to `main`.
+- **test** and **prod** deploy when started by hand: **Actions → deploy → Run workflow**.
+  To send prod exactly what was checked on test, give that commit's SHA (see
+  [docs/deploy.md](docs/deploy.md#promote-a-tested-commit-to-prod)).
+
+Each environment needs a one-time setup first (a Power Platform environment, a service
+principal and a GitHub environment). Until then its deploy run warns and deploys nothing.
+The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR 0003.
 
 ### Layout
 
 | Path | What it is |
 | --- | --- |
 | `src/calc/` | Emission calculations as plain TypeScript, with tests next to them. No UI, no Power Platform dependencies. |
+| `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
+| `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
+| `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
+| `src/storage/` | Saving and loading the account (`AccountStore`). For now a browser draft store with backup export and import; Dataverse per ADR 0005. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
+| `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |
 | `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |
+| `.github/workflows/deploy.yml` | Publishes the app to dev, test or prod. |
 
 ## Working here
 
@@ -83,3 +95,8 @@ Guardrails this project carries:
 - **Authorisation checked server-side** — Permissions are enforced in the backend. Hiding a button in the UI is presentation, never protection.
 - **License and ownership declared** — The repository states its licence and the owning team, so it is clear who maintains it and on what terms it may be reused.
 - **Architecture decisions recorded** — Significant technical decisions are written down as short ADRs in docs/adr/, including the options rejected and why.
+
+## Licence and ownership
+
+Proprietary, all rights reserved. Copyright © 2026 Heartland A/S. See `LICENSE`.
+Maintained by @mortengad (see `.github/CODEOWNERS`).
