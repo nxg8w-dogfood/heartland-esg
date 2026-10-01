@@ -71,7 +71,8 @@ The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR
 | `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
 | `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
-| `src/storage/` | Saving and loading the account (`AccountStore`). For now a browser draft store with backup export and import; Dataverse per ADR 0005. |
+| `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
+| `src/storage/` | Saving and loading the group and each company's account (`GroupStore`). For now a browser draft store with backup export and import; Dataverse per ADR 0005 and 0006. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { ACCOUNT_VERSION, emptyAccount, parseAccount, type AccountData } from './account'
-import { browserStore } from './store'
 
 const sample = (): AccountData => {
   const a = emptyAccount()
@@ -63,37 +62,6 @@ describe('parseAccount', () => {
   it('ignores an invalid period', () => {
     const r = parseAccount({ ...sample(), period: { start: 'soon', end: '2025-12-31' } })
     expect(r.ok && r.account.period).toEqual({ start: '2025-01-01', end: '2025-12-31' })
-  })
-})
-
-describe('browserStore', () => {
-  const memory = () => {
-    const m = new Map<string, string>()
-    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v), removeItem: (k: string) => void m.delete(k), m }
-  }
-
-  it('saves, loads and clears', async () => {
-    const storage = memory()
-    const store = browserStore(storage)
-    expect(await store.load()).toBeNull()
-    const a = sample()
-    await store.save(a)
-    expect(await store.load()).toEqual({ ok: true, account: a, dropped: 0, notes: [] })
-    await store.clear()
-    expect(await store.load()).toBeNull()
-  })
-
-  it('reports unreadable saved data instead of throwing', async () => {
-    const storage = memory()
-    storage.setItem('heartland-esg:account', '{not json')
-    expect(await browserStore(storage).load()).toMatchObject({ ok: false })
-  })
-
-  it('reports blocked storage instead of throwing', async () => {
-    const blocked = { getItem: () => { throw new Error('SecurityError') }, setItem: () => { throw new Error('QuotaExceeded') }, removeItem: () => {} }
-    expect(await browserStore(blocked).load()).toMatchObject({ ok: false })
-    await expect(browserStore(blocked).save(sample())).rejects.toThrow()
-    expect(await browserStore(null).load()).toMatchObject({ ok: false })
   })
 })
 
