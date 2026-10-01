@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { parseAccount, type AccountData } from './account'
+import { parseGroup, type GroupData } from './group'
 
 export type SaveStatus =
   | { state: 'idle' }
@@ -12,18 +12,18 @@ type Props = {
   central: boolean
   status: SaveStatus
   message: string | null
-  account: AccountData
-  onReplace: (account: AccountData, message: string | null) => void
+  group: GroupData
+  onReplace: (group: GroupData, message: string | null) => void
   onClear: () => void
 }
 
 /** Where the data lives, whether it's saved, and backup export, import and clear. */
-export function DataBar({ storeLabel, central, status, message, account, onReplace, onClear }: Props) {
+export function DataBar({ storeLabel, central, status, message, group, onReplace, onClear }: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState<string | null>(null)
 
   const exportBackup = () => {
-    const blob = new Blob([JSON.stringify(account, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify(group, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -35,7 +35,7 @@ export function DataBar({ storeLabel, central, status, message, account, onRepla
   const importBackup = async (file: File) => {
     let parsed
     try {
-      parsed = parseAccount(JSON.parse(await file.text()))
+      parsed = parseGroup(JSON.parse(await file.text()))
     } catch {
       setImportError('Filen kunne ikke læses som en backup.')
       return
@@ -44,9 +44,9 @@ export function DataBar({ storeLabel, central, status, message, account, onRepla
       setImportError(parsed.error)
       return
     }
-    if (!window.confirm(`Erstat alle nuværende data med indholdet af ${file.name}? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.`)) return
+    if (!window.confirm(`Erstat alle nuværende data for alle virksomheder med indholdet af ${file.name}? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.`)) return
     setImportError(null)
-    onReplace(parsed.account, `Backup indlæst fra ${file.name}.${parsed.dropped ? ` ${parsed.dropped} poster kunne ikke bruges og er udeladt.` : ''}${parsed.notes.map((n) => ` ${n}`).join('')}`)
+    onReplace(parsed.group, `Backup indlæst fra ${file.name}.${parsed.dropped ? ` ${parsed.dropped} poster kunne ikke bruges og er udeladt.` : ''}${parsed.notes.map((n) => ` ${n}`).join('')}`)
   }
 
   const statusText =
@@ -89,7 +89,7 @@ export function DataBar({ storeLabel, central, status, message, account, onRepla
           type="button"
           className="link"
           onClick={() => {
-            if (window.confirm('Slet alle data i denne browser? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.')) onClear()
+            if (window.confirm('Slet alle data for alle virksomheder i denne browser? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.')) onClear()
           }}
         >
           Ryd alt

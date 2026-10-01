@@ -27,8 +27,10 @@ describe('sourceOptions', () => {
 })
 
 describe('applyFactorSources', () => {
-  it('leaves the table as shipped without choices', () => {
-    expect(applyFactorSources(factors, {}, factorPublications)).toEqual(factors)
+  it('leaves the table as shipped without choices, apart from how derived factors are described', () => {
+    const out = applyFactorSources(factors, {}, factorPublications)
+    out.forEach((f, i) => expect(f.value).toBe(factors[i].value))
+    expect(out.filter((f, i) => f !== factors[i]).map((f) => f.id)).toEqual(['f-c-el-dk', 'f-c-el-dk-2026'])
   })
 
   it('takes value, source and reference from a chosen publication', () => {
@@ -54,7 +56,7 @@ describe('applyFactorSources', () => {
 
   it('changes nothing else', () => {
     const out = applyFactorSources(factors, { 'f-s2-el-dk-2025': { kind: 'publication', publicationId: ens } }, factorPublications)
-    out.forEach((f, i) => { if (f.id !== 'f-s2-el-dk-2025') expect(f).toBe(factors[i]) })
+    out.forEach((f, i) => { if (!['f-s2-el-dk-2025', 'f-c-el-dk', 'f-c-el-dk-2026'].includes(f.id)) expect(f).toBe(factors[i]) })
   })
 })
 
@@ -79,5 +81,37 @@ describe('publications', () => {
     expect(desnz.values['f-t-fly-kort']).toBe(byId(factors, 'f-t-fly-kort').value)
     const out = applyFactorSources(factors, { 'f-w-plast-forbr': { kind: 'publication', publicationId: desnz.id } }, factorPublications)
     expect(byId(out, 'f-w-plast-forbr').reference).toContain('Combustion')
+  })
+})
+
+describe('the DK-adjusted electric car', () => {
+  it('keeps the original 2025 value with the built-in table', () => {
+    expect(byId(applyFactorSources(factors, {}, factorPublications), 'f-c-el-dk').value).toBe(0.01347)
+  })
+
+  it('gives 2026 from DESNZ 2026 and the 2026 Danish grid mix', () => {
+    const out = applyFactorSources(factors, {}, factorPublications)
+    expect(byId(out, 'f-c-el-dk-2026').value).toBe(0.01145)
+    expect(byId(out, 'f-c-el-dk-2026').value).toBe(byId(factors, 'f-c-el-dk-2026').value)
+  })
+
+  it('follows the source chosen for the Danish grid mix', () => {
+    const out = applyFactorSources(factors, {
+      'f-s2-el-dk-2025': { kind: 'publication', publicationId: ens },
+      'f-s2-el-dk-2026': { kind: 'publication', publicationId: ens },
+    }, factorPublications)
+    expect(byId(out, 'f-c-el-dk').value).toBe(0.01708)
+    expect(byId(out, 'f-c-el-dk-2026').value).toBe(0.01426)
+    expect(byId(out, 'f-c-el-dk-2026').source).toContain('Energistyrelsen')
+  })
+
+  it('is pending while its grid factor has no value', () => {
+    const out = applyFactorSources(factors.map((f) => (f.id === 'f-s2-el-dk-2026' ? { ...f, value: null } : f)), {}, factorPublications)
+    expect(byId(out, 'f-c-el-dk-2026').value).toBeNull()
+  })
+
+  it('uses a value chosen for the derived factor itself instead', () => {
+    const out = applyFactorSources(factors, { 'f-c-el-dk-2026': { kind: 'manual', value: 0.012, source: 'Egen måling', date: '' } }, factorPublications)
+    expect(byId(out, 'f-c-el-dk-2026').value).toBe(0.012)
   })
 })
