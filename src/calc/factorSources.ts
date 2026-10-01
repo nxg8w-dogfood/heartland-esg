@@ -4,6 +4,7 @@
 
 import type { Factor } from '../data/factors'
 import type { FactorPublication } from '../data/factorPublications'
+import { derivedFactors, roundDerived } from '../data/derivedFactors'
 
 export type FactorSourceChoice =
   | { kind: 'builtin' }
@@ -55,8 +56,33 @@ export function sourceOptions(factor: Factor, publications: readonly FactorPubli
   ]
 }
 
-/** The factor table with each factor's value and source taken from its chosen source. */
+/**
+ * The factor table with each factor's value and source taken from its chosen source. Derived
+ * factors (src/data/derivedFactors.ts) are then recalculated from the chosen values, unless a
+ * source was chosen for the derived factor itself.
+ */
 export function applyFactorSources(
+  base: readonly Factor[],
+  sources: FactorSources,
+  publications: readonly FactorPublication[],
+): Factor[] {
+  const chosen = chooseSources(base, sources, publications)
+  return chosen.map((f) => {
+    const d = derivedFactors.find((x) => x.id === f.id)
+    const own = sources[f.id]
+    if (!d || (own && own.kind !== 'builtin')) return f
+    const grid = chosen.find((x) => x.id === d.gridId)
+    if (!grid) return f
+    return {
+      ...f,
+      value: grid.value === null ? null : roundDerived(d.kWhPerKm * grid.value),
+      source: `Afledt: ${d.basis} × ${grid.source}`,
+      reference: `${d.kWhPerKm.toFixed(4).replace('.', ',')} kWh/km × ${grid.name} ${grid.validFrom?.slice(0, 4) ?? ''}`.trim(),
+    }
+  })
+}
+
+function chooseSources(
   base: readonly Factor[],
   sources: FactorSources,
   publications: readonly FactorPublication[],

@@ -40,13 +40,13 @@ store is **not** the product's storage. It's removed when the Dataverse store is
 These use the publisher prefix **`hlesg`**, decided by @mortengad on 2026-09-30, so table
 names start with `hlesg_`. All tables are user or team owned.
 
-**There is one climate account per environment** (decided by @mortengad on 2026-09-30). The
+**Replaced by ADR 0006 on 2026-10-01:** an environment now holds a group of companies, each with its own account. What follows was the original decision. **There was one climate account per environment** (decided by @mortengad on 2026-09-30). The
 account's settings are a single row, and the other tables don't need a lookup to an account.
 Another company or subsidiary gets its own environment, with its own data and access.
 
 | Table | Holds | Notes |
 | --- | --- | --- |
-| `hlesg_klimaregnskab` | The account's settings: name, period, category 3 parameters | Exactly one row per environment |
+| `hlesg_klimaregnskab` | The account's settings: name, period, category 3 parameters | One row per company (ADR 0006); originally one per environment |
 | `hlesg_linje` | Every line with quantity or amount: Scope 1, Scope 2 (with location), categories 1, 5 and 6 | One table, as in the original's `linjer`. Columns: scope, category, type (group), date, end date, quantity, amount, currency, factor id, custom factor, description |
 | `hlesg_lokation` | Scope 2 locations: market instrument, heating factor | |
 | `hlesg_pendling` | Commuting surveys | The answers per mode (9 modes × 5 numbers) go in one JSON column |
