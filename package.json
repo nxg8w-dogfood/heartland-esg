@@ -21,7 +21,7 @@
     "read-excel-file": "^9.3.10"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
+    "@eslint/js": "^10.0.1",
     "@microsoft/power-apps-cli": "1.2.0",
     "@microsoft/power-apps-vite": "^1.0.2",
     "@types/node": "^24.10.1",
