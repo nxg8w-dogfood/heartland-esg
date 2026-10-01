@@ -67,7 +67,7 @@ export function applyFactorSources(
     if (choice.kind === 'publication') {
       const p = publications.find((x) => x.id === choice.publicationId)
       if (!p || !(f.id in p.values)) return f
-      return { ...f, value: p.values[f.id], source: p.name, reference: p.url }
+      return { ...f, value: p.values[f.id], source: p.name, reference: p.rows?.[f.id] ? `${p.rows[f.id]} (${p.url})` : p.url }
     }
     if (choice.kind === 'manual') return { ...f, value: choice.value, source: choice.source || 'Indtastet', reference: choice.date ? `Indtastet, kildens dato ${choice.date}` : 'Indtastet' }
     return { ...f, value: choice.value, source: apiProviders.find((a) => a.id === choice.providerId)?.name ?? choice.providerId, reference: `${choice.request}, hentet ${choice.fetchedAt}` }

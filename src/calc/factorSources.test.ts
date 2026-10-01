@@ -57,3 +57,27 @@ describe('applyFactorSources', () => {
     out.forEach((f, i) => { if (f.id !== 'f-s2-el-dk-2025') expect(f).toBe(factors[i]) })
   })
 })
+
+describe('publications', () => {
+  it('only name factors that exist, with finite values', () => {
+    for (const p of factorPublications) {
+      for (const [id, v] of Object.entries(p.values)) {
+        expect(factors.some((f) => f.id === id), `${p.id}: ${id}`).toBe(true)
+        expect(Number.isFinite(v)).toBe(true)
+      }
+    }
+  })
+
+  it('say where in the publication each value is, when they give rows', () => {
+    for (const p of factorPublications) if (p.rows) expect(Object.keys(p.rows).sort()).toEqual(Object.keys(p.values).sort())
+  })
+
+  it('DESNZ 2026 changes values from 2025 only where the official file does', () => {
+    const desnz = factorPublications.find((p) => p.id === 'desnz-ghg-conversion-factors-2026')!
+    expect(desnz.values['f-s1-diesel']).toBe(2.58354)
+    expect(desnz.values['f-c-el-beis']).toBe(0.02951)
+    expect(desnz.values['f-t-fly-kort']).toBe(byId(factors, 'f-t-fly-kort').value)
+    const out = applyFactorSources(factors, { 'f-w-plast-forbr': { kind: 'publication', publicationId: desnz.id } }, factorPublications)
+    expect(byId(out, 'f-w-plast-forbr').reference).toContain('Combustion')
+  })
+})

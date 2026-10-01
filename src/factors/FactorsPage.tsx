@@ -28,6 +28,32 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
         gemmes med kilde og dato. Faktorer uden værdi må ikke gættes.
       </p>
 
+      <section aria-labelledby="publications">
+        <h2 id="publications">Publikationer</h2>
+        <p className="muted">Vælg en publikation for den enkelte faktor nedenfor, eller for alle de faktorer, den indeholder.</p>
+        <ul className="plain publications">
+          {publications.map((p) => {
+            const ids = Object.keys(p.values)
+            const using = ids.filter((id) => { const c = sources[id]; return c?.kind === 'publication' && c.publicationId === p.id }).length
+            return (
+              <li key={p.id}>
+                <strong>{p.name}</strong> <span className="muted">({p.publisher}, udgivet {formatDate(p.published)}, kontrolleret {formatDate(p.checked)})</span>
+                <p>{p.note} <a href={p.url} target="_blank" rel="noreferrer">Kilde</a></p>
+                <p className="muted" role="status">Bruges for {using} af {ids.length} faktorer.</p>
+                <div className="databar-actions">
+                  <button type="button" className="secondary" disabled={using === ids.length} onClick={() => ids.forEach((id) => onChoose(id, { kind: 'publication', publicationId: p.id }))}>
+                    Brug for alle {ids.length}
+                  </button>
+                  <button type="button" className="secondary" disabled={using === 0} onClick={() => ids.forEach((id) => { const c = sources[id]; if (c?.kind === 'publication' && c.publicationId === p.id) onChoose(id, { kind: 'builtin' }) })}>
+                    Tilbage til indbygget tabel
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      </section>
+
       <section aria-labelledby="api-sources">
         <h2 id="api-sources">API-kilder</h2>
         <ul>
@@ -87,7 +113,7 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
                       </td>
                       <td>{f.unit}</td>
                       <td>
-                        <SourcePicker factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
+                        <SourcePicker key={optionKey(sources[f.id])} factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
                         <span className="sub">{applied.source}{applied.reference && applied.reference !== f.reference ? ` · ${applied.reference}` : ''}</span>
                       </td>
                       <td>{validity(f)}</td>

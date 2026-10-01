@@ -457,3 +457,7 @@ button.link:disabled {
   grid-column: 2;
   justify-self: start;
 }
+
+.publications > li + li {
+  margin-top: 1rem;
+}
