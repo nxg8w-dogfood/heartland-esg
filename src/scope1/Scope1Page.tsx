@@ -1,9 +1,11 @@
-import { useId, useMemo, useState, type FormEvent } from 'react'
-import { factors } from '../data/factors'
+import { useId, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
+import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { parseNumber } from '../calc/parseNumber'
 import { scope1Groups, scope1Summary, type Scope1GroupId, type Scope1Line } from '../calc/scope1'
 import { formatDate, formatFactor, formatNumber } from '../format'
+import { newId } from '../newId'
+import { Tile } from '../ui'
 
 const exampleLines: Omit<Scope1Line, 'id'>[] = [
   { group: 's1-diesel', date: '2025-01-01', dateTo: '2025-03-31', quantity: 1850, description: 'Brændstofkort, Q1' },
@@ -13,28 +15,24 @@ const exampleLines: Omit<Scope1Line, 'id'>[] = [
   { group: 's1-koel-andet', date: '2025-09-10', quantity: 0.8, description: 'Serverrum, type ukendt' },
 ]
 
-let nextId = 1
-const newId = () => String(nextId++)
+type Props = {
+  period: Period
+  factors: readonly Factor[]
+  lines: Scope1Line[]
+  setLines: Dispatch<SetStateAction<Scope1Line[]>>
+}
 
-export function Scope1Page() {
-  const [period, setPeriod] = useState<Period>({ start: '2025-01-01', end: '2025-12-31' })
-  const [lines, setLines] = useState<Scope1Line[]>([])
-  const summary = useMemo(() => scope1Summary(lines, factors, period), [lines, period])
+export function Scope1Page({ period, factors, lines, setLines }: Props) {
+  const summary = useMemo(() => scope1Summary(lines, factors, period), [lines, factors, period])
   const hiddenCount = lines.length - summary.lines.length
 
   return (
-    <main>
+    <>
       <h1>Scope 1 — direkte udledninger</h1>
       <p className="lead">
         Direkte udledninger fra egne eller kontrollerede kilder. Formel: aktivitetsdata ×
         emissionsfaktor ÷ 1.000 = tCO2e. Faktoren vælges efter linjens dato.
       </p>
-      <p className="notice" role="note">
-        Linjerne gemmes ikke endnu og forsvinder, når siden lukkes. Lagring i Dataverse kommer
-        senere.
-      </p>
-
-      <PeriodPicker period={period} onChange={setPeriod} />
 
       <section aria-labelledby="totals-heading">
         <h2 id="totals-heading" className="visually-hidden">Totaler</h2>
@@ -143,46 +141,9 @@ export function Scope1Page() {
 
       <footer className="muted">
         Faktorer: BEIS GHG Conversion Factors 2025. “Andet kølemiddel” kræver en verificeret
-        GWP-værdi — angiv den som egen faktor på linjen.
+        GWP-værdi — angiv den under Faktorer, eller som egen faktor på linjen.
       </footer>
-    </main>
-  )
-}
-
-function Tile({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
-  return (
-    <div className={accent ? 'tile accent' : 'tile'}>
-      <dt>{label}</dt>
-      <dd>
-        {formatNumber(value, 3)} <span className="unit">tCO2e</span>
-      </dd>
-    </div>
-  )
-}
-
-function PeriodPicker({ period, onChange }: { period: Period; onChange: (p: Period) => void }) {
-  const id = useId()
-  const invalid = period.end < period.start
-  return (
-    <fieldset className="period">
-      <legend>Periode</legend>
-      <label htmlFor={`${id}-start`}>Fra</label>
-      <input id={`${id}-start`} type="date" value={period.start} onChange={(e) => onChange({ ...period, start: e.target.value })} />
-      <label htmlFor={`${id}-end`}>Til</label>
-      <input
-        id={`${id}-end`}
-        type="date"
-        value={period.end}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? `${id}-err` : undefined}
-        onChange={(e) => onChange({ ...period, end: e.target.value })}
-      />
-      {invalid && (
-        <p id={`${id}-err`} className="error">
-          Slutdatoen ligger før startdatoen, så ingen linjer tæller med.
-        </p>
-      )}
-    </fieldset>
+    </>
   )
 }
 
