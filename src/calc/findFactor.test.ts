@@ -14,8 +14,8 @@ describe('findFactor', () => {
   })
 
   it("falls back to the family's last member when none is valid on the date", () => {
-    expect(findFactor(factors, 'f-s2-el-dk-2024', '2031-01-01')?.id).toBe('f-s2-el-dk-2025')
-    expect(findFactor(factors, 'f-s2-el-dk-2025', '2019-01-01')?.id).toBe('f-s2-el-dk-2025')
+    expect(findFactor(factors, 'f-s2-el-dk-2024', '2036-01-01')?.id).toBe('f-s2-el-dk-2035')
+    expect(findFactor(factors, 'f-s2-el-dk-2025', '2019-01-01')?.id).toBe('f-s2-el-dk-2035')
   })
 
   it('returns null for a missing or unknown id', () => {

@@ -51,13 +51,15 @@ Another company or subsidiary gets its own environment, with its own data and ac
 | `hlesg_lokation` | Scope 2 locations: market instrument, heating factor | |
 | `hlesg_pendling` | Commuting surveys | The answers per mode (9 modes × 5 numbers) go in one JSON column |
 | `hlesg_investering` | Category 15 holdings | |
-| `hlesg_faktorvaerdi` | Values entered for factors that ship blank (residual mix, local heating, …) | A separate table so auditing shows who entered which value, and when |
+| `hlesg_faktorkilde` | The chosen source per factor: built-in table, a publication, an API, or a value entered by hand with its source and date (`FactorSourceChoice` in `src/calc/factorSources.ts`) | A separate table so auditing shows who chose which source or value, and when |
 | `hlesg_relevans` | Relevance and justification per Scope 3 category | |
 | `hlesg_indekspunkt` | Price-index values per series and year, and base year per spend factor | |
 | `hlesg_import`, `hlesg_postering`, `hlesg_regel` | Ledger imports, postings (with the manual action as columns) and rules | Rule conditions go in a JSON column |
 
 The factor table itself stays in the code (`src/data/factors.ts`), versioned and reviewed like
-the rest of it. Only *entered* values are stored.
+the rest of it, and so do the official publications a factor can be taken from
+(`src/data/factorPublications.ts`). Only the *choice* of source is stored, plus the value itself
+when it was entered by hand or fetched from an API.
 
 ### 4. Security roles, enforced by Dataverse (proposed)
 
@@ -65,7 +67,7 @@ the rest of it. Only *entered* values are stored.
 | --- | --- |
 | **Klimaregnskab – Læser** | Read everything in the account |
 | **Klimaregnskab – Bidragyder** | Also create and change lines, surveys, investments and imports |
-| **Klimaregnskab – Ansvarlig** | Also enter factor values, change rules, relevance and index values, and delete imports |
+| **Klimaregnskab – Ansvarlig** | Also choose factor sources, change rules, relevance and index values, and delete imports |
 
 - Access is at **business-unit level**.
 - **Who holds which role (decided by @mortengad on 2026-09-30):**
@@ -73,7 +75,7 @@ the rest of it. Only *entered* values are stored.
   - ***Bidragyder* and *Læser*** are granted later to Dataverse teams linked to **Entra ID
     security groups**, so that access is managed in Entra, not per user. The groups don't exist
     yet.
-  - **Risk:** with a single *Ansvarlig*, only one person can reopen periods, enter factor values,
+  - **Risk:** with a single *Ansvarlig*, only one person can reopen periods, choose factor sources,
     change ledger rules or delete imports. A second *Ansvarlig* (a deputy) is recommended when
     the Entra groups are set up.
 - The app may hide what a role can't do, but that's presentation only. Every request is
@@ -105,7 +107,7 @@ the rest of it. Only *entered* values are stored.
 - **A new table, `hlesg_rapportering`,** records each reported period: the period, when it was
   reported and by whom, and an **immutable snapshot** of what was reported (all inputs and totals,
   as `AccountData` plus the calculated figures, as JSON). Blocking edits alone doesn't lock a
-  period's numbers, because account-wide settings also change them: entered factor values,
+  period's numbers, because account-wide settings also change them: chosen factor sources,
   category 3 parameters, relevance, ledger rules and price deflation. The snapshot is the record of
   the report; later changes to settings can't alter it.
 - **Enforced on the server by a Dataverse .NET plug-in** (pre-operation, on create, update and

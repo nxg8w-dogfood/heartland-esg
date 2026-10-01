@@ -46,7 +46,7 @@ export function DataBar({ storeLabel, central, status, message, account, onRepla
     }
     if (!window.confirm(`Erstat alle nuværende data med indholdet af ${file.name}? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.`)) return
     setImportError(null)
-    onReplace(parsed.account, `Backup indlæst fra ${file.name}.${parsed.dropped ? ` ${parsed.dropped} poster kunne ikke bruges og er udeladt.` : ''}`)
+    onReplace(parsed.account, `Backup indlæst fra ${file.name}.${parsed.dropped ? ` ${parsed.dropped} poster kunne ikke bruges og er udeladt.` : ''}${parsed.notes.map((n) => ` ${n}`).join('')}`)
   }
 
   const statusText =

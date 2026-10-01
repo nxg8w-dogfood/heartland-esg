@@ -12,11 +12,14 @@ import type { Location, Scope2Line } from '../calc/scope2'
 import { category1Groups, category5Groups, category6Groups, defaultCategory3Params, type Category3Params } from '../calc/scope3'
 import { noDeflation, type Deflation, type SpendLine } from '../calc/spend'
 import { factors } from '../data/factors'
+import { factorPublications } from '../data/factorPublications'
+import type { FactorSourceChoice, FactorSources } from '../calc/factorSources'
 import { emptyLedger, type LedgerState } from '../ledger/state'
 import { defaultLocation } from '../scope2/defaultLocation'
 import { defaultRelevance, type Relevance } from '../scope3/relevance'
 
-export const ACCOUNT_VERSION = 1
+/** 2: values entered for blank factors became per-factor source choices (factorSources). */
+export const ACCOUNT_VERSION = 2
 
 export type AccountData = {
   version: typeof ACCOUNT_VERSION
@@ -24,8 +27,8 @@ export type AccountData = {
   scope1Lines: Scope1Line[]
   locations: Location[]
   scope2Lines: Scope2Line[]
-  /** Values entered for factors that ship without one, by factor id */
-  enteredFactors: Record<string, number>
+  /** Where each factor's value comes from, by factor id; missing means the built-in table */
+  factorSources: FactorSources
   relevance: Relevance
   category3Params: Category3Params
   cat1Lines: SpendLine[]
@@ -44,7 +47,7 @@ export function emptyAccount(): AccountData {
     scope1Lines: [],
     locations: [defaultLocation()],
     scope2Lines: [],
-    enteredFactors: {},
+    factorSources: {},
     relevance: defaultRelevance(),
     category3Params: defaultCategory3Params(factors),
     cat1Lines: [],
@@ -58,7 +61,7 @@ export function emptyAccount(): AccountData {
 }
 
 export type LoadResult =
-  | { ok: true; account: AccountData; dropped: number }
+  | { ok: true; account: AccountData; dropped: number; notes: string[] }
   | { ok: false; error: string }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -71,9 +74,10 @@ const isIsoDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-
  */
 export function parseAccount(input: unknown): LoadResult {
   if (!isObject(input)) return { ok: false, error: 'Filen indeholder ikke et klimaregnskab.' }
-  if (input.version !== ACCOUNT_VERSION) {
+  if (input.version !== 1 && input.version !== ACCOUNT_VERSION) {
     return { ok: false, error: `Ukendt version (${String(input.version)}). Filen er fra en anden version af appen.` }
   }
+  const notes: string[] = []
   const base = emptyAccount()
   let dropped = 0
   const list = <T,>(value: unknown, keep: (item: Record<string, unknown>) => boolean = () => true): T[] => {
@@ -103,13 +107,22 @@ export function parseAccount(input: unknown): LoadResult {
       }))
     : {}
 
-  const entered = isObject(input.enteredFactors)
-    ? Object.fromEntries(Object.entries(input.enteredFactors).filter(([id, v]) => {
-        const keep = typeof v === 'number' && Number.isFinite(v) && factors.some((f) => f.id === id && f.value === null)
-        if (!keep) dropped++
-        return keep
-      })) as Record<string, number>
-    : {}
+  const factorSources: FactorSources = {}
+  if (input.version === 1 && isObject(input.enteredFactors)) {
+    // Version 1 stored values entered for blank factors. They become manual choices.
+    for (const [id, v] of Object.entries(input.enteredFactors)) {
+      if (typeof v !== 'number' || !Number.isFinite(v) || !factors.some((f) => f.id === id && f.value === null)) { dropped++; continue }
+      factorSources[id] = { kind: 'manual', value: v, source: 'Indtastet (fra en tidligere version)', date: '' }
+    }
+    if ('f-s2-el-residual' in factorSources) {
+      notes.push('Den tidligere indtastede residualmiks gælder nu kun linjer til og med 2024; 2025 og 2026 har hver deres faktor under Faktorer.')
+    }
+  } else if (isObject(input.factorSources)) {
+    for (const [id, c] of Object.entries(input.factorSources)) {
+      if (validChoice(id, c)) factorSources[id] = c
+      else dropped++
+    }
+  }
 
   const account: AccountData = {
     version: ACCOUNT_VERSION,
@@ -117,7 +130,7 @@ export function parseAccount(input: unknown): LoadResult {
     scope1Lines: list(input.scope1Lines, groupIn(scope1Groups)),
     locations,
     scope2Lines: list(input.scope2Lines, (l) => typeof l.locationId === 'string' && locationIds.has(l.locationId)),
-    enteredFactors: entered,
+    factorSources,
     relevance: isObject(input.relevance) ? { ...base.relevance, ...(input.relevance as Relevance) } : base.relevance,
     category3Params: isObject(input.category3Params) && typeof input.category3Params.gridLoss === 'number' && typeof input.category3Params.wttRatio === 'number'
       ? { gridLoss: input.category3Params.gridLoss, wttRatio: input.category3Params.wttRatio }
@@ -137,5 +150,18 @@ export function parseAccount(input: unknown): LoadResult {
       manual: manual as LedgerState['manual'],
     },
   }
-  return { ok: true, account, dropped }
+  return { ok: true, account, dropped, notes }
+}
+
+/** A stored choice is used only if it still makes sense for a factor that still exists. */
+function validChoice(id: string, c: unknown): c is FactorSourceChoice {
+  if (!isObject(c) || !factors.some((f) => f.id === id)) return false
+  const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+  switch (c.kind) {
+    case 'builtin': return true
+    case 'publication': return factorPublications.some((p) => p.id === c.publicationId && id in p.values)
+    case 'manual': return finite(c.value) && typeof c.source === 'string'
+    case 'api': return finite(c.value) && typeof c.providerId === 'string' && typeof c.fetchedAt === 'string'
+    default: return false
+  }
 }

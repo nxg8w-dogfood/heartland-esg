@@ -8,6 +8,8 @@ import type { Period } from './calc/dates'
 import type { Scope1Line } from './calc/scope1'
 import type { Location, Scope2Line } from './calc/scope2'
 import type { Category3Params } from './calc/scope3'
+import { applyFactorSources, type FactorSources } from './calc/factorSources'
+import { factorPublications } from './data/factorPublications'
 import { factors as baseFactors } from './data/factors'
 import { FactorsPage } from './factors/FactorsPage'
 import { LedgerPage } from './ledger/LedgerPage'
@@ -53,7 +55,7 @@ function App() {
         setLoaded({
           account: result.account,
           generation: 0,
-          message: result.dropped ? `${result.dropped} gemte poster kunne ikke bruges og er udeladt.` : null,
+          message: [result.dropped ? `${result.dropped} gemte poster kunne ikke bruges og er udeladt.` : '', ...result.notes].filter(Boolean).join(' ') || null,
         })
       } else setLoaded({ account: emptyAccount(), generation: 0, message: result.error })
     })
@@ -78,8 +80,8 @@ function Workspace({ initial, initialMessage, onReplace }: { initial: AccountDat
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
   const [locations, setLocations] = useState<Location[]>(initial.locations)
   const [scope2Lines, setScope2Lines] = useState<Scope2Line[]>(initial.scope2Lines)
-  // Values entered for factors that ship without one (e.g. Energinet's residual mix).
-  const [entered, setEntered] = useState<Record<string, number>>(initial.enteredFactors)
+  // Where each factor's value comes from: built-in, a publication, an API or entered by hand.
+  const [factorSources, setFactorSources] = useState<FactorSources>(initial.factorSources)
   const [relevance, setRelevance] = useState<Relevance>(initial.relevance)
   const [category3Params, setCategory3Params] = useState<Category3Params>(initial.category3Params)
   const [cat5Lines, setCat5Lines] = useState<ActivityLine[]>(initial.cat5Lines)
@@ -94,15 +96,12 @@ function Workspace({ initial, initialMessage, onReplace }: { initial: AccountDat
     return ledgerSpendLines(ledger.postings.map((p) => classify(p, ledger.rules, manual)), 1)
   }, [ledger])
 
-  const factors = useMemo(
-    () => baseFactors.map((f) => (f.value === null && f.id in entered ? { ...f, value: entered[f.id] } : f)),
-    [entered],
-  )
+  const factors = useMemo(() => applyFactorSources(baseFactors, factorSources, factorPublications), [factorSources])
 
   const account: AccountData = useMemo(() => ({
-    version: ACCOUNT_VERSION, period, scope1Lines, locations, scope2Lines, enteredFactors: entered, relevance, category3Params,
+    version: ACCOUNT_VERSION, period, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
     cat1Lines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger,
-  }), [period, scope1Lines, locations, scope2Lines, entered, relevance, category3Params, cat1Lines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
+  }), [period, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
 
   // Autosave half a second after the last change. The account as loaded isn't saved again, so
   // unreadable saved data is only replaced once someone actually changes something. Each part
@@ -202,12 +201,14 @@ function Workspace({ initial, initialMessage, onReplace }: { initial: AccountDat
         {page === 'faktorer' && (
           <FactorsPage
             base={baseFactors}
-            entered={entered}
-            onEnter={(id, value) =>
-              setEntered((e) => {
-                const next = { ...e }
-                if (value === null) delete next[id]
-                else next[id] = value
+            factors={factors}
+            publications={factorPublications}
+            sources={factorSources}
+            onChoose={(id, choice) =>
+              setFactorSources((s) => {
+                const next = { ...s }
+                if (choice.kind === 'builtin') delete next[id]
+                else next[id] = choice
                 return next
               })
             }
