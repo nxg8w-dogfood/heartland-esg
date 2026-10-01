@@ -295,6 +295,7 @@ footer {
 
 .app-header ul {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
   list-style: none;
   margin: 0;
@@ -303,6 +304,7 @@ footer {
 
 .app-header a {
   display: inline-block;
+  white-space: nowrap;
   padding: 0.4rem 0.8rem;
   border-radius: 4px;
   color: var(--fg);
@@ -460,4 +462,37 @@ button.link:disabled {
 
 .publications > li + li {
   margin-top: 1rem;
+}
+
+.company-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.company-context {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+}
+
+.company-editor {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.ownership input.year {
+  width: 5.5rem;
+}
+
+.ownership input.pct {
+  width: 5rem;
+}
+
+.add-company {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
 }

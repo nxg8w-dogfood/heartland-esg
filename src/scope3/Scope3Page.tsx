@@ -9,6 +9,7 @@ import type { Deflation, SpendLine } from '../calc/spend'
 import type { LedgerSpendLine } from '../calc/ledger'
 import { currencyRates } from '../data/currencies'
 import type { Scope1Line } from '../calc/scope1'
+import { includedScope3Total } from '../calc/accountTotals'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
 import { category1, category3, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
 import { ActivityLinesSection } from '../activity/ActivityLinesSection'
@@ -73,7 +74,7 @@ export function Scope3Page(props: Props) {
   /** Categories calculated so far, by number. The rest are listed but not calculated yet. */
   const calculated: Record<number, number> = { 1: cat1.total, 3: cat3.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
   const isIncluded = (nr: number) => relevance[nr]?.relevant ?? false
-  const total = Object.entries(calculated).reduce((t, [nr, v]) => (isIncluded(Number(nr)) ? t + v : t), 0)
+  const total = includedScope3Total(calculated, relevance)
   const pendingRelevant = scope3Categories.filter((c) => isIncluded(c.nr) && !(c.nr in calculated))
   const excludedNote = (nr: number) => (isIncluded(nr) ? undefined : 'Markeret ikke relevant — tæller ikke med')
 
