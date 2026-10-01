@@ -4,7 +4,67 @@ A tool used to measure co2 emissions on a company
 
 ## Running it
 
-_How to run this locally, and how to deploy it. Fill this in before the first pull request._
+Heartland ESG is being rebuilt as a [Power Apps code app](https://learn.microsoft.com/power-apps/developer/code-apps/overview):
+React and TypeScript built with Vite, with Dataverse behind it. Why is in
+[docs/adr/0001](docs/adr/0001-rebuild-as-power-apps-code-app.md).
+
+### Prerequisites
+
+- Node.js 24 (LTS) and npm
+- Git
+
+### Run it locally
+
+```bash
+npm ci
+npm run dev
+```
+
+Vite prints a local URL. This runs the UI on its own, outside Power Platform, which is
+enough for UI work and for the calculation engine in `src/calc/`.
+
+### Check your change
+
+These are the same steps CI runs on every pull request:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
+Use `npm run test:watch` to rerun tests while you work.
+
+### Run it inside Power Platform
+
+This needs a Power Platform environment with code apps enabled, and the
+[Power Apps CLI](https://learn.microsoft.com/power-apps/developer/code-apps/reference/cli):
+
+```bash
+npm install --global @microsoft/power-apps-cli
+pa app init --display-name "Heartland ESG" --environment-id <environment-id>
+pa app run
+```
+
+Open the URL labelled **Local Play** in the browser profile you use for the Power Platform
+tenant. `pa app init` writes `power.config.json`. The project's environments haven't been
+set up yet, so that file isn't committed.
+
+### Deploy
+
+**Not automated yet.** Deploys will run from a GitHub Actions workflow, one GitHub
+environment per Power Platform environment, publishing with `pa app push` under a service
+principal whose credentials live in GitHub environment secrets. That workflow waits on the
+environments and the service principal being created. Until then, don't deploy from a laptop.
+
+### Layout
+
+| Path | What it is |
+| --- | --- |
+| `src/calc/` | Emission calculations as plain TypeScript, with tests next to them. No UI, no Power Platform dependencies. |
+| `src/App.tsx` | The app shell. |
+| `docs/adr/` | Architecture decisions. |
+| `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |
 
 ## Working here
 
