@@ -162,3 +162,12 @@ describe('category7', () => {
     expect(category7([], factors, year2025)).toMatchObject({ surveys: [], total: 0, duplicateYears: [] })
   })
 })
+
+describe('the DK-adjusted electric car by survey year', () => {
+  it('uses the 2026 factor for a 2026 survey', () => {
+    const year2026 = { start: '2026-01-01', end: '2026-12-31' }
+    const r = surveyResult(survey({ date: '2026-03-01', modes: { 'k7-el': { respondents: 10, distanceKm: 20, officeDaysPerWeek: 4, factorId: 'f-c-el-dk' } } }), factors, year2026)
+    const r25 = surveyResult(survey({ modes: { 'k7-el': { respondents: 10, distanceKm: 20, officeDaysPerWeek: 4, factorId: 'f-c-el-dk' } } }), factors, year2025)
+    expect(r.total / r25.total).toBeCloseTo(0.01145 / 0.01347, 12)
+  })
+})
