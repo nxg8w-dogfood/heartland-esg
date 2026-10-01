@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { ActivityLine } from './calc/activity'
+import type { Survey } from './calc/commuting'
+import type { Investment } from './calc/investments'
+import { noDeflation, type Deflation, type SpendLine } from './calc/spend'
 import type { Period } from './calc/dates'
 import type { Scope1Line } from './calc/scope1'
 import type { Location, Scope2Line } from './calc/scope2'
+import { defaultCategory3Params, type Category3Params } from './calc/scope3'
 import { factors as baseFactors } from './data/factors'
 import { FactorsPage } from './factors/FactorsPage'
 import { Scope1Page } from './scope1/Scope1Page'
 import { Scope2Page } from './scope2/Scope2Page'
 import { defaultLocation } from './scope2/defaultLocation'
+import { Scope3Page } from './scope3/Scope3Page'
+import { defaultRelevance, type Relevance } from './scope3/relevance'
 import { PeriodPicker } from './ui'
 
 const pages = [
   { id: 'scope1', label: 'Scope 1' },
   { id: 'scope2', label: 'Scope 2' },
+  { id: 'scope3', label: 'Scope 3' },
   { id: 'faktorer', label: 'Faktorer' },
 ] as const
 type PageId = (typeof pages)[number]['id']
@@ -29,6 +37,14 @@ function App() {
   const [scope2Lines, setScope2Lines] = useState<Scope2Line[]>([])
   // Values entered for factors that ship without one (e.g. Energinet's residual mix).
   const [entered, setEntered] = useState<Record<string, number>>({})
+  const [relevance, setRelevance] = useState<Relevance>(defaultRelevance)
+  const [category3Params, setCategory3Params] = useState<Category3Params>(() => defaultCategory3Params(baseFactors))
+  const [cat5Lines, setCat5Lines] = useState<ActivityLine[]>([])
+  const [cat6Lines, setCat6Lines] = useState<ActivityLine[]>([])
+  const [surveys, setSurveys] = useState<Survey[]>([])
+  const [investments, setInvestments] = useState<Investment[]>([])
+  const [cat1Lines, setCat1Lines] = useState<SpendLine[]>([])
+  const [deflation, setDeflation] = useState<Deflation>(noDeflation)
 
   const factors = useMemo(
     () => baseFactors.map((f) => (f.value === null && f.id in entered ? { ...f, value: entered[f.id] } : f)),
@@ -71,6 +87,31 @@ function App() {
             setLocations={setLocations}
             lines={scope2Lines}
             setLines={setScope2Lines}
+          />
+        )}
+        {page === 'scope3' && (
+          <Scope3Page
+            period={period}
+            factors={factors}
+            scope1Lines={scope1Lines}
+            locations={locations}
+            scope2Lines={scope2Lines}
+            relevance={relevance}
+            setRelevance={setRelevance}
+            params={category3Params}
+            setParams={setCategory3Params}
+            cat5Lines={cat5Lines}
+            setCat5Lines={setCat5Lines}
+            cat6Lines={cat6Lines}
+            setCat6Lines={setCat6Lines}
+            surveys={surveys}
+            setSurveys={setSurveys}
+            investments={investments}
+            setInvestments={setInvestments}
+            cat1Lines={cat1Lines}
+            setCat1Lines={setCat1Lines}
+            deflation={deflation}
+            setDeflation={setDeflation}
           />
         )}
         {page === 'faktorer' && (

@@ -354,3 +354,34 @@ button.secondary {
 .value-input input {
   width: 8rem;
 }
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.check input {
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: auto;
+}
+
+input.reason {
+  width: 100%;
+  min-width: 16rem;
+}
+
+.params {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+}
+
+.value-input input {
+  max-width: 7rem;
+}

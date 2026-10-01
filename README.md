@@ -69,7 +69,7 @@ The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR
 | --- | --- |
 | `src/calc/` | Emission calculations as plain TypeScript, with tests next to them. No UI, no Power Platform dependencies. |
 | `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
-| `src/scope1/`, `src/scope2/`, `src/factors/` | The Scope 1, Scope 2 and factor screens. |
+| `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |
