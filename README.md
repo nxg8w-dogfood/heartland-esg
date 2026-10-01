@@ -85,3 +85,8 @@ Guardrails this project carries:
 - **Authorisation checked server-side** — Permissions are enforced in the backend. Hiding a button in the UI is presentation, never protection.
 - **License and ownership declared** — The repository states its licence and the owning team, so it is clear who maintains it and on what terms it may be reused.
 - **Architecture decisions recorded** — Significant technical decisions are written down as short ADRs in docs/adr/, including the options rejected and why.
+
+## Licence and ownership
+
+Proprietary, all rights reserved. Copyright © 2026 Heartland A/S. See `LICENSE`.
+Maintained by @mortengad (see `.github/CODEOWNERS`).
