@@ -63,7 +63,7 @@ export const factorPublications: readonly FactorPublication[] = [
     published: '2026-06-11',
     url: 'https://www.gov.uk/government/publications/greenhouse-gas-reporting-conversion-factors-2026',
     checked: '2026-10-01',
-    note: 'Flat file, revideret juli 2026 (ghg-conversion-factors-2026-flat-format-revised.xlsx), kolonnen kg CO2e. Hver faktor er knyttet til den række i 2025-filen, der gav den indbyggede værdi, og værdien er taget fra samme række i 2026. "Incineration with Energy Recovery" hedder "Combustion" i 2026. Gælder alle linjer for faktoren, når den er valgt, så vælg den til regnskaber for 2026.',
+    note: 'Flat file, revideret juli 2026 (ghg-conversion-factors-2026-flat-format-revised.xlsx), kolonnen kg CO2e. Hver faktor er knyttet til den række i 2025-filen, der gav den indbyggede værdi, og værdien er taget fra samme række i 2026. "Incineration with Energy Recovery" hedder "Combustion" i 2026, og "HGV (all diesel) > All HGVs" hedder "HGV (non-refrigerated, all diesel) > Average non-refrigerated HGVs". Gælder alle linjer for faktoren, når den er valgt, så vælg den til regnskaber for 2026.',
     values: {
       'f-s1-diesel': 2.58354,
       'f-s1-benzin': 2.075,
@@ -110,6 +110,10 @@ export const factorPublications: readonly FactorPublication[] = [
       'f-c-hybrid': 0.12961,
       'f-c-bus': 0.12552,
       'f-c-tog': 0.03092,
+      'f-fr-vare-diesel': 0.63511,
+      'f-fr-lastbil': 0.10356,
+      'f-fr-fly': 0.89939,
+      'f-fr-skib': 0.01612,
     },
     rows: {
       'f-s1-diesel': 'Scope 1 > Fuels > Liquid fuels > Diesel (average biofuel blend) > per litres',
@@ -157,6 +161,10 @@ export const factorPublications: readonly FactorPublication[] = [
       'f-c-hybrid': 'Scope 3 > Business travel- land > Cars (by size) > Average car > Hybrid > per km',
       'f-c-bus': 'Scope 3 > Business travel- land > Bus > Local bus (not London) > per passenger.km',
       'f-c-tog': 'Scope 3 > Business travel- land > Rail > National rail > per passenger.km',
+      'f-fr-vare-diesel': 'Scope 3 > Freighting goods > Vans > Average (up to 3.5 tonnes) > Diesel > per tonne.km',
+      'f-fr-lastbil': 'Scope 3 > Freighting goods > HGV (non-refrigerated, all diesel) > Average non-refrigerated HGVs > Average laden > per tonne.km',
+      'f-fr-fly': 'Scope 3 > Freighting goods > Freight flights > International, to/from non-UK > With RF > per tonne.km',
+      'f-fr-skib': 'Scope 3 > Freighting goods > Cargo ship > Container ship > Average > per tonne.km',
     },
   },
 ]
