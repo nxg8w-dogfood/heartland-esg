@@ -12,7 +12,7 @@ import { category15, type Category15 } from './investments'
 import { classify, ledgerSpendLines, type LedgerSpendLine } from './ledger'
 import { scope1Summary } from './scope1'
 import { scope2Summary } from './scope2'
-import { category1, category3, category5, category6, scope3Categories } from './scope3'
+import { category1, category3, category4, category5, category6, scope3Categories } from './scope3'
 
 /** Ledger postings tagged to category 1, as spend lines */
 export function ledgerLinesFor(ledger: LedgerState): LedgerSpendLine[] {
@@ -21,7 +21,7 @@ export function ledgerLinesFor(ledger: LedgerState): LedgerSpendLine[] {
 }
 
 /** The categories the app calculates, by number. The others are listed but not calculated. */
-export const calculatedCategories = [1, 3, 5, 6, 7, 15] as const
+export const calculatedCategories = [1, 3, 4, 5, 6, 7, 15] as const
 
 /** Scope 3 counts a category only when it's marked relevant. */
 export function includedScope3Total(byCategory: Record<number, number>, relevance: Relevance): number {
@@ -47,11 +47,12 @@ export function accountTotals(account: AccountData, factors: readonly Factor[], 
   const s2 = scope2Summary(account.locations, account.scope2Lines, factors, period)
   const cat1 = category1(account.cat1Lines, factors, currencyRates, account.deflation, period, ledgerLinesFor(account.ledger))
   const cat3 = category3(account.scope1Lines, s2, factors, period, account.category3Params)
+  const cat4 = category4(account.cat4Lines, account.cat4SpendLines, factors, currencyRates, account.deflation, period)
   const cat5 = category5(account.cat5Lines, factors, period)
   const cat6 = category6(account.cat6Lines, factors, period)
   const cat7 = category7(account.surveys, factors, period)
   const cat15 = category15(account.investments, currencyRates, period)
-  const scope3ByCategory: Record<number, number> = { 1: cat1.total, 3: cat3.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
+  const scope3ByCategory: Record<number, number> = { 1: cat1.total, 3: cat3.total, 4: cat4.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
   const relevant = (nr: number) => account.relevance[nr]?.relevant ?? false
 
   const issues: string[] = []
@@ -62,6 +63,7 @@ export function accountTotals(account: AccountData, factors: readonly Factor[], 
   if (s2.invalidCount) issues.push(`${s2.invalidCount} Scope 2-linjer har en værdi, der ikke er et tal`)
   if (relevant(1) && cat1.pendingCount) lines(cat1.pendingCount, 'kategori 1')
   if (relevant(3) && cat3.heatingPending) issues.push('Kategori 3 afventer distributionstabet for fjernvarme')
+  if (relevant(4) && cat4.pendingCount) lines(cat4.pendingCount, 'kategori 4')
   if (relevant(5) && cat5.pendingCount) lines(cat5.pendingCount, 'kategori 5')
   if (relevant(6) && cat6.pendingCount) lines(cat6.pendingCount, 'kategori 6')
   if (relevant(7) && cat7.yearsWithoutSurvey.length) issues.push(`Kategori 7 mangler en pendlerundersøgelse for ${cat7.yearsWithoutSurvey.join(', ')}`)

@@ -3,7 +3,7 @@ import type { Factor } from '../data/factors'
 import { currencyRates } from '../data/currencies'
 import { parseNumber } from '../calc/parseNumber'
 import { category1Groups, type Category1 } from '../calc/scope3'
-import type { Deflation, SpendLine } from '../calc/spend'
+import type { Deflation, SpendGroup, SpendLine } from '../calc/spend'
 import { formatDate, formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
 
@@ -150,9 +150,16 @@ export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflatio
   )
 }
 
-function AddSpendForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (line: Omit<SpendLine, 'id'>) => void }) {
+/** Adds a spend line of one of the given types. Shared with category 4's courier lines. */
+export function AddSpendForm({ defaultDate, onAdd, groups = category1Groups, label = 'Tilføj indkøb', groupLabel = 'Indkøbstype' }: {
+  defaultDate: string
+  onAdd: (line: Omit<SpendLine, 'id'>) => void
+  groups?: readonly SpendGroup[]
+  label?: string
+  groupLabel?: string
+}) {
   const id = useId()
-  const [group, setGroup] = useState(category1Groups[0].id)
+  const [group, setGroup] = useState(groups[0].id)
   const [date, setDate] = useState(defaultDate)
   const [dateTo, setDateTo] = useState('')
   const [amount, setAmount] = useState('')
@@ -179,11 +186,11 @@ function AddSpendForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (lin
   }
   const describedBy = (field: string) => (errors[field] ? `${id}-${field}-err` : undefined)
   return (
-    <form className="add-line" onSubmit={submit} noValidate aria-label="Tilføj indkøb">
+    <form className="add-line" onSubmit={submit} noValidate aria-label={label}>
       <div className="field">
-        <label htmlFor={`${id}-group`}>Indkøbstype</label>
+        <label htmlFor={`${id}-group`}>{groupLabel}</label>
         <select id={`${id}-group`} value={group} onChange={(e) => setGroup(e.target.value)}>
-          {category1Groups.map((g) => <option key={g.id} value={g.id}>{g.label}{g.excluded ? ' (ekskluderet)' : ''}</option>)}
+          {groups.map((g) => <option key={g.id} value={g.id}>{g.label}{g.excluded ? ' (ekskluderet)' : ''}</option>)}
         </select>
       </div>
       <div className="field">
@@ -216,7 +223,7 @@ function AddSpendForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (lin
         <input id={`${id}-desc`} value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="actions">
-        <button type="submit">Tilføj indkøb</button>
+        <button type="submit">{label}</button>
       </div>
     </form>
   )

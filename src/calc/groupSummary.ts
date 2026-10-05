@@ -106,7 +106,7 @@ export function dataYears(group: GroupData): number[] {
     if (Number.isInteger(y) && y > 1900 && y < 2200) years.add(y)
   }
   for (const { account: a } of group.companies) {
-    for (const l of [...a.scope1Lines, ...a.scope2Lines, ...a.cat1Lines, ...a.cat5Lines, ...a.cat6Lines]) {
+    for (const l of [...a.scope1Lines, ...a.scope2Lines, ...a.cat1Lines, ...a.cat4Lines, ...a.cat4SpendLines, ...a.cat5Lines, ...a.cat6Lines]) {
       addDate(l.date)
       addDate(l.dateTo)
     }

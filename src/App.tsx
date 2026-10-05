@@ -169,6 +169,8 @@ function Workspace({ page, companyName, initial, onChange }: { page: CompanyPage
   const [factorSources, setFactorSources] = useState<FactorSources>(initial.factorSources)
   const [relevance, setRelevance] = useState<Relevance>(initial.relevance)
   const [category3Params, setCategory3Params] = useState<Category3Params>(initial.category3Params)
+  const [cat4Lines, setCat4Lines] = useState<ActivityLine[]>(initial.cat4Lines)
+  const [cat4SpendLines, setCat4SpendLines] = useState<SpendLine[]>(initial.cat4SpendLines)
   const [cat5Lines, setCat5Lines] = useState<ActivityLine[]>(initial.cat5Lines)
   const [cat6Lines, setCat6Lines] = useState<ActivityLine[]>(initial.cat6Lines)
   const [surveys, setSurveys] = useState<Survey[]>(initial.surveys)
@@ -182,8 +184,8 @@ function Workspace({ page, companyName, initial, onChange }: { page: CompanyPage
 
   const account: AccountData = useMemo(() => ({
     version: ACCOUNT_VERSION, period, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
-    cat1Lines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger,
-  }), [period, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
+    cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger,
+  }), [period, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
 
   // Each part keeps its reference until changed, so comparing parts with what was last reported
   // is exact and cheap, and it holds even when React runs the effect twice in development.
@@ -221,6 +223,10 @@ function Workspace({ page, companyName, initial, onChange }: { page: CompanyPage
           setRelevance={setRelevance}
           params={category3Params}
           setParams={setCategory3Params}
+          cat4Lines={cat4Lines}
+          setCat4Lines={setCat4Lines}
+          cat4SpendLines={cat4SpendLines}
+          setCat4SpendLines={setCat4SpendLines}
           cat5Lines={cat5Lines}
           setCat5Lines={setCat5Lines}
           cat6Lines={cat6Lines}
