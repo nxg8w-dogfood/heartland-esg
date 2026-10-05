@@ -12,6 +12,10 @@ updates:
       # them together with that version, not ahead of it.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # typescript-eslint supports TypeScript below 6.1 only. Raise TypeScript's major
+      # version together with typescript-eslint, once it supports the new one.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
