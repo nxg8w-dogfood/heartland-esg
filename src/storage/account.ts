@@ -9,7 +9,7 @@ import type { Period } from '../calc/dates'
 import type { Investment } from '../calc/investments'
 import { scope1Groups, type Scope1Line } from '../calc/scope1'
 import type { Location, Scope2Line } from '../calc/scope2'
-import { category1Groups, category5Groups, category6Groups, defaultCategory3Params, type Category3Params } from '../calc/scope3'
+import { category1Groups, category4Groups, category4SpendGroups, category5Groups, category6Groups, defaultCategory3Params, type Category3Params } from '../calc/scope3'
 import { noDeflation, type Deflation, type SpendLine } from '../calc/spend'
 import { factors } from '../data/factors'
 import { factorPublications } from '../data/factorPublications'
@@ -32,6 +32,10 @@ export type AccountData = {
   relevance: Relevance
   category3Params: Category3Params
   cat1Lines: SpendLine[]
+  /** Category 4: freight in tonne-km */
+  cat4Lines: ActivityLine[]
+  /** Category 4: courier and parcels, by spend */
+  cat4SpendLines: SpendLine[]
   cat5Lines: ActivityLine[]
   cat6Lines: ActivityLine[]
   surveys: Survey[]
@@ -51,6 +55,8 @@ export function emptyAccount(): AccountData {
     relevance: defaultRelevance(),
     category3Params: defaultCategory3Params(factors),
     cat1Lines: [],
+    cat4Lines: [],
+    cat4SpendLines: [],
     cat5Lines: [],
     cat6Lines: [],
     surveys: [],
@@ -136,6 +142,8 @@ export function parseAccount(input: unknown): LoadResult {
       ? { gridLoss: input.category3Params.gridLoss, wttRatio: input.category3Params.wttRatio }
       : base.category3Params,
     cat1Lines: list(input.cat1Lines, groupIn(category1Groups)),
+    cat4Lines: list(input.cat4Lines, groupIn(category4Groups)),
+    cat4SpendLines: list(input.cat4SpendLines, groupIn(category4SpendGroups)),
     cat5Lines: list(input.cat5Lines, groupIn(category5Groups)),
     cat6Lines: list(input.cat6Lines, groupIn(category6Groups)),
     surveys: list(input.surveys, (s) => isObject(s.modes)),

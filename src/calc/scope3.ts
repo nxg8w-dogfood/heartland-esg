@@ -202,6 +202,59 @@ export function category5(lines: readonly ActivityLine[], factors: readonly Fact
   return activitySummary(lines, category5Groups, factors, period)
 }
 
+// Category 4, upstream transport: freight by tonne-km per transport mode, and courier and
+// parcels by spend, as in the original. The freight factors are DESNZ averages, because the
+// app doesn't record vehicle type, load or route.
+
+export const category4Groups: readonly ActivityGroup[] = [
+  { id: 'k4-vare-diesel', label: 'Varebil – diesel', unit: 'tonkm', factorId: 'f-fr-vare-diesel' },
+  { id: 'k4-lastbil', label: 'Lastbil (gennemsnit)', unit: 'tonkm', factorId: 'f-fr-lastbil' },
+  { id: 'k4-fragt-fly', label: 'Luftfragt', unit: 'tonkm', factorId: 'f-fr-fly' },
+  { id: 'k4-fragt-skib', label: 'Søfragt', unit: 'tonkm', factorId: 'f-fr-skib' },
+]
+
+/** Courier and parcel delivery is bought by price, not tonne-km, so it's spend-based. */
+export const category4SpendGroups: readonly SpendGroup[] = [
+  { id: 'k4-kurer', label: 'Kurér og pakkelevering', sector: 'Post and Telecommunication', factorId: 'f-exio-post' },
+]
+
+export type Category4 = {
+  freight: ActivitySummary
+  courier: SpendResult[]
+  freightT: number
+  courierT: number
+  total: number
+  pendingCount: number
+}
+
+/** Lines outside the period are left out, but not deleted. A line with an unknown group throws. */
+export function category4(
+  lines: readonly ActivityLine[],
+  spendLines: readonly SpendLine[],
+  factors: readonly Factor[],
+  rates: readonly CurrencyRate[],
+  deflation: Deflation,
+  period: Period,
+): Category4 {
+  const freight = activitySummary(lines, category4Groups, factors, period)
+  const courier = spendLines
+    .map((line) => {
+      const group = category4SpendGroups.find((g) => g.id === line.group)
+      if (!group) throw new Error(`Unknown group: ${line.group}`)
+      return spendLine(line, group, factors, rates, deflation, period)
+    })
+    .filter((r) => r.share > 0)
+  const courierT = courier.reduce((t, r) => t + r.tCO2e, 0)
+  return {
+    freight,
+    courier,
+    freightT: freight.total,
+    courierT,
+    total: freight.total + courierT,
+    pendingCount: freight.pendingCount + courier.filter((r) => r.pending).length,
+  }
+}
+
 // Category 1 is spend-based: each purchase type maps to an EXIOBASE sector, as in the original.
 // Most Danish EXIOBASE factors ship without a value ("afventer fuld EXIOBASE-upload"), so
 // those lines are pending until a verified value is entered under Faktorer.

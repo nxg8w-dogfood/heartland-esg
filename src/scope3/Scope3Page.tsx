@@ -11,8 +11,9 @@ import { currencyRates } from '../data/currencies'
 import type { Scope1Line } from '../calc/scope1'
 import { includedScope3Total } from '../calc/accountTotals'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
-import { category1, category3, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
+import { category1, category3, category4, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
 import { ActivityLinesSection } from '../activity/ActivityLinesSection'
+import { FreightSection } from './FreightSection'
 import { CommutingSection } from './CommutingSection'
 import { InvestmentsSection } from './InvestmentsSection'
 import { PurchasesSection } from './PurchasesSection'
@@ -45,6 +46,10 @@ type Props = {
   setRelevance: Dispatch<SetStateAction<Relevance>>
   params: Category3Params
   setParams: Dispatch<SetStateAction<Category3Params>>
+  cat4Lines: ActivityLine[]
+  setCat4Lines: Dispatch<SetStateAction<ActivityLine[]>>
+  cat4SpendLines: SpendLine[]
+  setCat4SpendLines: Dispatch<SetStateAction<SpendLine[]>>
   cat5Lines: ActivityLine[]
   setCat5Lines: Dispatch<SetStateAction<ActivityLine[]>>
   cat6Lines: ActivityLine[]
@@ -61,10 +66,13 @@ type Props = {
   ledgerLines: readonly LedgerSpendLine[]
 }
 
+const pendingNote = (n: number) => (n === 0 ? undefined : n === 1 ? '1 linje afventer faktor' : `${n} linjer afventer faktor`)
+
 export function Scope3Page(props: Props) {
-  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledgerLines } = props
+  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledgerLines } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
+  const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, currencyRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
   const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
@@ -72,7 +80,7 @@ export function Scope3Page(props: Props) {
   const cat1 = useMemo(() => category1(cat1Lines, factors, currencyRates, deflation, period, ledgerLines), [cat1Lines, factors, deflation, period, ledgerLines])
 
   /** Categories calculated so far, by number. The rest are listed but not calculated yet. */
-  const calculated: Record<number, number> = { 1: cat1.total, 3: cat3.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
+  const calculated: Record<number, number> = { 1: cat1.total, 3: cat3.total, 4: cat4.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
   const isIncluded = (nr: number) => relevance[nr]?.relevant ?? false
   const total = includedScope3Total(calculated, relevance)
   const pendingRelevant = scope3Categories.filter((c) => isIncluded(c.nr) && !(c.nr in calculated))
@@ -93,8 +101,9 @@ export function Scope3Page(props: Props) {
         <h2 id="s3-totals" className="visually-hidden">Totaler</h2>
         <dl className="tiles" aria-live="polite">
           <Tile label="Scope 3, beregnet indtil videre" value={total} accent />
-          <Tile label="1 — indkøb" value={cat1.total} note={excludedNote(1) ?? (cat1.pendingCount > 0 ? `${cat1.pendingCount} linjer afventer faktor` : undefined)} />
+          <Tile label="1 — indkøb" value={cat1.total} note={excludedNote(1) ?? pendingNote(cat1.pendingCount)} />
           <Tile label="3 — brændstof og energi" value={cat3.total} note={excludedNote(3)} />
+          <Tile label="4 — transport" value={cat4.total} note={excludedNote(4) ?? pendingNote(cat4.pendingCount)} />
           <Tile label="5 — affald" value={cat5.total} note={excludedNote(5)} />
           <Tile label="6 — forretningsrejser" value={cat6.total} note={excludedNote(6)} />
           <Tile label="7 — pendling" value={cat7.total} note={excludedNote(7)} />
@@ -113,6 +122,17 @@ export function Scope3Page(props: Props) {
       <PurchasesSection cat1={cat1} lines={cat1Lines} setLines={setCat1Lines} deflation={deflation} setDeflation={setDeflation} factors={factors} defaultDate={period.start} />
 
       <Category3Section cat3={cat3} params={params} setParams={setParams} />
+
+      <FreightSection
+        cat4={cat4}
+        lines={cat4Lines}
+        setLines={setCat4Lines}
+        spendLines={cat4SpendLines}
+        setSpendLines={setCat4SpendLines}
+        factors={factors}
+        defaultDate={period.start}
+        excludedNote={isIncluded(4) ? undefined : 'Kategori 4 er markeret ikke relevant nedenfor, så linjerne her tæller ikke med i Scope 3.'}
+      />
 
       <ActivityLinesSection
         title="Kategori 6 — forretningsrejser"
