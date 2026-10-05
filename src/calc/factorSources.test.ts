@@ -115,3 +115,12 @@ describe('the DK-adjusted electric car', () => {
     expect(byId(out, 'f-c-el-dk-2026').value).toBe(0.012)
   })
 })
+
+describe('freight factors (category 4)', () => {
+  it('ship with the DESNZ 2025 averages, and DESNZ 2026 can be chosen', () => {
+    expect(['f-fr-vare-diesel', 'f-fr-lastbil', 'f-fr-fly', 'f-fr-skib'].map((id) => byId(factors, id).value)).toEqual([0.6313, 0.10163, 0.89939, 0.01612])
+    const desnz = factorPublications.find((p) => p.id === 'desnz-ghg-conversion-factors-2026')!
+    expect(desnz.values['f-fr-lastbil']).toBe(0.10356)
+    expect(desnz.rows?.['f-fr-lastbil']).toContain('non-refrigerated')
+  })
+})
