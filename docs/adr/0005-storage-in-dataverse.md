@@ -1,7 +1,7 @@
 # 5. Storage in Dataverse: tables, security roles and an interim browser store
 
-- **Status:** Proposed. Accepted once the tech lead signs it off and the open questions below
-  are answered.
+- **Status:** Accepted by @mortengad (tech lead) on 2026-10-06. Section 3's "one climate
+  account per environment" is replaced by ADR 0006.
 - **Date:** 2026-09-30
 - **Proposed to:** @mortengad (tech lead)
 - **Decided so far:** the publisher prefix `hlesg`; one climate account per environment; 7-year retention, then archive; reported periods locked, and reopenable by *Ansvarlig* with a reason; @mortengad is *Ansvarlig* (all 2026-09-30)
@@ -35,7 +35,7 @@ centralt, og deles ikke med andre."** Backup export and import as JSON are there
 against lost browser data, and they'll also be the way to bring drafts into Dataverse. This
 store is **not** the product's storage. It's removed when the Dataverse store is in place.
 
-### 3. Tables (proposed)
+### 3. Tables
 
 These use the publisher prefix **`hlesg`**, decided by @mortengad on 2026-09-30, so table
 names start with `hlesg_`. All tables are user or team owned.
@@ -61,7 +61,7 @@ the rest of it, and so do the official publications a factor can be taken from
 (`src/data/factorPublications.ts`). Only the *choice* of source is stored, plus the value itself
 when it was entered by hand or fetched from an API.
 
-### 4. Security roles, enforced by Dataverse (proposed)
+### 4. Security roles, enforced by Dataverse
 
 | Role | Can |
 | --- | --- |
@@ -83,7 +83,7 @@ when it was entered by hand or fetched from an API.
 - **Auditing is on** for all `hlesg_` tables, so every change records who made it and when. This
   also covers the "a person made every change" trail that ADR 0002 needs for AI suggestions.
 
-### 5. Retention: 7 years (decided), and how (proposed)
+### 5. Retention: 7 years, and how
 
 @mortengad decided on 2026-09-30 that data is kept for **7 years**.
 - **The audit log** is set to retain entries for 7 years (2,557 days) *before go-live*. Dataverse
@@ -100,7 +100,7 @@ when it was entered by hand or fetched from an API.
     app's generated services. Viewing archived periods would need a separate read-only view,
     which isn't planned yet.
 
-### 6. Locking reported periods (decided), and how (proposed)
+### 6. Locking reported periods, and how
 
 @mortengad decided on 2026-09-30 that **reported periods are locked**.
 
@@ -127,7 +127,7 @@ when it was entered by hand or fetched from an API.
 - **The app** shows locked periods, disables editing there (presentation only), and warns when an
   account-wide setting is changed that the reported snapshot is kept as it was.
 
-### 7. Saving to Dataverse (proposed)
+### 7. Saving to Dataverse
 
 Per record, not per account: the app keeps what it loaded, and on save it sends only the
 records that were created, changed or deleted, with only the changed columns (as Microsoft's
