@@ -43,8 +43,14 @@ and unpacked into the repository as generated XML.
 - **Dates are date-only,** so a date never shifts with the user's time zone.
 - **Labels are written in the environment's base language,** read from the environment.
 - **Auditing is on** for every table (ADR 0005).
-- **Not yet in the schema:** security roles, business units, the `hlesg_rapportering` snapshot
-  table, and the locking plug-in (ADR 0005 section 6). They follow in their own pull requests.
+- **Security roles are code too** (`src/dataverse/roles.ts`, added 2026-10-06). The same script
+  creates them in the root business unit, adds them to the solution, and sets their `hlesg_`
+  privileges to exactly what the code says: it adds missing ones and removes ones the code no
+  longer grants. Unlike tables, the roles belong entirely to this app, so making them match is
+  safe. Privileges on other tables are left alone.
+- **Business units** are set up per company by `scripts/dataverse-company.ts` (ADR 0006).
+- **Not yet in the schema:** the `hlesg_rapportering` snapshot table and the locking plug-in
+  (ADR 0005 section 6). They follow in their own pull request.
 
 ## Options considered
 

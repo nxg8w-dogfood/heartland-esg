@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "dataverse:apply": "node scripts/dataverse-apply.ts"
+    "dataverse:apply": "node scripts/dataverse-apply.ts",
+    "dataverse:company": "node scripts/dataverse-company.ts"
   },
   "dependencies": {
     "@microsoft/power-apps": "^1.2.5",
