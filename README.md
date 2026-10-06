@@ -63,6 +63,20 @@ Each environment needs a one-time setup first (a Power Platform environment, a s
 principal and a GitHub environment). Until then its deploy run warns and deploys nothing.
 The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR 0003.
 
+### Dataverse tables
+
+The tables are defined in `src/dataverse/schema.ts` and created with a script (ADR 0007). It
+only creates what's missing and never changes or deletes anything. Sign in to the environment's
+tenant with the Azure CLI, check what it would do, then apply:
+
+```bash
+az login --tenant <tenant-id>
+npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com --dry-run
+npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com
+```
+
+You need the System Customizer or System Administrator role in the environment.
+
 ### Layout
 
 | Path | What it is |
@@ -72,6 +86,7 @@ The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
 | `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
 | `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
+| `src/dataverse/`, `scripts/dataverse-apply.ts` | The Dataverse tables as code, and the script that creates them in an environment (ADR 0007). |
 | `src/storage/` | Saving and loading the group and each company's account (`GroupStore`). For now a browser draft store with backup export and import; Dataverse per ADR 0005 and 0006. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
