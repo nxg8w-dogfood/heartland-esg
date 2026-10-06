@@ -78,7 +78,7 @@ describe('browserStore', () => {
     const g = group()
     await store.save(g)
     expect(await store.load()).toEqual({ ok: true, group: g, dropped: 0, notes: [] })
-    await store.clear()
+    await store.clear!()
     expect(await store.load()).toBeNull()
   })
 
