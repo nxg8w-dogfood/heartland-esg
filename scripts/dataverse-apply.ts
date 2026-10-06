@@ -16,7 +16,7 @@ import { PUBLISHER, SOLUTION, tables, type Column } from '../src/dataverse/schem
 import { client, environment, type Json } from './lib/dataverse.ts'
 
 const { org, dryRun } = environment('npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com [--dry-run]')
-const { call, get, values, createdId, q } = client(org, SOLUTION.uniqueName)
+const { call, get, find, values, createdId, q } = client(org, SOLUTION.uniqueName)
 
 const done: string[] = []
 const would: string[] = []
@@ -72,13 +72,13 @@ async function publisherAndSolution() {
 async function schema(lcid: number) {
   // Tables first, so every lookup's target exists before the lookups are created.
   for (const t of tables) {
-    if ((await get(`EntityDefinitions(LogicalName='${t.name}')?$select=LogicalName`)).status === 404) {
+    if ((await find(`EntityDefinitions(LogicalName='${t.name}')?$select=LogicalName`)).status === 404) {
       await change(`table ${t.name}`, 'POST', 'EntityDefinitions', entity(t, lcid))
     }
   }
   for (const t of tables) {
     const existing = new Map<string, string>()
-    const r = await get(`EntityDefinitions(LogicalName='${t.name}')/Attributes?$select=LogicalName,AttributeType`)
+    const r = await find(`EntityDefinitions(LogicalName='${t.name}')/Attributes?$select=LogicalName,AttributeType`)
     if (r.status !== 404) for (const a of (r.json?.value as Json[]) ?? []) existing.set(String(a.LogicalName), String(a.AttributeType))
     for (const c of t.columns) {
       const type = existing.get(c.name)
@@ -125,7 +125,7 @@ async function securityRoles() {
     const roleId = String(role_.roleid)
 
     const current = new Map<string, string>()
-    const held = (await get(`roles(${roleId})/Microsoft.Dynamics.CRM.RetrieveRolePrivilegesRole()`)).json?.RolePrivileges as { PrivilegeName: string; PrivilegeId: string; Depth: string }[] | undefined
+    const held = (await get(`RetrieveRolePrivilegesRole(RoleId=@p)?@p=${roleId}`)).json?.RolePrivileges as { PrivilegeName: string; PrivilegeId: string; Depth: string }[] | undefined
     for (const p of held ?? []) if (p.PrivilegeName.includes('hlesg_')) current.set(p.PrivilegeName, p.Depth)
 
     const wanted = new Map<string, string>()

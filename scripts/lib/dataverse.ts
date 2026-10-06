@@ -26,7 +26,8 @@ export function client(org: string, solution?: string) {
   }
   const api = `${org}/api/data/v9.2`
 
-  async function call(method: string, path: string, body?: Json, inSolution = false): Promise<{ status: number; json: Json | null; headers: Headers }> {
+  /** A 404 is returned only when `missingOk` is set (to check whether something exists); otherwise it throws like any error. */
+  async function call(method: string, path: string, body?: Json, inSolution = false, missingOk = false): Promise<{ status: number; json: Json | null; headers: Headers }> {
     const res = await fetch(`${api}/${path}`, {
       method,
       headers: {
@@ -41,7 +42,7 @@ export function client(org: string, solution?: string) {
     })
     const text = await res.text()
     const json = text ? (JSON.parse(text) as Json) : null
-    if (!res.ok && res.status !== 404) {
+    if (!res.ok && !(missingOk && res.status === 404)) {
       const message = (json?.error as { message?: string } | undefined)?.message ?? text
       throw new Error(`${method} ${path} → ${res.status}: ${message}`)
     }
@@ -49,13 +50,15 @@ export function client(org: string, solution?: string) {
   }
 
   const get = (path: string) => call('GET', path)
+  /** GET where "not found" is an answer, not an error: status 404 means it doesn't exist. */
+  const find = (path: string) => call('GET', path, undefined, false, true)
   const values = async (path: string) => (((await get(path)).json?.value as Json[] | undefined) ?? [])
   /** The id of a record just created, from its OData-EntityId header */
   const createdId = (headers: Headers) => headers.get('OData-EntityId')?.match(/\(([0-9a-f-]{36})\)$/)?.[1] ?? null
   /** OData string literal: quotes doubled */
   const q = (s: string) => `'${s.replace(/'/g, "''")}'`
 
-  return { call, get, values, createdId, q }
+  return { call, get, find, values, createdId, q }
 }
 
 export type Client = ReturnType<typeof client>
