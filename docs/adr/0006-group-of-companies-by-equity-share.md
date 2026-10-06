@@ -73,6 +73,13 @@ roles:
 
 - **A business unit per company**, under a root business unit for the group. Each company's
   records are owned by teams in its business unit.
+  - **The root business unit stands for the group;** the parent company gets its own unit below
+    it like every other company (decided by @mortengad on 2026-10-06). The first is
+    *Heartland A/S*.
+  - **Each company's unit has an owner team,** *<company> – klimaregnskab*, which owns the
+    company record. Through the parental relationships (ADR 0007), assigning the company to the
+    team moves all its records with it.
+  - Set up with `npm run dataverse:company -- --url <environment> --name "<company>"`.
 - **A new table, `hlesg_virksomhed`,** holds each company's name and its ownership shares (or a
   child table `hlesg_ejerandel`). Every account table in ADR 0005 gets a lookup to it.
   `hlesg_klimaregnskab` becomes one row per company, not per environment.

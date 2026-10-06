@@ -66,12 +66,21 @@ when it was entered by hand or fetched from an API.
 | Role | Can |
 | --- | --- |
 | **Klimaregnskab – Læser** | Read everything in the account |
-| **Klimaregnskab – Bidragyder** | Also create and change lines, surveys, investments and imports |
-| **Klimaregnskab – Ansvarlig** | Also choose factor sources, change rules, relevance and index values, and delete imports |
+| **Klimaregnskab – Bidragyder** | Also create, change and delete lines, surveys and investments, and import and tag ledger postings |
+| **Klimaregnskab – Ansvarlig** | Also change the account's settings and locations, choose factor sources, change rules, relevance and index values, and delete imports |
 
+- **Decided by @mortengad on 2026-10-06:** *Bidragyder* may delete lines, surveys and
+  investments in their own company, to correct mistakes. Deleting a whole import stays with
+  *Ansvarlig*. Scope 2 locations are *Ansvarlig*'s, because a location's market instrument and
+  heating factor change the totals.
+- The exact privileges per table are code: `src/dataverse/roles.ts`, with tests, applied by
+  `npm run dataverse:apply` (ADR 0007).
+- Users also get Microsoft's **Basic User** role, for the platform privileges every app needs.
+  These roles add only the `hlesg_` tables.
 - Access is at **business-unit level**.
 - **Who holds which role (decided by @mortengad on 2026-09-30):**
-  - **@mortengad is *Ansvarlig*,** assigned directly to the user.
+  - **@mortengad is *Ansvarlig*,** assigned directly to the user, and also holds both group roles
+    from ADR 0006, *Koncern – Læser* and *Koncern – Ansvarlig* (decided 2026-10-06).
   - ***Bidragyder* and *Læser*** are granted later to Dataverse teams linked to **Entra ID
     security groups**, so that access is managed in Entra, not per user. The groups don't exist
     yet.
