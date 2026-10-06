@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "appId": "126b2600-5a37-45c5-b721-f6e67df7085b",
+  "appDisplayName": "Heartland ESG",
+  "region": "prod",
+  "appType": "CodeApp",
+  "environmentId": "39b84844-29ce-e97e-804e-95f54c709f53",
+  "description": "Klimaregnskab efter GHG-protokollen (Scope 1, 2 og 3)",
+  "buildPath": "./dist",
+  "buildEntryPoint": "index.html",
+  "localAppUrl": "http://localhost:3000",
+  "logoPath": "Default",
+  "connectionReferences": {},
+  "databaseReferences": {}
+}
