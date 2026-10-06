@@ -1,7 +1,7 @@
 # 6. A group of companies, consolidated by equity share
 
-- **Status:** Accepted for the app's model and the group summary; the Dataverse part (section 4)
-  is Proposed, like ADR 0005.
+- **Status:** Accepted. The app's model and the group summary on 2026-10-01; the Dataverse part
+  (section 4) by @mortengad on 2026-10-06, together with ADR 0005.
 - **Date:** 2026-10-01
 - **Decided by:** @mortengad (tech lead), 2026-10-01
 - **Changes:** ADR 0005's "one climate account per environment" (section 3)
@@ -66,7 +66,7 @@ The Koncern page shows, for a chosen period:
 Factor sources are chosen per company. So the summary lists every factor where the companies
 chose different sources, because the group total then mixes bases.
 
-### 4. Access per company, enforced by Dataverse (proposed)
+### 4. Access per company, enforced by Dataverse
 
 **Each company sees only its own data** (decided 2026-10-01). This changes ADR 0005's tables and
 roles:
