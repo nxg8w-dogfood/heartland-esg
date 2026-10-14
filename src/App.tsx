@@ -47,6 +47,9 @@ type Loaded = { store: GroupStore; group: GroupData; generation: number; message
 /** Loads the saved group, then shows it. Replacing the group restarts everything below. */
 function App() {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
+  // Shared data that can't be reached or read: nothing is shown to edit, since nothing could be
+  // saved where it belongs (and the browser must never stand in for Dataverse).
+  const [fatal, setFatal] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -56,7 +59,9 @@ function App() {
       try {
         result = await store.load()
       } catch (e) {
-        result = { ok: false as const, error: `Klimaregnskabet kunne ikke indlæses fra ${store.label}: ${e instanceof Error ? e.message : String(e)}` }
+        const error = `Klimaregnskabet kunne ikke indlæses fra ${store.label}: ${e instanceof Error ? e.message : String(e)}`
+        if (store.central) { if (!cancelled) setFatal(error); return }
+        result = { ok: false as const, error }
       }
       if (cancelled) return
       if (!result) setLoaded({ store, group: emptyGroup(), generation: 0, message: null })
@@ -70,11 +75,21 @@ function App() {
           generation: 0,
           message: [result.dropped ? `${result.dropped} gemte poster kunne ikke bruges og er udeladt.` : '', ...result.notes].filter(Boolean).join(' ') || null,
         })
-      } else setLoaded({ store, group: emptyGroup(), generation: 0, message: result.error })
-    })
+      } else if (store.central) setFatal(result.error)
+      else setLoaded({ store, group: emptyGroup(), generation: 0, message: result.error })
+    }, (e: unknown) => { if (!cancelled) setFatal(e instanceof Error ? e.message : String(e)) })
     return () => { cancelled = true }
   }, [])
 
+  if (fatal) {
+    return (
+      <main className="fatal">
+        <h1>Heartland Klimaregnskab</h1>
+        <p role="alert" className="error">{fatal}</p>
+        <button type="button" onClick={() => window.location.reload()}>Genindlæs</button>
+      </main>
+    )
+  }
   if (!loaded) return <p role="status" className="loading">Indlæser klimaregnskabet …</p>
 
   return (

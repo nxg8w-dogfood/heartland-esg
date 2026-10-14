@@ -496,3 +496,8 @@ button.link:disabled {
   align-items: center;
   gap: 0.5rem;
 }
+
+.fatal {
+  max-width: 40rem;
+  margin: 3rem auto;
+}
