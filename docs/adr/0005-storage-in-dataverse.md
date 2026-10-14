@@ -40,8 +40,8 @@ store is **not** the product's storage.
 always the case for users. The browser store is kept, instead of removed, for one case only:
 local development with `npm run dev` opened directly, outside Power Apps, where there's no
 Dataverse connection. The draft notice stays on every page there. `src/storage/choose.ts`
-decides: a page that isn't framed by Power Apps, or whose host doesn't answer within 4 seconds,
-uses the browser.
+decides: a page that isn't framed by Power Apps uses the browser. A framed page uses Dataverse or
+shows an error; it never falls back to the browser, which would look saved while nothing is shared.
 
 ### 3. Tables
 
