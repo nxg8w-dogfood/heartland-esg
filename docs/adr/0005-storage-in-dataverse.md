@@ -33,7 +33,15 @@ Until Dataverse exists, `browserStore` keeps the account in the browser's `local
 autosave. The app says so on every page: **"Kladde: data gemmes kun i denne browser, ikke
 centralt, og deles ikke med andre."** Backup export and import as JSON are there to protect
 against lost browser data, and they'll also be the way to bring drafts into Dataverse. This
-store is **not** the product's storage. It's removed when the Dataverse store is in place.
+store is **not** the product's storage.
+
+**Since 2026-10-06 (proposed, awaiting @mortengad's confirmation):** the Dataverse store exists
+(`src/storage/dataverse/`), and the app uses it whenever it runs inside Power Apps, which is
+always the case for users. The browser store is kept, instead of removed, for one case only:
+local development with `npm run dev` opened directly, outside Power Apps, where there's no
+Dataverse connection. The draft notice stays on every page there. `src/storage/choose.ts`
+decides: a page that isn't framed by Power Apps uses the browser. A framed page uses Dataverse or
+shows an error; it never falls back to the browser, which would look saved while nothing is shared.
 
 ### 3. Tables
 
@@ -141,6 +149,26 @@ when it was entered by hand or fetched from an API.
 Per record, not per account: the app keeps what it loaded, and on save it sends only the
 records that were created, changed or deleted, with only the changed columns (as Microsoft's
 guidance says, so auditing isn't polluted by false updates).
+
+Built 2026-10-06 in `src/storage/dataverse/`:
+- **`rows.ts`** turns the group into rows and back, and works out the changes (`diff`): parents
+  are created before children and deleted after them, and records that go with a deleted company
+  or import aren't sent separately.
+- **`store.ts`** loads every table and saves the changes one by one. If a save fails, what got
+  through stays recorded, so the next save sends only the rest. Records the app gives an id use
+  it as their primary key; the others (ownership shares, factor sources, relevance, index values,
+  base years, settings) are matched on their natural key, such as company and year.
+- **`generated.ts`** connects the store to the services the Power Apps CLI generates in
+  `src/generated` (`pa app add data-source --connector dataverse --table <name>`, one per table).
+- **What users can't read isn't loaded,** and a change their role doesn't allow fails with
+  Dataverse's message, shown in the app.
+- **The open company and the summary period** are each user's view, kept in their browser, not
+  in Dataverse.
+- **"Ryd alt"** (clear everything) only exists for the browser draft; shared data isn't cleared
+  from the app.
+- **A company created in the app** is owned by its creator in the root business unit. Running
+  `npm run dataverse:company -- --name "<company>"` assigns it to the company's owner team, and
+  its records follow (ADR 0006).
 
 ## Options considered
 

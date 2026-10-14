@@ -22,7 +22,8 @@ import type { Relevance } from './scope3/relevance'
 import { ACCOUNT_VERSION, type AccountData } from './storage/account'
 import { DataBar, type SaveStatus } from './storage/DataBar'
 import { emptyGroup, type GroupData } from './storage/group'
-import { browserStore } from './storage/store'
+import { chooseStore } from './storage/choose'
+import type { GroupStore } from './storage/store'
 import { PeriodPicker } from './ui'
 
 const pages = [
@@ -41,44 +42,68 @@ const pageFromHash = (): PageId => {
   return pages.some((p) => p.id === id) ? (id as PageId) : 'scope1'
 }
 
-// TEMPORARY until Dataverse (docs/adr/0005): the group is kept in this browser.
-const store = browserStore()
-
-type Loaded = { group: GroupData; generation: number; message: string | null }
+type Loaded = { store: GroupStore; group: GroupData; generation: number; message: string | null }
 
 /** Loads the saved group, then shows it. Replacing the group restarts everything below. */
 function App() {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
+  // Shared data that can't be reached or read: nothing is shown to edit, since nothing could be
+  // saved where it belongs (and the browser must never stand in for Dataverse).
+  const [fatal, setFatal] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    store.load().then((result) => {
+    // Dataverse inside Power Apps, the browser draft otherwise (docs/adr/0005).
+    chooseStore().then(async (store) => {
+      let result
+      try {
+        result = await store.load()
+      } catch (e) {
+        const error = `Klimaregnskabet kunne ikke indlæses fra ${store.label}: ${e instanceof Error ? e.message : String(e)}`
+        if (store.central) { if (!cancelled) setFatal(error); return }
+        result = { ok: false as const, error }
+      }
       if (cancelled) return
-      if (!result) setLoaded({ group: emptyGroup(), generation: 0, message: null })
-      else if (result.ok) {
+      if (!result) setLoaded({ store, group: emptyGroup(), generation: 0, message: null })
+      else if (result.ok && result.group.companies.length === 0) {
+        // Nothing stored yet, or nothing this user may read.
+        setLoaded({ store, group: emptyGroup(), generation: 0, message: `Der er ingen virksomheder i ${store.label}, som du har adgang til. Opret den første under Koncern; det kræver rollen Koncern – Ansvarlig.` })
+      } else if (result.ok) {
         setLoaded({
+          store,
           group: result.group,
           generation: 0,
           message: [result.dropped ? `${result.dropped} gemte poster kunne ikke bruges og er udeladt.` : '', ...result.notes].filter(Boolean).join(' ') || null,
         })
-      } else setLoaded({ group: emptyGroup(), generation: 0, message: result.error })
-    })
+      } else if (store.central) setFatal(result.error)
+      else setLoaded({ store, group: emptyGroup(), generation: 0, message: result.error })
+    }, (e: unknown) => { if (!cancelled) setFatal(e instanceof Error ? e.message : String(e)) })
     return () => { cancelled = true }
   }, [])
 
+  if (fatal) {
+    return (
+      <main className="fatal">
+        <h1>Heartland Klimaregnskab</h1>
+        <p role="alert" className="error">{fatal}</p>
+        <button type="button" onClick={() => window.location.reload()}>Genindlæs</button>
+      </main>
+    )
+  }
   if (!loaded) return <p role="status" className="loading">Indlæser klimaregnskabet …</p>
 
   return (
     <GroupApp
       key={loaded.generation}
+      store={loaded.store}
       initial={loaded.group}
       initialMessage={loaded.message}
-      onReplace={(group, message) => setLoaded((l) => ({ group, generation: (l?.generation ?? 0) + 1, message }))}
+      onReplace={(group, message) => setLoaded((l) => (l ? { ...l, group, generation: l.generation + 1, message } : l))}
     />
   )
 }
 
-function GroupApp({ initial, initialMessage, onReplace }: { initial: GroupData; initialMessage: string | null; onReplace: (group: GroupData, message: string | null) => void }) {
+function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupStore; initial: GroupData; initialMessage: string | null; onReplace: (group: GroupData, message: string | null) => void }) {
   const [group, setGroup] = useState(initial)
   const [page, setPage] = useState<PageId>(pageFromHash)
   const companyId = useId()
@@ -94,11 +119,11 @@ function GroupApp({ initial, initialMessage, onReplace }: { initial: GroupData; 
       setStatus({ state: 'pending' })
       store.save(group).then(
         () => setStatus({ state: 'saved', at: new Date() }),
-        () => setStatus({ state: 'failed' }),
+        (e: unknown) => setStatus({ state: 'failed', reason: e instanceof Error ? e.message : undefined }),
       )
     }, 500)
     return () => clearTimeout(timer)
-  }, [group, initial])
+  }, [group, initial, store])
 
   useEffect(() => {
     const onHash = () => setPage(pageFromHash())
@@ -144,10 +169,10 @@ function GroupApp({ initial, initialMessage, onReplace }: { initial: GroupData; 
             await store.save(next).catch(() => undefined)
             onReplace(next, message)
           }}
-          onClear={async () => {
-            await store.clear()
+          onClear={store.clear && (async () => {
+            await store.clear?.()
             onReplace(emptyGroup(), 'Alle data er ryddet.')
-          }}
+          })}
         />
         {page === 'koncern' ? (
           <GroupPage group={group} setGroup={setGroup} />

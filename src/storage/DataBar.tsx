@@ -5,7 +5,7 @@ export type SaveStatus =
   | { state: 'idle' }
   | { state: 'pending' }
   | { state: 'saved'; at: Date }
-  | { state: 'failed' }
+  | { state: 'failed'; reason?: string }
 
 type Props = {
   storeLabel: string
@@ -14,7 +14,8 @@ type Props = {
   message: string | null
   group: GroupData
   onReplace: (group: GroupData, message: string | null) => void
-  onClear: () => void
+  /** Missing when the store can't be cleared from the app (shared data in Dataverse) */
+  onClear?: () => void
 }
 
 /** Where the data lives, whether it's saved, and backup export, import and clear. */
@@ -52,7 +53,7 @@ export function DataBar({ storeLabel, central, status, message, group, onReplace
   const statusText =
     status.state === 'pending' ? 'Gemmer …'
       : status.state === 'saved' ? `Gemt kl. ${status.at.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-        : status.state === 'failed' ? 'Kunne ikke gemme — eksportér en backup for ikke at miste data'
+        : status.state === 'failed' ? `Kunne ikke gemme${status.reason ? `: ${status.reason}` : ''} — eksportér en backup for ikke at miste data`
           : ''
 
   return (
@@ -85,15 +86,17 @@ export function DataBar({ storeLabel, central, status, message, group, onReplace
             if (f) void importBackup(f)
           }}
         />
-        <button
-          type="button"
-          className="link"
-          onClick={() => {
-            if (window.confirm('Slet alle data for alle virksomheder i denne browser? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.')) onClear()
-          }}
-        >
-          Ryd alt
-        </button>
+        {onClear && (
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              if (window.confirm('Slet alle data for alle virksomheder i denne browser? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.')) onClear()
+            }}
+          >
+            Ryd alt
+          </button>
+        )}
       </div>
       {importError && <p className="error" role="alert">{importError}</p>}
     </div>
