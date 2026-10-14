@@ -11,5 +11,86 @@
   "localAppUrl": "http://localhost:3000",
   "logoPath": "Default",
   "connectionReferences": {},
-  "databaseReferences": {}
+  "databaseReferences": {
+    "default.cds": {
+      "dataSources": {
+        "koncerner": {
+          "entitySetName": "hlesg_koncerns",
+          "logicalName": "hlesg_koncern",
+          "isHidden": false
+        },
+        "virksomheder": {
+          "entitySetName": "hlesg_virksomheds",
+          "logicalName": "hlesg_virksomhed",
+          "isHidden": false
+        },
+        "ejerandele": {
+          "entitySetName": "hlesg_ejerandels",
+          "logicalName": "hlesg_ejerandel",
+          "isHidden": false
+        },
+        "klimaregnskaber": {
+          "entitySetName": "hlesg_klimaregnskabs",
+          "logicalName": "hlesg_klimaregnskab",
+          "isHidden": false
+        },
+        "lokationer": {
+          "entitySetName": "hlesg_lokations",
+          "logicalName": "hlesg_lokation",
+          "isHidden": false
+        },
+        "linjer": {
+          "entitySetName": "hlesg_linjes",
+          "logicalName": "hlesg_linje",
+          "isHidden": false
+        },
+        "pendlerunders_gelser": {
+          "entitySetName": "hlesg_pendlings",
+          "logicalName": "hlesg_pendling",
+          "isHidden": false
+        },
+        "investeringer": {
+          "entitySetName": "hlesg_investerings",
+          "logicalName": "hlesg_investering",
+          "isHidden": false
+        },
+        "faktorkilder": {
+          "entitySetName": "hlesg_faktorkildes",
+          "logicalName": "hlesg_faktorkilde",
+          "isHidden": false
+        },
+        "relevans": {
+          "entitySetName": "hlesg_relevanses",
+          "logicalName": "hlesg_relevans",
+          "isHidden": false
+        },
+        "indeksv_rdier": {
+          "entitySetName": "hlesg_indekspunkts",
+          "logicalName": "hlesg_indekspunkt",
+          "isHidden": false
+        },
+        "faktorernespris_r": {
+          "entitySetName": "hlesg_prisaars",
+          "logicalName": "hlesg_prisaar",
+          "isHidden": false
+        },
+        "importer": {
+          "entitySetName": "hlesg_imports",
+          "logicalName": "hlesg_import",
+          "isHidden": false
+        },
+        "posteringer": {
+          "entitySetName": "hlesg_posterings",
+          "logicalName": "hlesg_postering",
+          "isHidden": false
+        },
+        "regler": {
+          "entitySetName": "hlesg_regels",
+          "logicalName": "hlesg_regel",
+          "isHidden": false
+        }
+      },
+      "environmentVariableName": ""
+    }
+  }
 }
