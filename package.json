@@ -20,24 +20,24 @@
     "@microsoft/power-apps": "^1.2.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "read-excel-file": "^9.3.10"
+    "read-excel-file": "^9.3.12"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@microsoft/power-apps-cli": "1.2.0",
     "@microsoft/power-apps-vite": "^1.0.2",
-    "@types/node": "^24.19.1",
+    "@types/node": "^24.19.2",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.1.1",
-    "eslint": "^10.11.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "fflate": "^0.8.3",
     "globals": "^17.13.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.4",
-    "vite": "^8.3.2",
-    "vitest": "^5.0.3"
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
   }
 }
