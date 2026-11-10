@@ -765,3 +765,8 @@ ul.plain {
   font-size: 0.8rem;
   min-height: 2rem;
 }
+
+.fatal {
+  max-width: 40rem;
+  margin: 3rem auto;
+}
