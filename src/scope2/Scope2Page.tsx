@@ -270,10 +270,9 @@ export function Figure({ t, value, factor, custom }: { t: number; value: number 
   return (
     <>
       <span className="strong">{formatNumber(t, 3)}</span>
-      <span className="sub">
-        {formatFactor(value)} kg/kWh · {custom ? 'Egen faktor' : factor?.source}
-      </span>
+      <span className="sub">{formatFactor(value)} kg/kWh</span>
       {label && <span className="sub">{label}</span>}
+      <span className="sub">{custom ? 'Egen faktor' : factor?.source}</span>
     </>
   )
 }

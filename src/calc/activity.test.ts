@@ -3,16 +3,18 @@ import { factors } from '../data/factors'
 import { activityLine, activitySummary, factorOptions, type ActivityGroup, type ActivityLine } from './activity'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
-const hotel: ActivityGroup = { id: 'k6-hotel', label: 'Hotel', unit: 'værelsesnat', factorId: 'f-hotel-dk', factorChoices: 'Kat 6 – hotel' }
+const hotel: ActivityGroup = { id: 'k6-hotel', label: 'Hotel', unit: 'værelsesnat', factorId: 'f-hotel-dk' }
 const train: ActivityGroup = { id: 'k6-tog', label: 'Tog', unit: 'passagerkm', factorId: 'f-t-tog' }
 const line = (o: Partial<ActivityLine>): ActivityLine => ({ id: '1', group: 'k6-hotel', date: '2025-05-01', quantity: 10, ...o })
 
 describe('factorOptions', () => {
-  it('offers only the default factor when a group has no choices', () => {
-    expect(factorOptions(train, factors).map((f) => f.id)).toEqual(['f-t-tog'])
+  it('offers the factors in the same category and unit, default first', () => {
+    expect(factorOptions(train, factors).map((f) => f.id)).toEqual([
+      'f-t-tog', 'f-t-fly-kort', 'f-t-fly-lang', 'f-t-fly-indenrigs', 'f-t-bus', 'f-t-taxi', 'f-t-faerge',
+    ])
   })
 
-  it('offers every factor in the choice category, default first', () => {
+  it('offers every hotel country for a hotel line', () => {
     const ids = factorOptions(hotel, factors).map((f) => f.id)
     expect(ids[0]).toBe('f-hotel-dk')
     expect(ids).toHaveLength(9)

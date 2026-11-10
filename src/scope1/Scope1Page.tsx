@@ -5,6 +5,7 @@ import { parseNumber } from '../calc/parseNumber'
 import { scope1Groups, scope1Summary, type Scope1GroupId, type Scope1Line } from '../calc/scope1'
 import { formatDate, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
+import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 
@@ -94,7 +95,12 @@ export function Scope1Page({ period, factors, lines, setLines }: Props) {
                       {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
                     </td>
                     <td className="num">
-                      <FactorCell value={r.factorValue} factor={r.factor} custom={r.line.customFactor != null} />
+                      <FactorCell
+                        value={r.factorValue}
+                        factor={r.factor}
+                        custom={r.line.customFactor != null}
+                        choice={lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
+                      />
                     </td>
                     <td className="num strong">
                       {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}

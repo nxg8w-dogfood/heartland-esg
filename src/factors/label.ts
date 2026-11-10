@@ -4,12 +4,12 @@ import type { Factor } from '../data/factors'
 const genericRegions = new Set(['', '—', 'UK/generisk', 'Global'])
 
 /**
- * What a factor is, as shown next to its value: the name from the factor table, the region
- * when it narrows the factor down (hotels per country, the Danish grid), and the unit.
- * The original shows the same as "type (land)" on the factor's hover card.
+ * What a factor is, as shown next to its value, just above its source: the name from the
+ * factor table, with the region when it narrows the factor down (hotels per country, the Danish
+ * grid). The original shows the same as "type (land)" on the factor's hover card.
  */
 export function factorLabel(factor: Factor | null | undefined): string {
   if (!factor) return ''
   const region = genericRegions.has(factor.region) ? '' : ` (${factor.region})`
-  return `${factor.name}${region}, ${factor.unit}`
+  return `${factor.name}${region}`
 }
