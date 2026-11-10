@@ -30,6 +30,7 @@ export type Hlesg_koeretoejsstatuscode = keyof typeof Hlesg_koeretoejsstatuscode
 
 export interface Hlesg_koeretoejsBase {
   hlesg_braendstof: Hlesg_koeretoejshlesg_braendstof;
+  hlesg_braendstofandel?: number;
   hlesg_co2gperkm?: number;
   hlesg_datakilde: Hlesg_koeretoejshlesg_datakilde;
   hlesg_foersteregistrering?: string;
@@ -40,6 +41,7 @@ export interface Hlesg_koeretoejsBase {
   hlesg_maerke?: string;
   hlesg_model?: string;
   hlesg_nummerplade?: string;
+  hlesg_pluginhybrid?: boolean;
   hlesg_raekkevidde?: number;
   hlesg_variant?: string;
   "hlesg_Virksomhedid@odata.bind": string;
@@ -56,6 +58,7 @@ export interface Hlesg_koeretoejs extends Hlesg_koeretoejsBase {
   hlesg_braendstofname?: string;
   hlesg_datakildename?: string;
   hlesg_maalenormname?: string;
+  hlesg_pluginhybridname?: string;
   modifiedon?: string;
   ownerid: string;
   statecodename?: string;

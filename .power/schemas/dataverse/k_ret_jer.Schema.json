@@ -106,6 +106,13 @@
           "x-ms-optionsetdisplayname": "Brændstof",
           "x-ms-optionSetType": "Picklist"
         },
+        "hlesg_braendstofandel": {
+          "type": "string",
+          "title": "Andel på brændstof (%)",
+          "x-ms-dataverse-attribute": "hlesg_braendstofandel",
+          "x-ms-dataverse-type": "DecimalType",
+          "x-ms-schema-name": "hlesg_Braendstofandel"
+        },
         "hlesg_braendstofname": {
           "type": "string",
           "title": "hlesg_braendstofname",
@@ -242,6 +249,38 @@
           "x-ms-schema-name": "hlesg_Nummerplade",
           "x-ms-dataverse-primary-name": true,
           "maxLength": 850
+        },
+        "hlesg_pluginhybrid": {
+          "type": "string",
+          "title": "Plugin-hybrid",
+          "x-ms-dataverse-attribute": "hlesg_pluginhybrid",
+          "x-ms-dataverse-type": "BooleanType",
+          "x-ms-schema-name": "hlesg_Pluginhybrid",
+          "enum": [
+            "Nej",
+            "Ja"
+          ],
+          "x-ms-enum-values": [
+            0,
+            1
+          ],
+          "Color": [
+            null,
+            null
+          ],
+          "x-ms-optionsetmetadataid": "f4025e8e-04dd-f111-84e8-6045bddd68e7",
+          "x-ms-isGlobal": false,
+          "x-ms-optionsetdisplayname": "Plugin-hybrid",
+          "x-ms-optionSetType": "Boolean"
+        },
+        "hlesg_pluginhybridname": {
+          "type": "string",
+          "title": "hlesg_pluginhybridname",
+          "x-ms-dataverse-attribute": "hlesg_pluginhybridname",
+          "x-ms-dataverse-type": "VirtualType",
+          "x-ms-schema-name": "hlesg_pluginhybridName",
+          "x-ms-dataverse-attribute-of": "hlesg_pluginhybrid",
+          "x-ms-read-only": true
         },
         "hlesg_raekkevidde": {
           "type": "string",
