@@ -1,0 +1,84 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Heartland MotorAPI",
+    "description": "Looks up Danish licence plates in Motorregistret through MotorAPI (motorapi.dk), via Heartland's API Management proxy, which adds the API key from Key Vault (docs/adr/0009).",
+    "version": "1.0"
+  },
+  "host": "@environmentVariables(\"hlesg_MotorApiHost\")",
+  "basePath": "/motorapi",
+  "schemes": ["https"],
+  "produces": ["application/json"],
+  "paths": {
+    "/vehicles/{plate}": {
+      "get": {
+        "operationId": "GetVehicle",
+        "summary": "Get a vehicle by licence plate",
+        "parameters": [{ "$ref": "#/parameters/plate" }],
+        "responses": {
+          "200": { "description": "The vehicle", "schema": { "$ref": "#/definitions/Vehicle" } },
+          "403": { "description": "MotorAPI's daily limit is reached" },
+          "404": { "description": "No vehicle with that plate" }
+        }
+      }
+    },
+    "/vehicles/{plate}/environment": {
+      "get": {
+        "operationId": "GetVehicleEnvironment",
+        "summary": "Get a vehicle's fuel economy and emissions",
+        "parameters": [{ "$ref": "#/parameters/plate" }],
+        "responses": {
+          "200": { "description": "The vehicle's environment data", "schema": { "$ref": "#/definitions/Environment" } },
+          "403": { "description": "MotorAPI's daily limit is reached" },
+          "404": { "description": "No vehicle with that plate" }
+        }
+      }
+    }
+  },
+  "parameters": {
+    "plate": {
+      "name": "plate",
+      "in": "path",
+      "required": true,
+      "type": "string",
+      "pattern": "^[A-ZÆØÅ0-9]{2,7}$",
+      "description": "Licence plate, upper case without spaces, e.g. AB12345"
+    }
+  },
+  "definitions": {
+    "Vehicle": {
+      "type": "object",
+      "properties": {
+        "registration_number": { "type": "string" },
+        "type": { "type": "string" },
+        "make": { "type": "string" },
+        "model": { "type": "string" },
+        "variant": { "type": "string" },
+        "first_registration": { "type": "string", "description": "Date with UTC offset, e.g. 2019-08-26+02:00" },
+        "fuel_type": { "type": "string", "description": "e.g. Benzin, Diesel, El" },
+        "is_hybrid": { "type": "boolean" },
+        "hybrid_type": { "type": "string", "description": "mild, plugin or null" }
+      }
+    },
+    "Environment": {
+      "type": "object",
+      "properties": {
+        "fuel_type": { "type": "string" },
+        "fuel_usage": { "type": "number", "description": "km/l" },
+        "total_usage": { "type": "number", "description": "km/l" },
+        "co2_emission": { "type": "number", "description": "g/km" },
+        "measurement_norm": { "type": "string", "description": "WLTP or NEDC" }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "oauth2-auth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "tokenUrl": "https://login.windows.net/common/oauth2/authorize",
+      "scopes": {}
+    }
+  },
+  "security": [{ "oauth2-auth": [] }]
+}

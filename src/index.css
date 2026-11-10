@@ -765,3 +765,14 @@ ul.plain {
   font-size: 0.8rem;
   min-height: 2rem;
 }
+
+.unit-choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.unit-choice legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+}

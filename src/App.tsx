@@ -9,6 +9,7 @@ import type { Period } from './calc/dates'
 import type { Scope1Line } from './calc/scope1'
 import type { Location, Scope2Line } from './calc/scope2'
 import type { Category3Params } from './calc/scope3'
+import { resolveScope1Lines, type Vehicle } from './calc/vehicles'
 import { applyFactorSources, type FactorSources } from './calc/factorSources'
 import { factorPublications } from './data/factorPublications'
 import { factors as baseFactors } from './data/factors'
@@ -25,9 +26,13 @@ import { DataBar, type SaveStatus } from './storage/DataBar'
 import { emptyGroup, type GroupData } from './storage/group'
 import { browserStore } from './storage/store'
 import { PeriodPicker } from './ui'
+import { exampleLookup } from './vehicles/exampleLookup'
+import { noLookup } from './vehicles/lookup'
+import { VehiclesPage } from './vehicles/VehiclesPage'
 
 const pages = [
   { id: 'koncern', label: 'Koncern' },
+  { id: 'bilpark', label: 'Bilpark' },
   { id: 'scope1', label: 'Scope 1' },
   { id: 'scope2', label: 'Scope 2' },
   { id: 'scope3', label: 'Scope 3' },
@@ -44,6 +49,10 @@ const pageFromHash = (): PageId => {
 
 // TEMPORARY until Dataverse (docs/adr/0005): the group is kept in this browser.
 const store = browserStore()
+
+// Plate lookups go through the MotorAPI connector inside Power Apps (ADR 0009). Until it's added
+// there's no lookup, only manual entry; `npm run dev` in a plain browser gets example answers.
+const plateLookup = import.meta.env.DEV && window.self === window.top ? exampleLookup : noLookup
 
 type Loaded = { group: GroupData; generation: number; message: string | null }
 
@@ -167,6 +176,9 @@ function GroupApp({ initial, initialMessage, onReplace }: { initial: GroupData; 
 function Workspace({ page, companyName, initial, onChange }: { page: CompanyPageId; companyName: string; initial: AccountData; onChange: (account: AccountData) => void }) {
   const [period, setPeriod] = useState<Period>(initial.period)
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
+  const [vehicles, setVehicles] = useState<Vehicle[]>(initial.vehicles)
+  // Scope 3 category 3 needs litres, also for the lines entered in km.
+  const scope1Litres = useMemo(() => resolveScope1Lines(scope1Lines, vehicles), [scope1Lines, vehicles])
   const [locations, setLocations] = useState<Location[]>(initial.locations)
   const [scope2Lines, setScope2Lines] = useState<Scope2Line[]>(initial.scope2Lines)
   // Where each factor's value comes from: built-in, a publication, an API or entered by hand.
@@ -187,9 +199,9 @@ function Workspace({ page, companyName, initial, onChange }: { page: CompanyPage
   const factors = useMemo(() => applyFactorSources(baseFactors, factorSources, factorPublications), [factorSources])
 
   const account: AccountData = useMemo(() => ({
-    version: ACCOUNT_VERSION, period, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
+    version: ACCOUNT_VERSION, period, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
     cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger,
-  }), [period, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
+  }), [period, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
 
   // Each part keeps its reference until changed, so comparing parts with what was last reported
   // is exact and cheap, and it holds even when React runs the effect twice in development.
@@ -204,8 +216,9 @@ function Workspace({ page, companyName, initial, onChange }: { page: CompanyPage
   return (
     <>
       <p className="company-context">Viser <strong>{companyName || 'Uden navn'}</strong></p>
-      {page !== 'faktorer' && page !== 'kontoplan' && <PeriodPicker period={period} onChange={setPeriod} />}
-      {page === 'scope1' && <Scope1Page period={period} factors={factors} lines={scope1Lines} setLines={setScope1Lines} />}
+      {page !== 'faktorer' && page !== 'kontoplan' && page !== 'bilpark' && <PeriodPicker period={period} onChange={setPeriod} />}
+      {page === 'bilpark' && <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} scope1Lines={scope1Lines} lookup={plateLookup} />}
+      {page === 'scope1' && <Scope1Page period={period} factors={factors} lines={scope1Lines} setLines={setScope1Lines} vehicles={vehicles} />}
       {page === 'scope2' && (
         <Scope2Page
           period={period}
@@ -220,7 +233,7 @@ function Workspace({ page, companyName, initial, onChange }: { page: CompanyPage
         <Scope3Page
           period={period}
           factors={factors}
-          scope1Lines={scope1Lines}
+          scope1Lines={scope1Litres}
           locations={locations}
           scope2Lines={scope2Lines}
           relevance={relevance}
