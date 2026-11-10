@@ -8,10 +8,8 @@ const train: ActivityGroup = { id: 'k6-tog', label: 'Tog', unit: 'passagerkm', f
 const line = (o: Partial<ActivityLine>): ActivityLine => ({ id: '1', group: 'k6-hotel', date: '2025-05-01', quantity: 10, ...o })
 
 describe('factorOptions', () => {
-  it('offers the factors in the same category and unit, default first', () => {
-    expect(factorOptions(train, factors).map((f) => f.id)).toEqual([
-      'f-t-tog', 'f-t-fly-kort', 'f-t-fly-lang', 'f-t-fly-indenrigs', 'f-t-bus', 'f-t-taxi', 'f-t-faerge',
-    ])
+  it('offers only the default factor when it has no other region', () => {
+    expect(factorOptions(train, factors).map((f) => f.id)).toEqual(['f-t-tog'])
   })
 
   it('offers every hotel country for a hotel line', () => {

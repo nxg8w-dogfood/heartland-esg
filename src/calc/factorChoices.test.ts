@@ -1,46 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import { factors } from '../data/factors'
 import { factorChoices } from './factorChoices'
-import { scope1Line } from './scope1'
 
 const ids = (defaultId: string) => factorChoices(defaultId, factors).map((f) => f.id)
 
 describe('factorChoices', () => {
-  it('offers the factors in the same category and unit, default first', () => {
-    expect(ids('f-s1-benzin')).toEqual(['f-s1-benzin', 'f-s1-diesel'])
-    expect(ids('f-s1-hfc134a')).toEqual(['f-s1-hfc134a', 'f-s1-koel-andet'])
+  it('offers the same factor for every region, default first', () => {
+    expect(ids('f-hotel-dk')).toEqual([
+      'f-hotel-dk', 'f-hotel-uk', 'f-hotel-fr', 'f-hotel-de', 'f-hotel-nl', 'f-hotel-es', 'f-hotel-ch', 'f-hotel-us', 'f-hotel-it',
+    ])
+    expect(ids('f-exio-obs-dk')).toEqual(['f-exio-obs-dk', 'f-exio-obs-cn', 'f-exio-obs-se', 'f-exio-obs-fr', 'f-exio-obs-nl', 'f-exio-obs-scot'])
   })
 
-  it('leaves out factors in another unit, so the quantity still fits', () => {
-    // Natural gas (m³) and gas oil (liter) share the category "Stationær forbrænding".
-    expect(ids('f-s1-naturgas')).toEqual(['f-s1-naturgas'])
-    expect(ids('f-s1-gasolie')).toEqual(['f-s1-gasolie'])
-    // Company cars per km are not offered on a flight per passenger-km.
-    expect(ids('f-t-fly-kort')).not.toContain('f-t-bil-diesel')
+  it('offers nothing else when the factor has no other region, so a line keeps to its type', () => {
+    // Diesel and petrol share category and unit, but a diesel line is not offered petrol.
+    expect(ids('f-s1-diesel')).toEqual(['f-s1-diesel'])
+    expect(ids('f-t-tog')).toEqual(['f-t-tog'])
+    expect(ids('f-w-papir-dep')).toEqual(['f-w-papir-dep'])
+    expect(ids('f-exio-computer')).toEqual(['f-exio-computer'])
   })
 
   it('offers a family of date versions once', () => {
-    expect(ids('f-s2-el-residual')).toEqual(['f-s2-el-residual', 'f-s2-el-ppa', 'f-s2-el-go'])
     expect(ids('f-s2-el-dk-2025')).toEqual(['f-s2-el-dk-2025'])
-  })
-
-  it('offers every EXIOBASE sector for a purchase', () => {
-    const exiobase = factors.filter((f) => f.category === 'Spendfaktor (EXIOBASE)')
-    expect(ids('f-exio-obs-dk')).toHaveLength(exiobase.length)
-    expect(ids('f-exio-obs-dk')[0]).toBe('f-exio-obs-dk')
   })
 
   it('is empty for an unknown factor', () => {
     expect(factorChoices('nope', factors)).toEqual([])
-  })
-})
-
-describe('a Scope 1 line with a chosen factor', () => {
-  const year2025 = { start: '2025-01-01', end: '2025-12-31' }
-
-  it('uses the chosen factor instead of the group default', () => {
-    const r = scope1Line({ id: '1', group: 's1-diesel', date: '2025-03-15', quantity: 1000, factorId: 'f-s1-benzin' }, factors, year2025)
-    expect(r.factor?.id).toBe('f-s1-benzin')
-    expect(r.tCO2e).toBeCloseTo(2.06916, 10)
   })
 })

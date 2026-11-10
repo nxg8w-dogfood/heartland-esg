@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { factors, type Factor } from '../data/factors'
+import { activityLine, type ActivityLine } from '../calc/activity'
 import { scope1Line, type Scope1Line } from '../calc/scope1'
+import { category6Groups } from '../calc/scope3'
 import { scope2Line, type Location, type Scope2Line } from '../calc/scope2'
 import { Figure, SplitFigure } from '../scope2/Scope2Page'
 import { FactorCell } from './FactorCell'
@@ -63,34 +65,34 @@ describe('Scope 1 line factor cell', () => {
   })
 })
 
-describe('Scope 1 line factor dropdown', () => {
+describe('line factor dropdown', () => {
   const year2025 = { start: '2025-01-01', end: '2025-12-31' }
-  const render = (l: Scope1Line) => {
-    const r = scope1Line(l, factors, year2025)
-    const choice = lineFactorChoice(l, r.group.factorId, factors, () => {}, 'Firmabiler – diesel, 15.03.2025')
+  const hotel = category6Groups.find((g) => g.id === 'k6-hotel')!
+  const renderHotel = (l: ActivityLine) => {
+    const r = activityLine(l, hotel, factors, year2025)
+    const choice = lineFactorChoice(l, hotel.factorId, factors, () => {}, 'Hotelovernatning, 12.03.2025')
     return renderToStaticMarkup(<FactorCell value={r.factorValue} factor={r.factor} choice={choice} />)
   }
+  const hotelLine = (o: Partial<ActivityLine> = {}): ActivityLine => ({ id: '1', group: 'k6-hotel', date: '2025-03-12', quantity: 4, ...o })
 
-  it('shows a dropdown with the other factors, the line’s factor selected, before the source', () => {
-    const html = render({ id: '1', group: 's1-diesel', date: '2025-03-15', quantity: 2500 })
-    expect(html).toContain('aria-label="Emissionsfaktor for Firmabiler – diesel, 15.03.2025"')
-    expect(html).toMatch(/<option value="f-s1-diesel" selected="">Diesel \(average biofuel blend\)<\/option>/)
-    expect(html).toContain('<option value="f-s1-benzin">Benzin (average biofuel blend)</option>')
+  it('shows the other regions of the same factor, the line’s choice selected, before the source', () => {
+    const html = renderHotel(hotelLine({ factorId: 'f-hotel-de' }))
+    expect(html).toContain('aria-label="Emissionsfaktor for Hotelovernatning, 12.03.2025"')
+    expect(html).toMatch(/<option value="f-hotel-de" selected="">Hotelovernatning \(Tyskland\)<\/option>/)
+    expect(html).toContain('<option value="f-hotel-fr">Hotelovernatning (Frankrig)</option>')
     expect(html.indexOf('<select')).toBeLessThan(html.indexOf('BEIS GHG Conversion Factors 2025'))
   })
 
-  it('selects the factor chosen on the line', () => {
-    expect(render({ id: '1', group: 's1-diesel', date: '2025-03-15', quantity: 2500, factorId: 'f-s1-benzin' })).toMatch(/value="f-s1-benzin" selected=""/)
-  })
-
   it('marks a choice that has no value yet', () => {
-    expect(render({ id: '1', group: 's1-hfc134a', date: '2025-03-15', quantity: 2 })).toContain('Andet kølemiddel (afventer)')
+    expect(renderHotel(hotelLine())).toContain('Hotelovernatning (Danmark) (afventer)')
   })
 
-  it('shows the name as text when there is nothing to choose', () => {
-    const html = render({ id: '1', group: 's1-naturgas', date: '2025-03-15', quantity: 2 })
+  it('shows the name as text on a Scope 1 line, whose factors have no other region', () => {
+    const r = scope1Line({ id: '1', group: 's1-diesel', date: '2025-03-15', quantity: 2500 }, factors, year2025)
+    const choice = lineFactorChoice(r.line, r.group.factorId, factors, () => {}, 'Firmabiler – diesel, 15.03.2025')
+    const html = renderToStaticMarkup(<FactorCell value={r.factorValue} factor={r.factor} choice={choice} />)
     expect(html).not.toContain('<select')
-    expect(text(html)).toEqual(['2,06672', 'Naturgas', 'BEIS GHG Conversion Factors 2025'])
+    expect(text(html)).toEqual(['2,57082', 'Diesel (average biofuel blend)', 'BEIS GHG Conversion Factors 2025'])
   })
 })
 
