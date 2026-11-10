@@ -112,6 +112,17 @@ describe('resolveScope1Lines', () => {
     expect(r.estimate).toMatchObject({ km: 10_000, kmPerLitre: 20, fuelShare: 0.4, problem: null })
   })
 
+  it('shows a plug-in hybrid’s electric km as kWh, outside the litres', () => {
+    const [r] = resolveScope1Lines([line()], [car({ pluginHybrid: true, fuelSharePercent: 40, whPerKm: 200 })])
+    expect(r.quantity).toBe(200)
+    expect(r.estimate?.electricKwh).toBe(1200)
+  })
+
+  it('gives no kWh for an ordinary car, or a plug-in hybrid without Wh/km', () => {
+    expect(resolveScope1Lines([line()], [car({ whPerKm: 200 })])[0].estimate?.electricKwh).toBeNull()
+    expect(resolveScope1Lines([line()], [car({ pluginHybrid: true, fuelSharePercent: 40 })])[0].estimate?.electricKwh).toBeNull()
+  })
+
   it('gives 0 litres for a plug-in hybrid that only drives on electricity', () => {
     expect(resolveScope1Lines([line()], [car({ pluginHybrid: true, fuelSharePercent: 0 })])[0].quantity).toBe(0)
   })

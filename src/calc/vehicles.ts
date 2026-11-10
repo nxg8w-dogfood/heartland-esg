@@ -3,7 +3,7 @@
 // in km for a registered car instead, and is converted with the car's WLTP fuel economy:
 // litres = km ÷ km/l. Such a line is an estimate, and says so. A plug-in hybrid also has the
 // user's estimate of how much of its driving is on fuel: litres = km × that share ÷ its km/l on
-// fuel. The rest is on electricity, which isn't Scope 1.
+// fuel. The rest is on electricity, which isn't Scope 1; with the car's Wh/km it's shown as kWh.
 
 import type { Scope1GroupId, Scope1Line } from './scope1'
 
@@ -22,11 +22,10 @@ export type Vehicle = {
   fuel: VehicleFuel
   /** ISO date */
   firstRegistration?: string | null
-  /**
-   * Fuel economy, km per litre. For a plug-in hybrid, when it runs on fuel: the register's WLTP
-   * figure for one already assumes part of the driving is electric, so it isn't used.
-   */
+  /** Fuel economy, km per litre. For a plug-in hybrid, when it runs on fuel. */
   kmPerLitre: number | null
+  /** Plug-in hybrids: electricity use when driving on electricity, Wh per km */
+  whPerKm?: number | null
   /** A plug-in hybrid: part of its driving is on electricity */
   pluginHybrid?: boolean
   /** Plug-in hybrids: the user's estimate of the share of km driven on fuel, in percent (0–100) */
@@ -89,7 +88,15 @@ export function fuelShare(v: Vehicle): number | null {
 
 export type ResolvedScope1Line = Scope1Line & {
   /** Set when the quantity was worked out from km rather than entered in litres */
-  estimate?: { km: number | null; kmPerLitre: number | null; fuelShare: number | null; vehicle: Vehicle | null; problem: string | null }
+  estimate?: {
+    km: number | null
+    kmPerLitre: number | null
+    fuelShare: number | null
+    /** A plug-in hybrid's km on electricity × its Wh/km, in kWh. Shown only: not Scope 1. */
+    electricKwh: number | null
+    vehicle: Vehicle | null
+    problem: string | null
+  }
 }
 
 /**
@@ -109,6 +116,8 @@ export function resolveScope1Lines(lines: readonly Scope1Line[], vehicles: reado
     else if (fuelShare(vehicle) === null) problem = 'Bilen er en plugin-hybrid uden et skøn over, hvor stor en del af kørslen der er på brændstof.'
     const share = vehicle ? fuelShare(vehicle) : null
     const quantity = problem ? null : litresFromKm(km === null ? null : km * share!, vehicle!.kmPerLitre)
-    return { ...line, quantity, estimate: { km, kmPerLitre: vehicle?.kmPerLitre ?? null, fuelShare: share, vehicle, problem } }
+    const wh = vehicle?.whPerKm
+    const electricKwh = km !== null && share !== null && share < 1 && typeof wh === 'number' && Number.isFinite(wh) && wh > 0 ? (km * (1 - share) * wh) / 1000 : null
+    return { ...line, quantity, estimate: { km, kmPerLitre: vehicle?.kmPerLitre ?? null, fuelShare: share, electricKwh, vehicle, problem } }
   })
 }

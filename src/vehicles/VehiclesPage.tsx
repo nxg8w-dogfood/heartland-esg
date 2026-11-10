@@ -97,7 +97,8 @@ export function VehiclesPage({ vehicles, setVehicles, scope1Lines, lookup }: Pro
                       </td>
                       <td className="num">
                         {v.kmPerLitre === null ? <span className="pending">Mangler</span> : `${formatNumber(v.kmPerLitre, 1)} km/l`}
-                        {v.pluginHybrid ? <span className="sub">På brændstof</span> : v.testNorm && <span className="sub">{v.testNorm}</span>}
+                        {v.testNorm && <span className="sub">{v.pluginHybrid ? `${v.testNorm}, på brændstof` : v.testNorm}</span>}
+                        {v.pluginHybrid && v.whPerKm != null && <span className="sub">{formatNumber(v.whPerKm, 0)} Wh/km på el</span>}
                       </td>
                       <td className="num">{v.co2GPerKm == null ? '—' : `${formatNumber(v.co2GPerKm, 0)} g/km`}</td>
                       <td className="num">{v.rangeKm == null ? '—' : `${formatNumber(v.rangeKm, 0)} km`}</td>
@@ -127,8 +128,8 @@ export function VehiclesPage({ vehicles, setVehicles, scope1Lines, lookup }: Pro
       <footer className="muted">
         Opslag sker via MotorAPI (motorapi.dk), som henter data fra Motorregistret ugentligt.
         Brændstofforbruget er typegodkendelsens tal (WLTP for biler fra september 2017, ellers ofte
-        NEDC) og er typisk lavere end det reelle forbrug. For plugin-hybrider er både forbruget og
-        andelen på brændstof skøn. Linjer i liter fra tankkort er mere præcise.
+        NEDC) og er typisk lavere end det reelle forbrug. For plugin-hybrider er andelen på
+        brændstof et skøn. Linjer i liter fra tankkort er mere præcise.
       </footer>
     </>
   )
@@ -252,6 +253,7 @@ function VehicleForm({ initial, headingRef, taken, onSave, onCancel }: {
   const [range, setRange] = useState(num(initial.rangeKm))
   const [pluginHybrid, setPluginHybrid] = useState(initial.pluginHybrid === true)
   const [fuelShare, setFuelShare] = useState(num(initial.fuelSharePercent))
+  const [whPerKm, setWhPerKm] = useState(num(initial.whPerKm))
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const editing = !!initial.id
@@ -274,6 +276,7 @@ function VehicleForm({ initial, headingRef, taken, onSave, onCancel }: {
     const kml = positiveOrNull('kmPerLitre', kmPerLitre, 'Forbruget')
     const co2Value = positiveOrNull('co2', co2, 'CO2-udledningen')
     const rangeValue = positiveOrNull('range', range, 'Rækkevidden')
+    const whValue = pluginHybrid ? positiveOrNull('whPerKm', whPerKm, 'Elforbruget') : null
     let share: number | null = null
     if (pluginHybrid) {
       share = parseNumber(fuelShare.replace(/\s*%\s*$/, ''))
@@ -284,10 +287,10 @@ function VehicleForm({ initial, headingRef, taken, onSave, onCancel }: {
     if (Object.keys(next).length > 0) return
 
     // Changing the technical data by hand makes it the user's, not the register's.
-    // The fuel share is always the user's estimate, and so is a plug-in hybrid's km/l on fuel,
-    // which the register doesn't have: neither counts as a change.
-    const kmlChanged = !(pluginHybrid && initial.pluginHybrid) && kml !== (initial.kmPerLitre ?? null)
-    const changed = fromLookup && (kmlChanged || fuel !== initial.fuel || (co2Value ?? null) !== (initial.co2GPerKm ?? null) || pluginHybrid !== (initial.pluginHybrid === true))
+    // The fuel share is always the user's estimate, so it doesn't count as a change; nor does
+    // filling in a figure the register didn't have.
+    const differs = (now: number | null, before: number | null | undefined) => before != null && now !== before
+    const changed = fromLookup && (differs(kml, initial.kmPerLitre) || differs(whValue, initial.whPerKm) || fuel !== initial.fuel || (co2Value ?? null) !== (initial.co2GPerKm ?? null) || pluginHybrid !== (initial.pluginHybrid === true))
     onSave({
       id: initial.id ?? newId(),
       plate: p!,
@@ -297,7 +300,7 @@ function VehicleForm({ initial, headingRef, taken, onSave, onCancel }: {
       fuel,
       firstRegistration: firstRegistration || null,
       kmPerLitre: kml,
-      ...(pluginHybrid ? { pluginHybrid: true, fuelSharePercent: share } : {}),
+      ...(pluginHybrid ? { pluginHybrid: true, fuelSharePercent: share, whPerKm: whValue } : {}),
       co2GPerKm: co2Value,
       testNorm: testNorm || null,
       rangeKm: rangeValue,
@@ -316,7 +319,7 @@ function VehicleForm({ initial, headingRef, taken, onSave, onCancel }: {
       {fromLookup && (
         <p className="muted">
           Hentet fra Motorregistret. Ret tallene, hvis du har bedre data; så markeres bilen som indtastet.
-          {initial.pluginHybrid && ' For en plugin-hybrid er andelen og forbruget på brændstof altid dine egne tal.'}
+          {initial.pluginHybrid && ' Andelen på brændstof er altid dit eget skøn.'}
         </p>
       )}
       <form className="add-line" onSubmit={submit} noValidate>
@@ -369,11 +372,19 @@ function VehicleForm({ initial, headingRef, taken, onSave, onCancel }: {
           <input id={`${id}-kml`} inputMode="decimal" autoComplete="off" value={kmPerLitre} onChange={(e) => setKmPerLitre(e.target.value)} aria-invalid={!!errors.kmPerLitre} aria-describedby={describedBy('kmPerLitre', `${id}-kml-hint`)} />
           <p id={`${id}-kml-hint`} className="sub">
             {pluginHybrid
-              ? 'Hvor langt bilen kører på en liter, når batteriet er brugt op. Typegodkendelsens tal for plugin-hybrider regner med el-kørsel og kan ikke bruges her.'
+              ? 'Hvor langt bilen kører på en liter, når den kører på brændstof (typegodkendelsens tal). Bruges til at omregne km på brændstof til liter.'
               : 'Bruges til at omregne km til liter. Uden det kan bilen kun bruges med linjer i liter.'}
           </p>
           {err('kmPerLitre')}
         </div>
+        {pluginHybrid && (
+          <div className="field">
+            <label htmlFor={`${id}-wh`}>Elforbrug (Wh/km) <span className="optional">(valgfri)</span></label>
+            <input id={`${id}-wh`} inputMode="decimal" autoComplete="off" value={whPerKm} onChange={(e) => setWhPerKm(e.target.value)} aria-invalid={!!errors.whPerKm} aria-describedby={describedBy('whPerKm', `${id}-wh-hint`)} />
+            <p id={`${id}-wh-hint`} className="sub">Ved kørsel på el. Viser, hvor meget strøm el-kørslen bruger; strømmen tælles ikke i Scope 1.</p>
+            {err('whPerKm')}
+          </div>
+        )}
         <div className="field">
           <label htmlFor={`${id}-norm`}>Målt efter</label>
           <select id={`${id}-norm`} value={testNorm} onChange={(e) => setTestNorm(e.target.value as TestNorm | '')}>

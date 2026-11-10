@@ -125,6 +125,10 @@
           "type": "number",
           "description": "km/l"
         },
+        "electric_usage": {
+          "type": "number",
+          "description": "Wh/km"
+        },
         "co2_emission": {
           "type": "number",
           "description": "g/km"

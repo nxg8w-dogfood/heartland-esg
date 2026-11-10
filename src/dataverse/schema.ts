@@ -145,8 +145,9 @@ export const tables: readonly Table[] = [
         options: [option(1, 'Diesel', 'diesel'), option(2, 'Benzin', 'benzin')],
       },
       date('foersteregistrering', 'Første registrering'),
-      { kind: 'decimal', name: n('kmperliter'), label: 'Brændstofforbrug (km/l)', precision: 2, min: 0, max: 1000, description: 'Typegodkendelsens tal, for en plugin-hybrid forbruget på brændstof; bruges til at omregne km til liter i Scope 1.' },
+      { kind: 'decimal', name: n('kmperliter'), label: 'Brændstofforbrug (km/l)', precision: 2, min: 0, max: 1000, description: 'Typegodkendelsens tal, for en plugin-hybrid ved kørsel på brændstof; bruges til at omregne km til liter i Scope 1.' },
       { kind: 'boolean', name: n('pluginhybrid'), label: 'Plugin-hybrid', trueLabel: 'Ja', falseLabel: 'Nej', default: false },
+      { kind: 'decimal', name: n('elforbrug'), label: 'Elforbrug (Wh/km)', precision: 1, min: 0, max: 10_000, description: 'Plugin-hybrider: typegodkendelsens elforbrug ved kørsel på el. Vises kun; strøm hører ikke til Scope 1.' },
       { kind: 'decimal', name: n('braendstofandel'), label: 'Andel på brændstof (%)', precision: 0, min: 0, max: 100, description: 'Plugin-hybrider: skøn over, hvor stor en del af de kørte km der er på brændstof.' },
       { kind: 'decimal', name: n('co2gperkm'), label: 'CO2 (g/km)', precision: 2, min: 0, max: 10_000 },
       {

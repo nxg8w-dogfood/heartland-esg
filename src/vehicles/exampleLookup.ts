@@ -19,7 +19,7 @@ const examples: Record<string, [MotorApiVehicle, MotorApiEnvironment | null]> = 
   ],
   GH45678: [
     { type: 'Personbil', make: 'Kia', model: 'Niro', variant: '1.6 GDI Plug-in Hybrid', first_registration: '2020-08-26+02:00', fuel_type: 'Benzin', is_hybrid: true, hybrid_type: 'plugin' },
-    { fuel_type: 'Benzin', fuel_usage: 44.2, total_usage: null, co2_emission: 31, measurement_norm: 'WLTP' },
+    { fuel_type: 'Benzin', fuel_usage: 44.2, electric_usage: 100.8, total_usage: null, co2_emission: 31, measurement_norm: 'WLTP' },
   ],
   JK56789: [
     { type: 'Personbil', make: 'Tesla', model: 'Model 3', first_registration: '2023-01-10+01:00', fuel_type: 'El', is_hybrid: false, hybrid_type: null },

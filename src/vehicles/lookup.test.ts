@@ -109,10 +109,24 @@ describe('fromMotorApi', () => {
     expect(r).toMatchObject({ ok: false, reason: 'not-supported' })
   })
 
-  it('returns a plug-in hybrid without km/l, for the user to fill in with the fuel share', () => {
-    const r = fromMotorApi('GH45678', { ...diesel, fuel_type: 'Benzin', is_hybrid: true, hybrid_type: 'plugin' }, { ...env, fuel_type: 'Benzin', fuel_usage: 71.4 }, at)
-    expect(r).toMatchObject({ ok: true, vehicle: { fuel: 'benzin', pluginHybrid: true, fuelSharePercent: null, kmPerLitre: null, co2GPerKm: 117 } })
-    expect(r.ok && r.notes.join(' ')).toMatch(/plugin-hybrid.*71,4 km\/l/)
+  const phev = { ...diesel, fuel_type: 'Benzin', is_hybrid: true, hybrid_type: 'plugin' }
+
+  it('returns a plug-in hybrid with its km/l on fuel and Wh/km on electricity, for the user to add the fuel share', () => {
+    const r = fromMotorApi('GH45678', phev, { ...env, fuel_type: 'Benzin', fuel_usage: 15.6, electric_usage: 230 }, at)
+    expect(r).toMatchObject({ ok: true, vehicle: { fuel: 'benzin', pluginHybrid: true, fuelSharePercent: null, kmPerLitre: 15.6, whPerKm: 230, testNorm: 'WLTP' } })
+    expect(r.ok && r.notes.join(' ')).toMatch(/plugin-hybrid.*andel|skøn/)
+  })
+
+  it('leaves out a plug-in hybrid’s km/l when it’s too high for driving on fuel alone', () => {
+    const r = fromMotorApi('GH45678', phev, { ...env, fuel_type: 'Benzin', fuel_usage: 44.2, electric_usage: 100.8 }, at)
+    expect(r).toMatchObject({ ok: true, vehicle: { kmPerLitre: null, whPerKm: 100.8 } })
+    expect(r.ok && r.notes.join(' ')).toMatch(/44,2 km\/l er for højt/)
+  })
+
+  it('keeps an ordinary car’s km/l however high, and gives it no Wh/km', () => {
+    const r = fromMotorApi('AB12345', diesel, { ...env, fuel_usage: 40, electric_usage: 90 }, at)
+    expect(r).toMatchObject({ ok: true, vehicle: { kmPerLitre: 40 } })
+    expect(r.ok && r.vehicle.whPerKm).toBeUndefined()
   })
 
   it('treats a mild hybrid as an ordinary car', () => {

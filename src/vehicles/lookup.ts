@@ -27,6 +27,8 @@ export type MotorApiEnvironment = {
   fuel_usage?: number | null
   /** km/l, for some hybrids instead of fuel_usage */
   total_usage?: number | null
+  /** Wh/km, for plug-in hybrids and electric cars */
+  electric_usage?: number | null
   /** g/km */
   co2_emission?: number | null
   measurement_norm?: string | null
@@ -47,6 +49,9 @@ export type PlateLookup = {
   lookup: (plate: string) => Promise<LookupResult>
 }
 
+/** Above this, a plug-in hybrid's km/l can't be for driving on fuel alone */
+export const MAX_KM_PER_LITRE_ON_FUEL = 35
+
 const fuels: Record<string, VehicleFuel> = { diesel: 'diesel', benzin: 'benzin' }
 const norms: Record<string, TestNorm> = { wltp: 'WLTP', nedc: 'NEDC' }
 
@@ -56,9 +61,9 @@ const clean = (s: unknown): string => (typeof s === 'string' ? s.trim() : '')
 /**
  * Maps MotorAPI's vehicle and environment answers to a Vehicle. Only diesel and petrol cars,
  * plug-in hybrids included, can be registered: electric cars aren't Scope 1 fuel lines. A
- * plug-in hybrid comes without km/l, since the register's figure already counts electric
- * driving; the user enters its km/l on fuel and how much it drives on fuel. The environment call
- * may fail on its own; the car is still returned, without fuel economy.
+ * plug-in hybrid gets its WLTP km/l on fuel and Wh/km on electricity; the user adds how much of
+ * its driving is on fuel. The environment call may fail on its own; the car is still returned,
+ * without fuel economy.
  */
 export function fromMotorApi(
   plate: string,
@@ -81,14 +86,16 @@ export function fromMotorApi(
   const notes: string[] = []
   // MotorAPI gives fuel_usage for ordinary cars and total_usage for some hybrids.
   const registered = positive(environment?.fuel_usage) ?? positive(environment?.total_usage)
-  const kmPerLitre = pluginHybrid ? null : registered
-  if (pluginHybrid) {
-    notes.push(
-      `${name} er en plugin-hybrid. Angiv et skøn over, hvor stor en del af kørslen der er på brændstof, og bilens forbrug, når den kører på brændstof. ` +
-      (registered === null ? 'Registret har ikke noget forbrug for bilen.' : `Registrets ${formatNumber(registered, 1)} km/l regner med, at en del af kørslen er på el, så det bruges ikke.`),
-    )
-  } else if (!environment) notes.push('Miljødata kunne ikke hentes. Angiv brændstofforbruget selv.')
+  // No car gets this far on a litre on fuel alone: for a plug-in hybrid, such a figure must be
+  // the weighted one that already counts electric driving, so using it would count that twice.
+  const weighted = pluginHybrid && registered !== null && registered > MAX_KM_PER_LITRE_ON_FUEL
+  const kmPerLitre = weighted ? null : registered
+  const whPerKm = pluginHybrid ? positive(environment?.electric_usage) : null
+  if (pluginHybrid) notes.push(`${name} er en plugin-hybrid. Angiv et skøn over, hvor stor en del af kørslen der er på brændstof.`)
+  if (!environment) notes.push('Miljødata kunne ikke hentes. Angiv brændstofforbruget selv.')
+  else if (weighted) notes.push(`Registrets ${formatNumber(registered, 1)} km/l er for højt til kørsel på brændstof alene og regner sandsynligvis el-kørslen med. Angiv bilens forbrug på brændstof selv.`)
   else if (kmPerLitre === null) notes.push('Registret har ikke noget brændstofforbrug for bilen. Angiv det selv.')
+  else if (pluginHybrid && whPerKm === null) notes.push('Registret har ikke noget elforbrug for bilen.')
   const testNorm = norms[clean(environment?.measurement_norm).toLowerCase()] ?? null
   if (testNorm === 'NEDC') notes.push('Tallene er målt efter NEDC, ikke WLTP. NEDC-forbrug er typisk lavere end det reelle.')
   if (vehicle.type && vehicle.type !== 'Personbil') notes.push(`Køretøjet er registreret som ${vehicle.type.toLowerCase()}.`)
@@ -106,7 +113,7 @@ export function fromMotorApi(
       fuel,
       firstRegistration,
       kmPerLitre,
-      ...(pluginHybrid ? { pluginHybrid: true, fuelSharePercent: null } : {}),
+      ...(pluginHybrid ? { pluginHybrid: true, fuelSharePercent: null, whPerKm } : {}),
       co2GPerKm: positive(environment?.co2_emission),
       testNorm,
       rangeKm: null,

@@ -86,6 +86,11 @@ You need:
    For test and prod, use a connection reference in the HeartlandESG solution
    (`--connection-ref <ref> --solution-id <id>`) rather than one person's connection.
 
+**When `apiDefinition.swagger.json` changes**, update the connector in each environment: in the
+maker portal, Custom connectors → MotorAPI → Edit → Swagger editor, paste the file, and Update
+connector (or `paconn update`). Then run `pa app add data-source` for it again, so the generated
+service and model follow. Keep the Security tab as it is; see the gotcha below.
+
 The OAuth settings in `apiProperties.json` work as committed (dev, 2026-11-10). One gotcha: if
 you edit the connector's Security tab in the portal, check that the client secret is still
 `@environmentVariables("hlesg_MotorApiConnectorClientSecret")`. The portal once saved the client

@@ -73,11 +73,15 @@ requested or stored.
    their km burn no fuel.
    **Plug-in hybrids are registered** (decided by @mortengad later on 2026-11-10; at first they
    were refused). The car is marked as one (`hlesg_pluginhybrid`), and the user enters an
-   estimate of the share of its km driven on fuel (`hlesg_braendstofandel`, 0–100 %) and its km/l
-   when it runs on fuel. The register's WLTP figure for a plug-in hybrid isn't used: it's a
-   weighted figure that already assumes part of the driving is electric, so using it with the
-   user's share would count the electric driving twice. The lookup shows it, but leaves km/l
-   empty. The electric share isn't counted in Scope 1. Charging electricity is Scope 2, which
+   estimate of the share of its km driven on fuel (`hlesg_braendstofandel`, 0–100 %). The lookup
+   fills in the WLTP figures for both kinds of driving: km/l on fuel from `fuel_usage`, and Wh/km
+   on electricity from `electric_usage` (`hlesg_elforbrug`). MotorAPI doesn't document whether a
+   plug-in hybrid's `fuel_usage` is for driving on fuel alone or the weighted figure that already
+   counts electric driving; its own example, a Kia Niro at 44.2 km/l and 31 g CO2/km, looks
+   weighted. Using a weighted figure with the user's share would count the electric driving
+   twice, so a figure above 35 km/l, which no car reaches on fuel alone, is left out with a note
+   and the user enters it. The electric share isn't counted in Scope 1; a km line shows it as kWh
+   (km on electricity × Wh/km). Charging electricity is Scope 2, which
    counts charging at the company's own sites through their meters; charging elsewhere isn't
    handled yet.
 4. **Scope 1 lines can name a car and be entered in km.** Fuel-card litres stay the preferred
