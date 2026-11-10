@@ -1,35 +1,12 @@
+/*
+ * App styles, built on the HEARTLAND Design System tokens in src/brand/tokens.css
+ * (docs/adr/0008). Refer to --hl-* tokens here; don't add raw colours or sizes.
+ */
+@import './brand/tokens.css';
+
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-
-  --bg: #ffffff;
-  --fg: #1a1f24;
-  --muted: #5a6470;
-  --border: #d5dae0;
-  --surface: #f5f7f9;
-  --accent: #0f766e;
-  --accent-surface: #e6f4f2;
-  --warn: #8a4b00;
-  --warn-surface: #fff4e0;
-  --error: #b42318;
-  --focus: #1d4ed8;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14181c;
-    --fg: #e8ecef;
-    --muted: #a3adb8;
-    --border: #36404a;
-    --surface: #1d2328;
-    --accent: #5eead4;
-    --accent-surface: #12302d;
-    --warn: #f6c177;
-    --warn-surface: #33260f;
-    --error: #ff8a80;
-    --focus: #93b4ff;
-  }
+  /* The design system has no dark theme: the app is light only (ADR 0008). */
+  color-scheme: light;
 }
 
 * {
@@ -38,335 +15,612 @@
 
 body {
   margin: 0;
-  padding: 2rem 1rem;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--hl-surface);
+  color: var(--hl-text);
+  font-family: var(--hl-font-serif);
+  font-size: var(--hl-fs-base);
+  line-height: var(--hl-lh-base);
+  letter-spacing: var(--hl-tr-body);
+  font-optical-sizing: auto;
+  font-variant-numeric: lining-nums;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--hl-leather);
+  color: var(--hl-mist);
 }
 
 main {
-  max-width: 72rem;
+  max-width: var(--hl-page-max);
   margin: 0 auto;
+  padding: 0 var(--hl-sp-6) var(--hl-sp-8);
+}
+
+@media (width <= 640px) {
+  main {
+    padding-inline: var(--hl-sp-4);
+  }
+}
+
+/* Headings: bold serif caps, as in the report. Page titles take the design system's H2 size
+   with its dash, sections take H3 and sub-sections H4, which suits a working tool better
+   than the report's 44px H1. */
+h1,
+h2,
+h3 {
+  font-weight: var(--hl-fw-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--hl-tr-caps);
+  color: var(--hl-heading);
+  text-wrap: balance;
+}
+
+h1,
+h2,
+h3 {
+  /* Long Danish compounds in tracked caps ("EMISSIONSFAKTORER") can be wider than a phone. */
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 h1 {
-  font-size: 1.75rem;
-  margin: 0 0 0.25rem;
+  /* Scales down on narrow screens, as the design system's display and H1 sizes do. */
+  font-size: clamp(24px, 6vw, var(--hl-fs-h2));
+  line-height: var(--hl-lh-h2);
+  margin: var(--hl-sp-6) 0 var(--hl-sp-4);
+}
+
+h1::after {
+  content: '';
+  display: block;
+  width: 1em;
+  height: max(3px, 0.12em);
+  margin-top: 0.5em;
+  background: var(--hl-dash);
 }
 
 h2 {
-  font-size: 1.15rem;
-  margin: 2rem 0 0.75rem;
+  font-size: var(--hl-fs-h3);
+  line-height: var(--hl-lh-h3);
+  margin: var(--hl-sp-7) 0 var(--hl-sp-4);
+}
+
+h3 {
+  font-size: var(--hl-fs-h4);
+  line-height: var(--hl-lh-h4);
+  color: var(--hl-text-strong);
+  margin: var(--hl-sp-5) 0 var(--hl-sp-3);
+}
+
+a {
+  color: var(--hl-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+strong,
+b,
+.strong {
+  font-weight: var(--hl-fw-bold);
 }
 
 .lead {
-  color: var(--muted);
-  max-width: 48rem;
+  font-style: italic;
+  font-size: var(--hl-fs-lg);
+  line-height: var(--hl-lh-lg);
+  letter-spacing: var(--hl-tr-lead);
+  color: var(--hl-text-strong);
+  max-width: 40em;
   margin-top: 0;
+  text-wrap: pretty;
 }
 
 .muted,
 .sub,
 .optional {
-  color: var(--muted);
+  color: var(--hl-text-muted);
 }
 
 .sub {
   display: block;
-  font-size: 0.8rem;
-  font-weight: normal;
+  font-size: var(--hl-fs-xs);
+  line-height: var(--hl-lh-xs);
+  font-weight: var(--hl-fw-regular);
+  text-transform: none;
+  letter-spacing: var(--hl-tr-body);
 }
 
+/* Notes and alerts follow the design system's policy box and alert. */
 .notice {
-  background: var(--surface);
-  border-left: 4px solid var(--border);
-  padding: 0.5rem 0.75rem;
+  background: var(--hl-note-bg);
+  color: var(--hl-note-text);
+  padding: var(--hl-sp-4) var(--hl-sp-5);
+  font-size: var(--hl-fs-sm);
+  line-height: var(--hl-lh-sm);
 }
 
-.warning,
-.pending {
-  color: var(--warn);
+.notice .muted {
+  color: var(--hl-note-text);
 }
 
 .warning {
-  background: var(--warn-surface);
-  padding: 0.5rem 0.75rem;
+  background: var(--hl-warning-bg);
+  color: var(--hl-mist);
+  border-left: 4px solid var(--hl-warning);
+  padding: var(--hl-sp-3) var(--hl-sp-4);
+  font-size: var(--hl-fs-sm);
+  line-height: var(--hl-lh-sm);
 }
 
+.pending,
 .warning-text {
-  color: var(--warn);
+  color: var(--hl-warning);
 }
 
 .error {
-  color: var(--error);
-  margin: 0.25rem 0 0;
-  font-size: 0.875rem;
+  color: var(--hl-danger);
+  font-weight: var(--hl-fw-bold);
+  margin: var(--hl-sp-1) 0 0;
+  font-size: var(--hl-fs-sm);
+  line-height: var(--hl-lh-sm);
 }
 
 .visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 2px solid var(--hl-focus);
   outline-offset: 2px;
+}
+
+/* Form controls: the design system's field, input and select. */
+input,
+select,
+button,
+textarea {
+  font: inherit;
+  letter-spacing: inherit;
 }
 
 input,
 select,
-button {
-  font: inherit;
-  color: inherit;
+textarea {
+  min-height: 44px;
+  padding: 0 var(--hl-sp-3);
+  border: 1px solid var(--hl-rule-strong);
+  border-radius: var(--hl-radius);
+  background: var(--hl-surface-raised);
+  color: var(--hl-text);
 }
 
-input,
-select {
-  background: var(--bg);
-  border: 1px solid var(--muted);
-  border-radius: 4px;
-  padding: 0.4rem 0.5rem;
-  min-height: 2.5rem;
+input::placeholder {
+  color: var(--hl-text-muted);
+  opacity: 1;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
 }
 
 input[aria-invalid='true'] {
-  border-color: var(--error);
+  border-color: var(--hl-danger);
+  box-shadow: inset 0 0 0 1px var(--hl-danger);
 }
 
-button {
-  background: var(--accent);
-  color: var(--bg);
-  border: 0;
-  border-radius: 4px;
-  padding: 0.5rem 1rem;
-  min-height: 2.5rem;
+input[type='file'] {
+  padding: var(--hl-sp-2);
+}
+
+input[type='file']::file-selector-button {
+  margin-right: var(--hl-sp-3);
+  min-height: 34px;
+  padding: 0 var(--hl-sp-4);
+  border: 1.5px solid var(--hl-text-strong);
+  border-radius: var(--hl-radius);
+  background: transparent;
+  color: var(--hl-text-strong);
+  font: inherit;
+  font-size: var(--hl-fs-xs);
+  font-weight: var(--hl-fw-bold);
+  letter-spacing: var(--hl-tr-nav);
+  text-transform: uppercase;
   cursor: pointer;
-  font-weight: 600;
 }
 
+label,
+legend {
+  font-size: var(--hl-fs-sm);
+  font-weight: var(--hl-fw-bold);
+  color: var(--hl-text-strong);
+}
+
+/* Buttons: tracked caps, square, one primary per view. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hl-sp-2);
+  min-height: 44px;
+  padding: 0 var(--hl-sp-5);
+  border: 1.5px solid transparent;
+  border-radius: var(--hl-radius);
+  background: var(--hl-action);
+  color: var(--hl-action-text);
+  font-size: var(--hl-fs-xs);
+  font-weight: var(--hl-fw-bold);
+  letter-spacing: var(--hl-tr-nav);
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--hl-dur-fast) var(--hl-ease),
+    color var(--hl-dur-fast) var(--hl-ease);
+}
+
+button:hover {
+  background: var(--hl-action-hover);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--hl-text-strong);
+  border-color: var(--hl-text-strong);
+}
+
+button.secondary:hover {
+  background: color-mix(in oklab, var(--hl-text-strong) 8%, transparent);
+}
+
+/* Inline text actions (remove, edit): the design system's ghost button, kept in sentence case
+   because they sit inside table rows and sentences. */
 button.link {
+  min-height: 24px;
+  padding: var(--hl-sp-1);
   background: none;
-  color: var(--fg);
+  color: var(--hl-link);
+  font-size: inherit;
+  font-weight: var(--hl-fw-regular);
+  letter-spacing: inherit;
+  text-transform: none;
   text-decoration: underline;
-  padding: 0.25rem;
-  min-height: auto;
-  font-weight: normal;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+button.link:hover {
+  background: none;
+  text-decoration-thickness: 2px;
+}
+
+button.link:disabled {
+  color: var(--hl-text-muted);
+  cursor: default;
+  text-decoration: none;
+  opacity: 1;
+}
+
+fieldset {
+  margin: 0;
+  border: var(--hl-rule-w) solid var(--hl-rule);
+  border-radius: var(--hl-radius);
 }
 
 .period {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
+  gap: var(--hl-sp-2) var(--hl-sp-3);
+  padding: var(--hl-sp-3) var(--hl-sp-4) var(--hl-sp-4);
+  background: var(--hl-surface-raised);
 }
 
 .period .error {
   flex-basis: 100%;
 }
 
+/* Key figures, as in the report: a strong rule on top, a large bold value. The accent tile is
+   the highlight band. */
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.75rem;
-  margin: 1.5rem 0 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--hl-sp-5);
+  margin: var(--hl-sp-6) 0 var(--hl-sp-4);
 }
 
 .tile {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
+  padding: var(--hl-sp-4) 0 0;
+  border-top: var(--hl-rule-strong-w) solid var(--hl-rule-strong);
 }
 
 .tile.accent {
-  background: var(--accent-surface);
-  border-color: var(--accent);
+  padding: var(--hl-sp-4);
+  background: var(--hl-highlight);
+  color: var(--hl-highlight-text);
+  border-top-color: var(--hl-highlight);
 }
 
 .tile dt {
-  color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--hl-fs-sm);
+  line-height: var(--hl-lh-sm);
+  font-weight: var(--hl-fw-bold);
+  color: var(--hl-text-strong);
 }
 
 .tile dd {
-  margin: 0.25rem 0 0;
-  font-size: 1.4rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  margin: var(--hl-sp-2) 0 0;
+  font-size: var(--hl-fs-h2);
+  line-height: 1.1;
+  font-weight: var(--hl-fw-bold);
+  color: var(--hl-heading);
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .tile .unit {
-  font-size: 0.875rem;
-  font-weight: normal;
-  color: var(--muted);
+  font-size: 0.5em;
+  letter-spacing: 0.04em;
+  color: inherit;
+}
+
+.tile .sub {
+  margin-top: var(--hl-sp-1);
+}
+
+.tile.accent dt,
+.tile.accent dd,
+.tile.accent .sub {
+  color: var(--hl-highlight-text);
 }
 
 .add-line {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 0.75rem 1rem;
+  gap: var(--hl-sp-4);
   align-items: start;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--hl-sp-2);
 }
 
 .field.wide {
   grid-column: 1 / -1;
 }
 
+.field.end {
+  justify-content: flex-end;
+}
+
 .actions {
   grid-column: 1 / -1;
 }
 
+/* Tables: the design system's financial table. Rules between rows, bold header, totals
+   above a strong rule. */
+/* Relative, so visually hidden labels inside a scrolled table stay inside it instead of
+   widening the page on narrow screens. */
 .table-wrap {
+  position: relative;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.95rem;
+  font-size: var(--hl-fs-sm);
+  line-height: 1.3;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+caption {
+  caption-side: top;
+  text-align: left;
+  padding-bottom: var(--hl-sp-3);
 }
 
 th,
 td {
+  height: var(--hl-row-h);
   text-align: left;
-  padding: 0.5rem 0.6rem;
-  border-bottom: 1px solid var(--border);
   vertical-align: top;
+  padding: var(--hl-sp-2) var(--hl-sp-3) var(--hl-sp-2) 0;
+  border-bottom: var(--hl-rule-w) solid var(--hl-rule);
+  font-weight: var(--hl-fw-regular);
+}
+
+th:last-child,
+td:last-child {
+  padding-right: 0;
 }
 
 thead th {
-  font-size: 0.85rem;
-  color: var(--muted);
-  font-weight: 600;
+  vertical-align: bottom;
+  font-weight: var(--hl-fw-bold);
+  color: var(--hl-text-strong);
+  border-bottom: var(--hl-rule-strong-w) solid var(--hl-rule-strong);
 }
 
 tfoot th,
 tfoot td {
-  border-top: 2px solid var(--accent);
-  border-bottom: 0;
+  font-weight: var(--hl-fw-bold);
+  color: var(--hl-text-strong);
+  border-top: var(--hl-rule-strong-w) solid var(--hl-rule-strong);
+  border-bottom: var(--hl-rule-strong-w) solid var(--hl-rule-strong);
 }
 
 .num {
   text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.strong {
-  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 .empty {
-  border: 1px dashed var(--border);
-  border-radius: 6px;
-  padding: 1rem;
+  border: var(--hl-rule-w) dashed var(--hl-rule-strong);
+  padding: var(--hl-sp-4);
+  color: var(--hl-text-muted);
 }
 
 footer {
-  margin-top: 2rem;
-  font-size: 0.875rem;
+  margin-top: var(--hl-sp-6);
+  font-size: var(--hl-fs-sm);
 }
 
+/* Header: the design system's site header — logotype left, tracked muted links, the current
+   page marked by the dash underneath as well as by colour. */
 .app-header {
-  max-width: 72rem;
-  margin: 0 auto 1.5rem;
+  max-width: var(--hl-page-max);
+  margin: 0 auto;
+  padding: var(--hl-sp-5) var(--hl-sp-6) 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.75rem;
+  gap: var(--hl-sp-4) var(--hl-sp-6);
+  border-bottom: var(--hl-rule-w) solid var(--hl-rule);
+}
+
+@media (width <= 640px) {
+  .app-header {
+    padding-inline: var(--hl-sp-4);
+  }
 }
 
 .brand {
-  font-weight: 700;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--hl-sp-3);
+  color: var(--hl-text-strong);
+}
+
+.brand-name {
+  font-size: var(--hl-fs-xs);
+  letter-spacing: var(--hl-tr-nav);
+  text-transform: uppercase;
+  color: var(--hl-text-muted);
+}
+
+.logotype {
+  display: inline-block;
+  height: 14px;
+  width: auto;
+  color: var(--hl-text-strong);
+}
+
+.app-header nav {
+  flex-basis: 100%;
 }
 
 .app-header ul {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
+  gap: 0 var(--hl-sp-6);
   list-style: none;
   margin: 0;
   padding: 0;
+  overflow-x: auto;
 }
 
 .app-header a {
+  position: relative;
   display: inline-block;
   white-space: nowrap;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  color: var(--fg);
+  padding: var(--hl-sp-3) 0;
+  color: var(--hl-text-muted);
+  font-size: var(--hl-fs-xs);
+  letter-spacing: var(--hl-tr-nav);
+  text-transform: uppercase;
   text-decoration: none;
 }
 
-.app-header a:hover {
-  background: var(--surface);
+.app-header a:hover,
+.app-header a[aria-current='page'] {
+  color: var(--hl-text-strong);
 }
 
 .app-header a[aria-current='page'] {
-  background: var(--accent-surface);
-  color: var(--fg);
-  font-weight: 600;
-  box-shadow: inset 0 -3px 0 var(--accent);
+  font-weight: var(--hl-fw-bold);
+}
+
+.app-header a[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--hl-dash);
 }
 
 .section-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: var(--hl-sp-4);
+  margin: var(--hl-sp-7) 0 var(--hl-sp-4);
+}
+
+.section-head > h2 {
+  margin: 0;
 }
 
 .card {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  background: var(--hl-surface-raised);
+  border: var(--hl-rule-w) solid var(--hl-rule);
+  border-radius: var(--hl-radius);
+  padding: var(--hl-sp-5);
+  margin-bottom: var(--hl-sp-4);
 }
 
 .location-settings {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 0.75rem 1rem;
-  margin-bottom: 0.75rem;
-}
-
-.field.end {
-  justify-content: flex-end;
-}
-
-button.secondary {
-  background: none;
-  color: var(--fg);
-  border: 1px solid var(--muted);
+  gap: var(--hl-sp-4);
+  margin-bottom: var(--hl-sp-4);
 }
 
 .value-input input {
   width: 8rem;
+  max-width: 7rem;
 }
 
 .check {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--hl-sp-3);
+  cursor: pointer;
 }
 
 .check input {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 18px;
+  height: 18px;
   min-height: auto;
+  margin: 0;
+  accent-color: var(--hl-action);
 }
 
 input.reason {
@@ -377,15 +631,10 @@ input.reason {
 .params {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 0.75rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  margin-top: 1rem;
-}
-
-.value-input input {
-  max-width: 7rem;
+  gap: var(--hl-sp-4);
+  padding: var(--hl-sp-3) var(--hl-sp-4) var(--hl-sp-4);
+  margin-top: var(--hl-sp-4);
+  background: var(--hl-surface-raised);
 }
 
 ul.plain {
@@ -394,24 +643,23 @@ ul.plain {
 }
 
 .conditions {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
-  margin: 0 0 0.75rem;
+  border: var(--hl-rule-w) solid var(--hl-rule);
+  padding: var(--hl-sp-3) var(--hl-sp-4);
+  margin: 0 0 var(--hl-sp-4);
 }
 
 .condition {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--hl-sp-2);
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--hl-sp-2);
 }
 
 .rule-footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--hl-sp-3);
   align-items: center;
 }
 
@@ -419,26 +667,25 @@ ul.plain {
   flex: 1;
 }
 
-button.link:disabled {
-  color: var(--muted);
-  cursor: default;
-  text-decoration: none;
+.databar {
+  margin-top: var(--hl-sp-5);
 }
 
 .databar p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--hl-sp-2);
 }
 
 .databar-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--hl-sp-2) var(--hl-sp-3);
   align-items: center;
 }
 
 .loading {
-  padding: 2rem 1rem;
+  padding: var(--hl-sp-7) var(--hl-sp-4);
   text-align: center;
+  font-style: italic;
 }
 
 .source-picker select {
@@ -448,9 +695,9 @@ button.link:disabled {
 .manual-entry {
   display: grid;
   grid-template-columns: auto minmax(8rem, 16rem);
-  gap: 0.35rem 0.5rem;
+  gap: var(--hl-sp-2) var(--hl-sp-3);
   align-items: center;
-  margin-top: 0.5rem;
+  margin-top: var(--hl-sp-2);
 }
 
 .manual-entry button,
@@ -461,25 +708,30 @@ button.link:disabled {
 }
 
 .publications > li + li {
-  margin-top: 1rem;
+  margin-top: var(--hl-sp-4);
 }
 
 .company-picker {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--hl-sp-3);
 }
 
 .company-context {
-  margin: 0 0 0.5rem;
-  color: var(--muted);
+  margin: var(--hl-sp-5) 0 var(--hl-sp-3);
+  color: var(--hl-text-muted);
+  font-style: italic;
+}
+
+.company-context strong {
+  color: var(--hl-text-strong);
+  font-style: normal;
 }
 
 .company-editor {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  margin: 0 0 1rem;
+  padding: var(--hl-sp-3) var(--hl-sp-4) var(--hl-sp-4);
+  margin: 0 0 var(--hl-sp-4);
+  background: var(--hl-surface-raised);
 }
 
 .ownership input.year {
@@ -494,7 +746,15 @@ button.link:disabled {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--hl-sp-2) var(--hl-sp-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0s !important;
+  }
 }
 
 /* The factor dropdown on a line; long factor names wrap the cell rather than widen the table */

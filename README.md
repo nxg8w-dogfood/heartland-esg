@@ -96,6 +96,8 @@ You need the System Administrator role in the environment.
 | `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
 | `src/dataverse/`, `scripts/dataverse-*.ts` | The Dataverse tables and security roles as code, and the scripts that set them up in an environment (ADR 0007). |
 | `src/storage/` | Saving and loading the group and each company's account (`GroupStore`). For now a browser draft store with backup export and import; Dataverse per ADR 0005 and 0006. |
+| `src/brand/` | The HEARTLAND Design System tokens (`tokens.css`) and logotype (ADR 0008). |
+| `src/index.css` | The app's styles, built only on the `--hl-*` tokens. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |
