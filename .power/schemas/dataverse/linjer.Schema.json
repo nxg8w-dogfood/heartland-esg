@@ -161,6 +161,33 @@
           "x-ms-schema-name": "hlesg_Gruppe",
           "maxLength": 100
         },
+        "hlesg_km": {
+          "type": "string",
+          "title": "Kørte km",
+          "x-ms-dataverse-attribute": "hlesg_km",
+          "x-ms-dataverse-type": "DecimalType",
+          "x-ms-schema-name": "hlesg_Km"
+        },
+        "hlesg_koeretoejid": {
+          "type": "string",
+          "title": "Bil",
+          "x-ms-dataverse-attribute": "hlesg_koeretoejid",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "hlesg_Koeretoejid",
+          "x-ms-dataverse-navigation-properties": [
+            "hlesg_Koeretoejid"
+          ]
+        },
+        "hlesg_koeretoejidname": {
+          "type": "string",
+          "title": "hlesg_koeretoejidname",
+          "x-ms-dataverse-attribute": "hlesg_koeretoejidname",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "hlesg_KoeretoejidName",
+          "x-ms-dataverse-attribute-of": "hlesg_koeretoejid",
+          "x-ms-read-only": true,
+          "maxLength": 850
+        },
         "hlesg_linjeid": {
           "type": "string",
           "title": "Linje",

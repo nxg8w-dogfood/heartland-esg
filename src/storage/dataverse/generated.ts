@@ -7,6 +7,7 @@ import { Hlesg_importsService } from '../../generated/services/Hlesg_importsServ
 import { Hlesg_indekspunktsService } from '../../generated/services/Hlesg_indekspunktsService'
 import { Hlesg_investeringsService } from '../../generated/services/Hlesg_investeringsService'
 import { Hlesg_klimaregnskabsService } from '../../generated/services/Hlesg_klimaregnskabsService'
+import { Hlesg_koeretoejsService } from '../../generated/services/Hlesg_koeretoejsService'
 import { Hlesg_koncernsService } from '../../generated/services/Hlesg_koncernsService'
 import { Hlesg_linjesService } from '../../generated/services/Hlesg_linjesService'
 import { Hlesg_lokationsService } from '../../generated/services/Hlesg_lokationsService'
@@ -35,6 +36,7 @@ const services = {
   hlesg_ejerandel: Hlesg_ejerandelsService,
   hlesg_klimaregnskab: Hlesg_klimaregnskabsService,
   hlesg_lokation: Hlesg_lokationsService,
+  hlesg_koeretoej: Hlesg_koeretoejsService,
   hlesg_linje: Hlesg_linjesService,
   hlesg_pendling: Hlesg_pendlingsService,
   hlesg_investering: Hlesg_investeringsService,
@@ -47,14 +49,9 @@ const services = {
   hlesg_regel: Hlesg_regelsService,
 } as unknown as Record<string, Service>
 
-// Tables in the schema that aren't yet added as data sources (`pa app add data-source`), because
-// the table doesn't exist in an environment yet. hlesg_koeretoej (ADR 0009) waits for the schema
-// to be applied. Reading one gives nothing; writing one says why it can't be saved.
-const pending = new Set(['hlesg_koeretoej'])
-
 function service(table: string): Service {
   const s = services[table]
-  if (!s) throw new Error(pending.has(table) ? `${table} er ikke tilføjet appen endnu, så det kan ikke gemmes i Dataverse.` : `No generated service for ${table}`)
+  if (!s) throw new Error(`No generated service for ${table}`)
   return s
 }
 
@@ -75,7 +72,6 @@ function selectFor(table: string): string[] {
 export function generatedApi(): TableApi {
   return {
     async list(table) {
-      if (!services[table] && pending.has(table)) return []
       const out: DvRecord[] = []
       let skipToken: string | undefined
       do {

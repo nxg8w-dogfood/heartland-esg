@@ -97,6 +97,11 @@
           "entitySetName": "hlesg_regels",
           "logicalName": "hlesg_regel",
           "isHidden": false
+        },
+        "k_ret_jer": {
+          "entitySetName": "hlesg_koeretoejs",
+          "logicalName": "hlesg_koeretoej",
+          "isHidden": false
         }
       },
       "environmentVariableName": ""

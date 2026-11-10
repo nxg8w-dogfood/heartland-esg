@@ -113,6 +113,13 @@ export const dataSourcesInfo = {
     "dataSourceType": "Dataverse",
     "apis": {}
   },
+  "hlesg_koeretoejs": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "hlesg_koeretoejid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
   "hlesg_koncerns": {
     "tableId": "",
     "version": "",
