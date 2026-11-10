@@ -51,8 +51,9 @@ var proxyIdentifierUri = 'api://${tenantId}/${appPrefix}'
 var lookupRoleValue = 'Vehicle.Lookup'
 var lookupRoleId = guid(appPrefix, lookupRoleValue)
 var scopeId = guid(appPrefix, 'user_impersonation')
-// Built-in role: Key Vault Secrets User (read secret contents)
-var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
+// Built-in role Key Vault Secrets User: a public ID, the same in every tenant
+// (https://learn.microsoft.com/azure/role-based-access-control/built-in-roles), not a secret.
+var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6' // gitleaks:allow
 
 // ---- Entra ID -------------------------------------------------------------------------
 
