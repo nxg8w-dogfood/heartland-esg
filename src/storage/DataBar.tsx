@@ -64,7 +64,7 @@ export function DataBar({ storeLabel, central, status, message, group, onReplace
         ) : (
           <>
             <strong>Kladde:</strong> data gemmes kun i {storeLabel}, ikke centralt, og deles ikke med
-            andre. Lagring i Dataverse kommer. Eksportér en backup jævnligt.
+            andre. Inde i Power Apps gemmes data i Dataverse. Eksportér en backup jævnligt.
           </>
         )}{' '}
         <span className={status.state === 'failed' ? 'error' : 'muted'} role="status">{statusText}</span>
