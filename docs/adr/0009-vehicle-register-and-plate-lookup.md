@@ -91,15 +91,20 @@ requested or stored.
 - **A new Azure resource.** Per the cost policy, it needs a budget with alerts at 50/80/100 %, and
   owner, project and environment tags. The Consumption tier bills per call. The first million
   calls a month are free, which a car register won't come near.
-- **One-off setup per environment, by an admin and not from the pipeline yet:**
-  - the Key Vault secret;
-  - API Management with its named values and policy;
-  - two Entra app registrations (the proxy and the connector) and the lookup app role;
-  - the connector imported into the solution with its environment variables;
-  - `pa app add data-source` for the connector, then wiring `connectorLookup` in `App.tsx`.
+- **Setup per environment, as code.** `infra/motorapi/main.bicep` creates:
+  - API Management, with its policy and named values;
+  - read access to the one Key Vault secret;
+  - both Entra app registrations, with the lookup role and admin consent;
+  - the budget.
 
-  `connectors/motorapi/README.md` lists the steps. Until then, the app inside Power Apps offers
-  manual entry only.
+  An admin runs it, because the pipeline has no Azure credentials yet (PR #32). Still done by
+  hand:
+  - putting the key and the connector's client secret in Key Vault;
+  - importing the connector and its environment variables;
+  - running `pa app add data-source` and wiring `connectorLookup` in `App.tsx`.
+
+  `connectors/motorapi/README.md` lists the steps. Until they're done, the app inside Power Apps
+  offers manual entry only.
 - **A contributor can change a car's km/l, which changes the litres of every km line for it.**
   The register shows where each car's figures came from (looked up, or entered by hand). The
   audit flag on the table (ADR 0005) records who changed what.

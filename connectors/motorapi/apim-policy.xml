@@ -4,9 +4,11 @@
     tenant-id                 Entra tenant ID (heartcorp)
     motorapi-connector-app-id Client ID of the custom connector's Entra app registration
     motorapi-audience         Application ID URI of the proxy's Entra app registration
+    motorapi-proxy-app-id     Client ID of the proxy's app registration (the audience of v2 tokens)
     motorapi-user-role        App role a user must hold to look up plates, e.g. Vehicle.Lookup
     motorapi-key              Key Vault reference to the MotorAPI token (Type: Key vault)
-  The API defines only the two GET operations; anything else gets 404 from APIM.
+  All set by infra/motorapi/main.bicep. The API defines only the two GET operations; anything
+  else gets 404 from APIM.
 -->
 <policies>
   <inbound>
@@ -18,6 +20,7 @@
       </client-application-ids>
       <audiences>
         <audience>{{motorapi-audience}}</audience>
+        <audience>{{motorapi-proxy-app-id}}</audience>
       </audiences>
       <required-claims>
         <claim name="roles" match="any">
