@@ -51,10 +51,12 @@ You need:
 3. **The connector's client secret:** created straight into Key Vault, never shown. Bash:
 
    ```bash
-   az ad app credential reset --id <hlesg_MotorApiConnectorClientId> --append --display-name power-platform --years 1 --query password -o tsv | az keyvault secret set --vault-name kv-nexus-ai-dev-867ee8 --name motorapi-connector-secret-dev --file /dev/stdin --output none
+   az ad app credential reset --id <hlesg_MotorApiConnectorClientId> --append --display-name power-platform --years 1 --query password -o tsv | tr -d '\n' | az keyvault secret set --vault-name kv-nexus-ai-dev-867ee8 --name motorapi-connector-secret-dev --file /dev/stdin --output none
    ```
 
-   In PowerShell, run the first half into a variable with `$s = …`, then use `--value $s` and
+   `tr -d '\n'` matters: `-o tsv` ends with a newline, and without it the stored secret is one
+   character too long. Run the command once: each run adds another credential to the app. In
+   PowerShell, run the first half into a variable with `$s = …`, then use `--value $s` and
    `Remove-Variable s`. Note the expiry date: the secret has to be renewed before it runs out.
 
 4. **Power Platform**, in the HeartlandESG solution:
