@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { Logotype } from './brand/Logotype'
 import { ledgerLinesFor } from './calc/accountTotals'
 import type { ActivityLine } from './calc/activity'
 import type { Survey } from './calc/commuting'
@@ -141,7 +142,10 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
   return (
     <>
       <header className="app-header">
-        <div className="brand">Heartland Klimaregnskab</div>
+        <div className="brand">
+          <Logotype title="Heartland" />
+          <span className="brand-name">Klimaregnskab</span>
+        </div>
         <div className="company-picker">
           <label htmlFor={companyId}>Virksomhed</label>
           <select id={companyId} value={active.id} onChange={(e) => setGroup((g) => ({ ...g, activeCompanyId: e.target.value }))}>

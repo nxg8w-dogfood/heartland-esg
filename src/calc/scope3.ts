@@ -173,7 +173,7 @@ export const category6Groups: readonly ActivityGroup[] = [
   { id: 'k6-bil-diesel', label: 'Firmabil – diesel', unit: 'km', factorId: 'f-t-bil-diesel' },
   { id: 'k6-bil-benzin', label: 'Firmabil – benzin', unit: 'km', factorId: 'f-t-bil-benzin' },
   // Starts on Denmark, which BEIS doesn't cover (blank by design): pick the hotel's country or a proxy.
-  { id: 'k6-hotel', label: 'Hotelovernatning', unit: 'værelsesnat', factorId: 'f-hotel-dk', factorChoices: 'Kat 6 – hotel' },
+  { id: 'k6-hotel', label: 'Hotelovernatning', unit: 'værelsesnat', factorId: 'f-hotel-dk' },
 ]
 
 export const category5Groups: readonly ActivityGroup[] = [

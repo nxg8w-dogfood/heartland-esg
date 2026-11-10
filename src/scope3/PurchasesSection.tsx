@@ -5,6 +5,8 @@ import { parseNumber } from '../calc/parseNumber'
 import { category1Groups, type Category1 } from '../calc/scope3'
 import type { Deflation, SpendGroup, SpendLine } from '../calc/spend'
 import { formatDate, formatFactor, formatNumber } from '../format'
+import { FactorCell } from '../factors/FactorCell'
+import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
 
 type Props = {
@@ -101,13 +103,13 @@ export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflatio
                   <td className="num">
                     {r.excluded ? (
                       <span className="muted">{r.group.excluded}</span>
-                    ) : r.factorValue === null ? (
-                      <span className="pending">Faktor mangler</span>
                     ) : (
-                      <>
-                        {formatFactor(r.factorValue)}
-                        <span className="sub">{r.line.customFactor != null ? 'Egen faktor' : r.factor?.unit}</span>
-                      </>
+                      <FactorCell
+                        value={r.factorValue}
+                        factor={r.factor}
+                        custom={r.line.customFactor != null}
+                        choice={r.source === 'ledger' ? undefined : lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
+                      />
                     )}
                   </td>
                   <td className="num strong">
