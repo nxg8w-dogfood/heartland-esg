@@ -12,7 +12,8 @@ export type GroupStore = {
   /** null when nothing has been saved yet */
   load(): Promise<GroupLoadResult | null>
   save(group: GroupData): Promise<void>
-  clear(): Promise<void>
+  /** Delete everything. Only the browser draft offers it; shared data isn't cleared from the app. */
+  clear?(): Promise<void>
 }
 
 // The key predates groups; a single account saved under it loads as the group's first company.

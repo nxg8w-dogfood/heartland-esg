@@ -1,6 +1,9 @@
-# False positives, one fingerprint per line (commit:file:rule:line). Only add an entry after
-# checking that the value really isn't a secret, and say why.
+# Findings that gitleaks reports but that are not secrets. One fingerprint per line, each with
+# its reason. Add a finding here only after checking that the value really isn't a credential;
+# a real secret is rotated, never ignored (see CLAUDE.md).
 
-# Microsoft's public ID for the built-in Key Vault Secrets User role, not a secret. The line has
-# a gitleaks:allow comment since the next commit.
+# The built-in Azure role id for "Key Vault Secrets User" (4633458b-17de-408a-b874-0445c86b69e6).
+# It's public and the same in every tenant:
+# https://learn.microsoft.com/azure/role-based-access-control/built-in-roles/security#key-vault-secrets-user
+# In infra/motorapi/main.bicep the line has had a gitleaks:allow comment since the next commit.
 132df258c7db3a4a9c9f499c13792d84fbcbadeb:infra/motorapi/main.bicep:generic-api-key:55
