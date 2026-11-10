@@ -702,12 +702,38 @@ ul.plain {
   flex: 1;
 }
 
-.databar {
-  margin-top: var(--hl-sp-5);
+/* The Data menu in the header: save status beside the button, backup and clear in a panel. */
+.data-menu {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hl-sp-2) var(--hl-sp-3);
+  margin-left: auto;
 }
 
-.databar p {
-  margin: 0 0 var(--hl-sp-2);
+.data-menu-status {
+  font-size: var(--hl-fs-xs);
+}
+
+.data-menu-panel {
+  position: absolute;
+  top: calc(100% + var(--hl-sp-2));
+  right: 0;
+  z-index: 20;
+  width: min(28rem, calc(100vw - 2 * var(--hl-sp-4)));
+  padding: var(--hl-sp-4);
+  background: var(--hl-surface-raised);
+  border: var(--hl-rule-w) solid var(--hl-rule-strong);
+  border-radius: var(--hl-radius);
+}
+
+.data-menu-panel[hidden] {
+  display: none;
+}
+
+.data-menu-panel p {
+  margin: 0 0 var(--hl-sp-3);
 }
 
 .databar-actions {

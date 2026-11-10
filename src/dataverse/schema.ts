@@ -121,6 +121,7 @@ export const tables: readonly Table[] = [
     primary: { name: n('navn'), label: 'Navn', maxLength: 200, required: true },
     columns: [
       company,
+      text('kommunekode', 'Kommunekode', 3, 'Danmarks Statistiks kommunekode, fx 751 for Aarhus. Afgør elområdet (DK1/DK2) og dermed elfaktoren (ADR 0012).'),
       text('elnetfamilie', 'Elnet (faktorfamilie)', 100),
       {
         kind: 'choice', name: n('markedsinstrument'), label: 'Market-based instrument', required: true,

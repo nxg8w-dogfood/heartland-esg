@@ -127,17 +127,6 @@ function GroupApp({ initial, initialMessage, onReplace }: { initial: GroupData; 
             {group.companies.map((c) => <option key={c.id} value={c.id}>{c.name || 'Uden navn'}</option>)}
           </select>
         </div>
-        <nav aria-label="Sider">
-          <ul>
-            {pages.map((p) => (
-              <li key={p.id}>
-                <a href={`#/${p.id}`} aria-current={p.id === page ? 'page' : undefined}>{p.label}</a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </header>
-      <main aria-label={page === 'koncern' ? current.label : `${current.label}, ${active.name}`}>
         <DataBar
           storeLabel={store.label}
           central={store.central}
@@ -153,6 +142,17 @@ function GroupApp({ initial, initialMessage, onReplace }: { initial: GroupData; 
             onReplace(emptyGroup(), 'Alle data er ryddet.')
           }}
         />
+        <nav aria-label="Sider">
+          <ul>
+            {pages.map((p) => (
+              <li key={p.id}>
+                <a href={`#/${p.id}`} aria-current={p.id === page ? 'page' : undefined}>{p.label}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </header>
+      <main aria-label={page === 'koncern' ? current.label : `${current.label}, ${active.name}`}>
         {page === 'koncern' ? (
           <GroupPage group={group} setGroup={setGroup} />
         ) : (

@@ -19,6 +19,8 @@ type MeteringPoint = {
   buildingNumber?: string | null
   postcode?: string | null
   cityName?: string | null
+  /** DataHub master data, e.g. "751" */
+  municipalityCode?: string | null
 }
 
 type Point = { position?: string; 'out_Quantity.quantity'?: string; 'out_Quantity.quality'?: string; out_Quantity?: { quantity?: string; quality?: string } }
@@ -35,6 +37,8 @@ type DocumentResult = {
 export type ElectricityMeter = {
   meteringPointId: string
   address: string
+  /** Statistics Denmark municipality code from DataHub, without leading zeros; null if missing */
+  municipalityCode: string | null
   months: { month: Month; kWh: number | null; missing: boolean }[]
   error: string | null
 }
@@ -51,6 +55,12 @@ const addressOf = (mp: MeteringPoint) =>
   [[mp.streetName, mp.buildingNumber].filter(Boolean).join(' '), [mp.postcode, mp.cityName].filter(Boolean).join(' ')]
     .filter(Boolean)
     .join(', ') || mp.meteringPointId
+
+/** DataHub may pad the code ("0751"); the app uses Statistics Denmark's form ("751"). */
+export function normaliseMunicipalityCode(code: string | null | undefined): string | null {
+  const n = Number.parseInt(String(code ?? '').trim(), 10)
+  return Number.isFinite(n) && n > 0 ? String(n) : null
+}
 
 /** kWh per local month (`YYYY-MM`) from one metering point's market document. */
 export function monthlyKWh(result: DocumentResult): Map<string, number> {
@@ -113,6 +123,7 @@ export async function fetchElectricity(doFetch: Fetch, refreshToken: string, mon
     return {
       meteringPointId: mp.meteringPointId,
       address: addressOf(mp),
+      municipalityCode: normaliseMunicipalityCode(mp.municipalityCode),
       error: errors.get(mp.meteringPointId) ?? null,
       months: months.map((month) => {
         const kWh = own?.get(month.key)

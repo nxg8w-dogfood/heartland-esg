@@ -8,7 +8,8 @@ import type { Survey } from '../calc/commuting'
 import type { Period } from '../calc/dates'
 import type { Investment } from '../calc/investments'
 import { scope1Groups, type Scope1Line } from '../calc/scope1'
-import type { Location, Scope2Line } from '../calc/scope2'
+import { NATIONAL_GRID, type Location, type Scope2Line } from '../calc/scope2'
+import { municipality } from '../data/municipalities'
 import { category1Groups, category4Groups, category4SpendGroups, category5Groups, category6Groups, defaultCategory3Params, type Category3Params } from '../calc/scope3'
 import { noDeflation, type Deflation, type SpendLine } from '../calc/spend'
 import { factors } from '../data/factors'
@@ -100,7 +101,10 @@ export function parseAccount(input: unknown): LoadResult {
   const period = isObject(input.period) && isIsoDate(input.period.start) && isIsoDate(input.period.end)
     ? { start: input.period.start, end: input.period.end }
     : base.period
-  const locations = Array.isArray(input.locations) ? list<Location>(input.locations) : base.locations
+  // An unknown municipality code is dropped, so the location falls back to the national grid mix.
+  const locations = Array.isArray(input.locations)
+    ? list<Location>(input.locations).map((l) => (l.municipalityCode && !municipality(l.municipalityCode) ? { ...l, municipalityCode: null, gridFamily: NATIONAL_GRID } : l))
+    : base.locations
   const locationIds = new Set(locations.map((l) => l.id))
   const ledgerIn = isObject(input.ledger) ? input.ledger : {}
   const postings = list<LedgerState['postings'][number]>(ledgerIn.postings)

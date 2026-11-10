@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { parseGroup, type GroupData } from './group'
 
 export type SaveStatus =
@@ -17,10 +17,35 @@ type Props = {
   onClear: () => void
 }
 
-/** Where the data lives, whether it's saved, and backup export, import and clear. */
+/**
+ * A "Data" menu in the header: where the data lives, whether it's saved, and backup export,
+ * import and clear. The save status stays visible next to the button; a failed save also
+ * opens the menu, so the backup button is in reach.
+ */
 export function DataBar({ storeLabel, central, status, message, group, onReplace, onClear }: Props) {
+  const id = useId()
+  const root = useRef<HTMLDivElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const [open, setOpen] = useState(() => message !== null)
+  const failed = status.state === 'failed'
+  // A new message (a backup loaded, data cleared) opens the menu so it's seen.
+  const [shownMessage, setShownMessage] = useState(message)
+  if (message !== shownMessage) {
+    setShownMessage(message)
+    if (message) setOpen(true)
+  }
+
+  // Close on a click outside, but not while the file picker is open.
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent) => {
+      if (root.current && !root.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    return () => document.removeEventListener('pointerdown', onDown)
+  }, [open])
 
   const exportBackup = () => {
     const blob = new Blob([JSON.stringify(group, null, 2)], { type: 'application/json' })
@@ -56,7 +81,28 @@ export function DataBar({ storeLabel, central, status, message, group, onReplace
           : ''
 
   return (
-    <div className={central ? 'databar' : 'databar notice'} role="region" aria-label="Data og lagring">
+    <div
+      ref={root}
+      className="data-menu"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && open) {
+          setOpen(false)
+          button.current?.focus()
+        }
+      }}
+    >
+      <button
+        ref={button}
+        type="button"
+        className="secondary data-menu-button"
+        aria-expanded={open || failed}
+        aria-controls={`${id}-panel`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        Data
+      </button>
+      <span className={failed ? 'error data-menu-status' : 'muted data-menu-status'} role="status">{statusText}</span>
+      <div id={`${id}-panel`} className={central ? 'data-menu-panel' : 'data-menu-panel notice'} role="region" aria-label="Data og lagring" hidden={!(open || failed)}>
       <p>
         {central ? (
           <>Data gemmes i {storeLabel}.</>
@@ -65,8 +111,7 @@ export function DataBar({ storeLabel, central, status, message, group, onReplace
             <strong>Kladde:</strong> data gemmes kun i {storeLabel}, ikke centralt, og deles ikke med
             andre. Lagring i Dataverse kommer. Eksportér en backup jævnligt.
           </>
-        )}{' '}
-        <span className={status.state === 'failed' ? 'error' : 'muted'} role="status">{statusText}</span>
+        )}
       </p>
       {message && <p className="muted" role="status">{message}</p>}
       <div className="databar-actions">
@@ -96,6 +141,7 @@ export function DataBar({ storeLabel, central, status, message, group, onReplace
         </button>
       </div>
       {importError && <p className="error" role="alert">{importError}</p>}
+      </div>
     </div>
   )
 }

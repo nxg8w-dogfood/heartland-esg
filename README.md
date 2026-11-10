@@ -97,9 +97,9 @@ You need the System Administrator role in the environment.
 | Path | What it is |
 | --- | --- |
 | `src/calc/` | Emission calculations as plain TypeScript, with tests next to them. No UI, no Power Platform dependencies. |
-| `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
+| `src/data/factors.ts` | The emission factor table, copied value for value from the original app, plus the DK1/DK2 electricity factors (ADR 0012). `municipalities.ts` maps each municipality to its price area. |
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
-| `src/utility/` | Fetching monthly electricity (Eloverblik) and district-heating (Varmeoverblik) consumption, called from the Scope 2 screen (ADR 0011). |
+| `src/utility/` | Fetching monthly electricity (Eloverblik) and district-heating (Varmeoverblik) consumption, called from the Scope 2 screen (ADR 0011), and creating locations from fetched meters (ADR 0012). |
 | `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
 | `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
 | `src/dataverse/`, `scripts/dataverse-*.ts` | The Dataverse tables and security roles as code, and the scripts that set them up in an environment (ADR 0007). |
