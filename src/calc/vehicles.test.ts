@@ -105,6 +105,26 @@ describe('resolveScope1Lines', () => {
   it('follows a change of the car’s fuel economy', () => {
     expect(resolveScope1Lines([line()], [car({ kmPerLitre: 25 })])[0].quantity).toBe(400)
   })
+
+  it('counts only the share a plug-in hybrid drives on fuel', () => {
+    const [r] = resolveScope1Lines([line()], [car({ pluginHybrid: true, fuelSharePercent: 40 })])
+    expect(r.quantity).toBe(200)
+    expect(r.estimate).toMatchObject({ km: 10_000, kmPerLitre: 20, fuelShare: 0.4, problem: null })
+  })
+
+  it('gives 0 litres for a plug-in hybrid that only drives on electricity', () => {
+    expect(resolveScope1Lines([line()], [car({ pluginHybrid: true, fuelSharePercent: 0 })])[0].quantity).toBe(0)
+  })
+
+  it('waits for data when a plug-in hybrid has no fuel share', () => {
+    const [r] = resolveScope1Lines([line()], [car({ pluginHybrid: true, fuelSharePercent: null })])
+    expect(r.quantity).toBeNull()
+    expect(r.estimate?.problem).toMatch(/plugin-hybrid/)
+  })
+
+  it('ignores a fuel share on an ordinary car', () => {
+    expect(resolveScope1Lines([line()], [car({ fuelSharePercent: 40 })])[0].quantity).toBe(500)
+  })
 })
 
 describe('Scope 1 with cars', () => {

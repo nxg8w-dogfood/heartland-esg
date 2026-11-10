@@ -107,6 +107,7 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
                       {r.line.estimate && r.line.estimate.km !== null && (
                         <span className="sub">
                           Anslået: {formatNumber(r.line.estimate.km, 0)} km
+                          {r.line.estimate.fuelShare !== null && r.line.estimate.fuelShare < 1 ? ` × ${formatNumber(r.line.estimate.fuelShare * 100, 0)} % på brændstof` : ''}
                           {r.line.estimate.kmPerLitre ? ` ÷ ${formatNumber(r.line.estimate.kmPerLitre, 1)} km/l` : ''}
                         </span>
                       )}

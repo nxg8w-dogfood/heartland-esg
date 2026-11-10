@@ -3,7 +3,8 @@
 - **Status:** Proposed
 - **Date:** 2026-11-10
 - **Decided by:** @mortengad (tech lead), 2026-11-10: the data source, how Scope 1 uses a car,
-  the range field, the API Management proxy, and who may register cars.
+  the range field, the API Management proxy, and who may register cars. Later the same day:
+  plug-in hybrids can be registered, with an estimated share of the driving on fuel.
 
 ## Context
 
@@ -38,7 +39,7 @@ requested or stored.
 1. **Data source: MotorAPI.** It's the only source that says which test cycle (WLTP or NEDC) a
    figure comes from. It publishes a DPA with EU hosting, and the free daily allowance covers a
    company's car register. Its weekly data and the lack of electric range don't matter here:
-   only diesel and petrol cars are registered.
+   only diesel and petrol cars, plug-in hybrids included, are registered.
 2. **The key stays on the server, in API Management.** A code app reaches external APIs only
    through Power Platform connectors
    ([connect to data](https://learn.microsoft.com/power-apps/developer/code-apps/how-to/connect-to-data)).
@@ -68,11 +69,21 @@ requested or stored.
      ID.
 3. **A car register per company.** It's a new page, *Bilpark*, holding plate, make, model,
    variant, fuel, first registration, km/l, CO2 g/km, test cycle and source. It's stored in a new
-   Dataverse table, `hlesg_koeretoej` (parent: the company). Electric cars and plug-in hybrids are
-   refused, because their km can't be turned into litres of fuel.
+   Dataverse table, `hlesg_koeretoej` (parent: the company). Electric cars are refused, because
+   their km burn no fuel.
+   **Plug-in hybrids are registered** (decided by @mortengad later on 2026-11-10; at first they
+   were refused). The car is marked as one (`hlesg_pluginhybrid`), and the user enters an
+   estimate of the share of its km driven on fuel (`hlesg_braendstofandel`, 0–100 %) and its km/l
+   when it runs on fuel. The register's WLTP figure for a plug-in hybrid isn't used: it's a
+   weighted figure that already assumes part of the driving is electric, so using it with the
+   user's share would count the electric driving twice. The lookup shows it, but leaves km/l
+   empty. The electric share isn't counted in Scope 1. Charging electricity is Scope 2, which
+   counts charging at the company's own sites through their meters; charging elsewhere isn't
+   handled yet.
 4. **Scope 1 lines can name a car and be entered in km.** Fuel-card litres stay the preferred
    input. A line without them can be entered as km driven for a registered car, and is converted
-   as litres = km ÷ the car's km/l. Such a line is marked as an estimate. The line keeps the km
+   as litres = km ÷ the car's km/l, or for a plug-in hybrid litres = km × its share on fuel ÷ its
+   km/l on fuel. Such a line is marked as an estimate. The line keeps the km
    and the car (`hlesg_linje.hlesg_km`, `hlesg_koeretoejid`). Litres are always worked out from
    the car's current km/l, never stored, so correcting a car corrects its lines. The litres also
    feed Scope 3 category 3 (well-to-tank).

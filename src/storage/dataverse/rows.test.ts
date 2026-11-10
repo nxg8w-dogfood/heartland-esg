@@ -17,6 +17,7 @@ function richAccount(): AccountData {
     vehicles: [
       { id: 'car-1', plate: 'AB12345', make: 'Skoda', model: 'Octavia', variant: '2.0 TDI', fuel: 'diesel', firstRegistration: '2022-03-14', kmPerLitre: 22.7, co2GPerKm: 117, testNorm: 'WLTP', source: 'lookup', fetchedAt: '2026-11-10T09:00:00.000Z' },
       { id: 'car-2', plate: 'CD23456', make: 'Toyota', model: 'Yaris', fuel: 'benzin', kmPerLitre: null, rangeKm: 650, source: 'manual' },
+      { id: 'car-3', plate: 'GH45678', make: 'Kia', model: 'Niro', fuel: 'benzin', kmPerLitre: 17, pluginHybrid: true, fuelSharePercent: 40, source: 'manual' },
     ],
     scope1Lines: [
       { id: 's1-a', group: 's1-diesel', date: '2025-02-01', quantity: 100, vehicleId: 'car-1' },
@@ -150,8 +151,8 @@ describe('diff', () => {
     without.companies[0].account.vehicles = []
     without.companies[0].account.scope1Lines = without.companies[0].account.scope1Lines.filter((l) => !l.vehicleId)
     const keys = (from: GroupData, to: GroupData) => diff(toRows(from), toRows(to)).map((o) => `${o.kind} ${o.table} ${o.key}`)
-    expect(keys(without, g())).toEqual(['create hlesg_koeretoej car-1', 'create hlesg_koeretoej car-2', 'create hlesg_linje s1-a', 'create hlesg_linje s1-km'])
-    expect(keys(g(), without)).toEqual(['delete hlesg_linje s1-km', 'delete hlesg_linje s1-a', 'delete hlesg_koeretoej car-2', 'delete hlesg_koeretoej car-1'])
+    expect(keys(without, g())).toEqual(['create hlesg_koeretoej car-1', 'create hlesg_koeretoej car-2', 'create hlesg_koeretoej car-3', 'create hlesg_linje s1-a', 'create hlesg_linje s1-km'])
+    expect(keys(g(), without)).toEqual(['delete hlesg_linje s1-km', 'delete hlesg_linje s1-a', 'delete hlesg_koeretoej car-3', 'delete hlesg_koeretoej car-2', 'delete hlesg_koeretoej car-1'])
   })
 
   it('deletes a removed line, and children before the location they point to', () => {

@@ -109,10 +109,15 @@ describe('fromMotorApi', () => {
     expect(r).toMatchObject({ ok: false, reason: 'not-supported' })
   })
 
-  it('refuses a plug-in hybrid, whose km can’t be turned into litres', () => {
-    const r = fromMotorApi('GH45678', { ...diesel, fuel_type: 'Benzin', is_hybrid: true, hybrid_type: 'plugin' }, env, at)
-    expect(r).toMatchObject({ ok: false, reason: 'not-supported' })
-    expect(!r.ok && r.message).toMatch(/plugin-hybrid/)
+  it('returns a plug-in hybrid without km/l, for the user to fill in with the fuel share', () => {
+    const r = fromMotorApi('GH45678', { ...diesel, fuel_type: 'Benzin', is_hybrid: true, hybrid_type: 'plugin' }, { ...env, fuel_type: 'Benzin', fuel_usage: 71.4 }, at)
+    expect(r).toMatchObject({ ok: true, vehicle: { fuel: 'benzin', pluginHybrid: true, fuelSharePercent: null, kmPerLitre: null, co2GPerKm: 117 } })
+    expect(r.ok && r.notes.join(' ')).toMatch(/plugin-hybrid.*71,4 km\/l/)
+  })
+
+  it('treats a mild hybrid as an ordinary car', () => {
+    const r = fromMotorApi('CD23456', { ...diesel, is_hybrid: true, hybrid_type: 'mild' }, env, at)
+    expect(r.ok && r.vehicle.pluginHybrid).toBeFalsy()
   })
 })
 

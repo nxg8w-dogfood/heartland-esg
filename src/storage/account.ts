@@ -136,7 +136,9 @@ export function parseAccount(input: unknown): LoadResult {
 
   const vehicles = list<Vehicle>(input.vehicles, (v) =>
     typeof v.plate === 'string' && (v.fuel === 'diesel' || v.fuel === 'benzin') &&
-    (v.kmPerLitre === null || (typeof v.kmPerLitre === 'number' && Number.isFinite(v.kmPerLitre) && v.kmPerLitre > 0)))
+    (v.kmPerLitre === null || (typeof v.kmPerLitre === 'number' && Number.isFinite(v.kmPerLitre) && v.kmPerLitre > 0)) &&
+    (v.pluginHybrid === undefined || typeof v.pluginHybrid === 'boolean') &&
+    (v.fuelSharePercent == null || (typeof v.fuelSharePercent === 'number' && v.fuelSharePercent >= 0 && v.fuelSharePercent <= 100)))
   const vehicleIds = new Set(vehicles.map((v) => v.id))
   const scope1Known = groupIn(scope1Groups)
 

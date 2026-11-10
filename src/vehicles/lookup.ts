@@ -4,6 +4,7 @@
 // says what to do when there's no connector, so the page works with manual entry until then.
 
 import type { TestNorm, Vehicle, VehicleFuel } from '../calc/vehicles'
+import { formatNumber } from '../format'
 
 /** The fields the app uses from GET /vehicles/{plate} (https://v1.motorapi.dk/doc/) */
 export type MotorApiVehicle = {
@@ -53,9 +54,11 @@ const positive = (n: unknown): number | null => (typeof n === 'number' && Number
 const clean = (s: unknown): string => (typeof s === 'string' ? s.trim() : '')
 
 /**
- * Maps MotorAPI's vehicle and environment answers to a Vehicle. Only diesel and petrol cars
- * can be registered: electric cars and plug-in hybrids aren't Scope 1 fuel lines. The
- * environment call may fail on its own; the car is still returned, without fuel economy.
+ * Maps MotorAPI's vehicle and environment answers to a Vehicle. Only diesel and petrol cars,
+ * plug-in hybrids included, can be registered: electric cars aren't Scope 1 fuel lines. A
+ * plug-in hybrid comes without km/l, since the register's figure already counts electric
+ * driving; the user enters its km/l on fuel and how much it drives on fuel. The environment call
+ * may fail on its own; the car is still returned, without fuel economy.
  */
 export function fromMotorApi(
   plate: string,
@@ -73,18 +76,18 @@ export function fromMotorApi(
       message: `${name} kører på ${fuelName ? fuelName.toLowerCase() : 'et ukendt brændstof'}. Kun diesel- og benzinbiler kan registreres her.`,
     }
   }
-  if (vehicle.is_hybrid && vehicle.hybrid_type === 'plugin') {
-    return {
-      ok: false,
-      reason: 'not-supported',
-      message: `${name} er en plugin-hybrid. Den kan ikke omregnes fra km til liter, fordi en del af kørslen er på el. Brug linjer i liter fra tankkort.`,
-    }
-  }
+  const pluginHybrid = vehicle.is_hybrid === true && vehicle.hybrid_type === 'plugin'
 
   const notes: string[] = []
   // MotorAPI gives fuel_usage for ordinary cars and total_usage for some hybrids.
-  const kmPerLitre = positive(environment?.fuel_usage) ?? positive(environment?.total_usage)
-  if (!environment) notes.push('Miljødata kunne ikke hentes. Angiv brændstofforbruget selv.')
+  const registered = positive(environment?.fuel_usage) ?? positive(environment?.total_usage)
+  const kmPerLitre = pluginHybrid ? null : registered
+  if (pluginHybrid) {
+    notes.push(
+      `${name} er en plugin-hybrid. Angiv et skøn over, hvor stor en del af kørslen der er på brændstof, og bilens forbrug, når den kører på brændstof. ` +
+      (registered === null ? 'Registret har ikke noget forbrug for bilen.' : `Registrets ${formatNumber(registered, 1)} km/l regner med, at en del af kørslen er på el, så det bruges ikke.`),
+    )
+  } else if (!environment) notes.push('Miljødata kunne ikke hentes. Angiv brændstofforbruget selv.')
   else if (kmPerLitre === null) notes.push('Registret har ikke noget brændstofforbrug for bilen. Angiv det selv.')
   const testNorm = norms[clean(environment?.measurement_norm).toLowerCase()] ?? null
   if (testNorm === 'NEDC') notes.push('Tallene er målt efter NEDC, ikke WLTP. NEDC-forbrug er typisk lavere end det reelle.')
@@ -103,6 +106,7 @@ export function fromMotorApi(
       fuel,
       firstRegistration,
       kmPerLitre,
+      ...(pluginHybrid ? { pluginHybrid: true, fuelSharePercent: null } : {}),
       co2GPerKm: positive(environment?.co2_emission),
       testNorm,
       rangeKm: null,

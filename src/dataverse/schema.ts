@@ -133,7 +133,7 @@ export const tables: readonly Table[] = [
     name: n('koeretoej'),
     label: 'Køretøj',
     pluralLabel: 'Køretøjer',
-    description: 'En diesel- eller benzinbil i virksomhedens bilpark, slået op i Motorregistret via MotorAPI eller indtastet (ADR 0009).',
+    description: 'En diesel- eller benzinbil, evt. plugin-hybrid, i virksomhedens bilpark, slået op i Motorregistret via MotorAPI eller indtastet (ADR 0009).',
     primary: { name: n('nummerplade'), label: 'Nummerplade', maxLength: 10, required: true },
     columns: [
       company,
@@ -145,7 +145,9 @@ export const tables: readonly Table[] = [
         options: [option(1, 'Diesel', 'diesel'), option(2, 'Benzin', 'benzin')],
       },
       date('foersteregistrering', 'Første registrering'),
-      { kind: 'decimal', name: n('kmperliter'), label: 'Brændstofforbrug (km/l)', precision: 2, min: 0, max: 1000, description: 'Typegodkendelsens tal; bruges til at omregne km til liter i Scope 1.' },
+      { kind: 'decimal', name: n('kmperliter'), label: 'Brændstofforbrug (km/l)', precision: 2, min: 0, max: 1000, description: 'Typegodkendelsens tal, for en plugin-hybrid forbruget på brændstof; bruges til at omregne km til liter i Scope 1.' },
+      { kind: 'boolean', name: n('pluginhybrid'), label: 'Plugin-hybrid', trueLabel: 'Ja', falseLabel: 'Nej', default: false },
+      { kind: 'decimal', name: n('braendstofandel'), label: 'Andel på brændstof (%)', precision: 0, min: 0, max: 100, description: 'Plugin-hybrider: skøn over, hvor stor en del af de kørte km der er på brændstof.' },
       { kind: 'decimal', name: n('co2gperkm'), label: 'CO2 (g/km)', precision: 2, min: 0, max: 10_000 },
       {
         kind: 'choice', name: n('maalenorm'), label: 'Målt efter',
