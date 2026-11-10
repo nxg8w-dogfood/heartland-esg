@@ -1,0 +1,112 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Heartland Eloverblik",
+    "description": "Monthly electricity consumption per metering point for a company, from Energinet DataHub's Eloverblik Customer API, via Heartland's API Management proxy, which holds each company's refresh token in Key Vault (docs/adr/0010).",
+    "version": "1.0"
+  },
+  "host": "@environmentVariables(\"hlesg_EloverblikHost\")",
+  "basePath": "/eloverblik",
+  "schemes": ["https"],
+  "produces": ["application/json"],
+  "paths": {
+    "/companies/{cvr}/consumption": {
+      "get": {
+        "operationId": "GetConsumption",
+        "summary": "Get a company's monthly electricity consumption",
+        "description": "Gets an access token, lists the company's linked consumption metering points and returns their monthly time series for the period.",
+        "parameters": [
+          { "name": "cvr", "in": "path", "required": true, "type": "string", "pattern": "^[0-9]{8}$", "description": "The company's CVR number, 8 digits" },
+          { "name": "from", "in": "query", "required": true, "type": "string", "format": "date", "description": "First day, YYYY-MM-DD" },
+          { "name": "to", "in": "query", "required": true, "type": "string", "format": "date", "description": "End of the period, YYYY-MM-DD, at most 730 days after from" }
+        ],
+        "responses": {
+          "200": { "description": "The consumption", "schema": { "$ref": "#/definitions/Consumption" } },
+          "400": { "description": "Bad CVR or dates (error: bad-request)", "schema": { "$ref": "#/definitions/Error" } },
+          "403": { "description": "The company's Eloverblik token is invalid, inactive or expired (error: token-invalid)", "schema": { "$ref": "#/definitions/Error" } },
+          "404": { "description": "No Eloverblik token is stored for this CVR (error: token-missing)", "schema": { "$ref": "#/definitions/Error" } },
+          "422": { "description": "More metering points than the proxy fetches in one request (error: too-many-metering-points)", "schema": { "$ref": "#/definitions/Error" } },
+          "429": { "description": "Another sync is running; retry shortly (error: sync-running)", "schema": { "$ref": "#/definitions/Error" } },
+          "502": { "description": "Eloverblik answered with an unexpected error (error: datahub-error)", "schema": { "$ref": "#/definitions/Error" } },
+          "503": { "description": "Eloverblik is busy or rate-limited; retry after 60 seconds (error: datahub-busy)", "schema": { "$ref": "#/definitions/Error" } }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Consumption": {
+      "type": "object",
+      "properties": {
+        "cvr": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "meteringPoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "meteringPointId": { "type": "string", "description": "18 digits" },
+              "typeOfMP": { "type": "string", "description": "E17 = consumption" },
+              "streetName": { "type": "string" },
+              "buildingNumber": { "type": "string" },
+              "postcode": { "type": "string" },
+              "cityName": { "type": "string" }
+            }
+          }
+        },
+        "periods": {
+          "type": "array",
+          "description": "One entry per metering point and month",
+          "items": {
+            "type": "object",
+            "properties": {
+              "meteringPointId": { "type": "string" },
+              "unit": { "type": "string", "description": "measurement_Unit.name, expected KWH" },
+              "start": { "type": "string", "description": "UTC, e.g. 2025-12-31T23:00:00Z" },
+              "end": { "type": "string" },
+              "points": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "quantity": { "type": "string", "description": "Decimal as text, as Eloverblik sends it" },
+                    "quality": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "errors": {
+          "type": "array",
+          "description": "Metering points Eloverblik refused, e.g. 30010 or 40014",
+          "items": {
+            "type": "object",
+            "properties": {
+              "meteringPointId": { "type": "string" },
+              "errorCode": { "type": "string" },
+              "errorText": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "error": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "oauth2-auth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "tokenUrl": "https://login.windows.net/common/oauth2/authorize",
+      "scopes": {}
+    }
+  },
+  "security": [{ "oauth2-auth": [] }]
+}

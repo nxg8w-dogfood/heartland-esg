@@ -1,0 +1,434 @@
+<!--
+  API-level policy for the Eloverblik proxy in Azure API Management (docs/adr/0010).
+  It serves one operation, GET /companies/{cvr}/consumption?from=YYYY-MM-DD&to=YYYY-MM-DD, and in that
+  one request: reads the company's refresh token from Key Vault, gets a 24-hour access token
+  (one GetToken call; Eloverblik allows 2 a minute per IP), lists the linked consumption metering
+  points and fetches monthly time series in batches of 10, at most 5 batches.
+  The Consumption tier has no built-in cache, so the access token isn't kept between requests.
+
+  Named values, all configured in APIM, none in this repository:
+    tenant-id                    Entra tenant ID (heartcorp)
+    eloverblik-connector-app-id  Client ID of the custom connector's Entra app registration
+    eloverblik-audience          Application ID URI of the proxy's Entra app registration
+    eloverblik-user-role         App role a user must hold, e.g. Electricity.Read
+    eloverblik-key-vault-name    Name of the Key Vault holding the secrets eloverblik-<cvr>
+  APIM's managed identity needs "Key Vault Secrets User" on that vault.
+
+  The five batch blocks are identical apart from their numbers; change them together.
+-->
+<policies>
+  <inbound>
+    <base />
+    <!-- Only signed-in Heartland users with the role, through our connector. -->
+    <validate-azure-ad-token tenant-id="{{tenant-id}}" header-name="Authorization" failed-validation-httpcode="401">
+      <client-application-ids>
+        <application-id>{{eloverblik-connector-app-id}}</application-id>
+      </client-application-ids>
+      <audiences>
+        <audience>{{eloverblik-audience}}</audience>
+      </audiences>
+      <required-claims>
+        <claim name="roles" match="any">
+          <value>{{eloverblik-user-role}}</value>
+        </claim>
+      </required-claims>
+    </validate-azure-ad-token>
+    <!-- The user's token never leaves API Management. -->
+    <set-header name="Authorization" exists-action="delete" />
+    <set-variable name="cvr" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;cvr&quot;, &quot;&quot;))" />
+    <set-variable name="from" value="@(context.Request.Url.Query.GetValueOrDefault(&quot;from&quot;, &quot;&quot;))" />
+    <set-variable name="to" value="@(context.Request.Url.Query.GetValueOrDefault(&quot;to&quot;, &quot;&quot;))" />
+    <!-- 8-digit CVR; dates as YYYY-MM-DD; from before to; at most 730 days (Eloverblik's limit). -->
+    <choose>
+      <when condition="@{
+        var date = new System.Text.RegularExpressions.Regex(&quot;^[0-9]{4}-[0-9]{2}-[0-9]{2}$&quot;);
+        var cvr = (string)context.Variables[&quot;cvr&quot;];
+        var from = (string)context.Variables[&quot;from&quot;];
+        var to = (string)context.Variables[&quot;to&quot;];
+        if (!System.Text.RegularExpressions.Regex.IsMatch(cvr, &quot;^[0-9]{8}$&quot;) || !date.IsMatch(from) || !date.IsMatch(to)) { return true; }
+        var days = (DateTime.Parse(to) - DateTime.Parse(from)).TotalDays;
+        return days &lt;= 0 || days &gt; 730;
+      }">
+        <return-response>
+          <set-status code="400" reason="Bad Request" />
+          <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+          <set-body>{"error":"bad-request","detail":"cvr must be 8 digits; from and to YYYY-MM-DD, from before to, at most 730 days apart."}</set-body>
+        </return-response>
+      </when>
+    </choose>
+    <!-- One sync at a time, so syncs don't add up to more GetToken calls than Eloverblik allows. -->
+    <limit-concurrency key="eloverblik-sync" max-count="1">
+      <!-- 1. The company's refresh token, from Key Vault. -->
+      <send-request mode="new" response-variable-name="secret" timeout="20" ignore-error="true">
+        <set-url>@("https://{{eloverblik-key-vault-name}}.vault.azure.net/secrets/eloverblik-" + (string)context.Variables["cvr"] + "?api-version=7.4")</set-url>
+        <set-method>GET</set-method>
+        <authentication-managed-identity resource="https://vault.azure.net" />
+      </send-request>
+      <choose>
+        <when condition="@(context.Variables[&quot;secret&quot;] != null &amp;&amp; ((IResponse)context.Variables[&quot;secret&quot;]).StatusCode == 404)">
+          <return-response>
+            <set-status code="404" reason="Not Found" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>{"error":"token-missing","detail":"No Eloverblik token is stored for this CVR."}</set-body>
+          </return-response>
+        </when>
+        <when condition="@(context.Variables[&quot;secret&quot;] == null || ((IResponse)context.Variables[&quot;secret&quot;]).StatusCode != 200)">
+          <return-response>
+            <set-status code="502" reason="Bad Gateway" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>{"error":"key-vault-error","detail":"The proxy could not read the token from Key Vault."}</set-body>
+          </return-response>
+        </when>
+      </choose>
+      <set-variable name="refreshToken" value="@((string)((IResponse)context.Variables[&quot;secret&quot;]).Body.As&lt;JObject&gt;()[&quot;value&quot;])" />
+      <!-- 2. A 24-hour access token. -->
+      <send-request mode="new" response-variable-name="token" timeout="30" ignore-error="true">
+        <set-url>https://api.eloverblik.dk/customerapi/api/token</set-url>
+        <set-method>GET</set-method>
+        <set-header name="Authorization" exists-action="override">
+          <value>@("Bearer " + (string)context.Variables["refreshToken"])</value>
+        </set-header>
+      </send-request>
+      <choose>
+        <when condition="@(context.Variables[&quot;token&quot;] == null || ((IResponse)context.Variables[&quot;token&quot;]).StatusCode == 429 || ((IResponse)context.Variables[&quot;token&quot;]).StatusCode == 503)">
+          <return-response>
+            <set-status code="503" reason="Service Unavailable" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-header name="Retry-After" exists-action="override"><value>60</value></set-header>
+            <set-body>{"error":"datahub-busy","detail":"Eloverblik is busy or rate-limited (token). Retry after 60 seconds."}</set-body>
+          </return-response>
+        </when>
+        <when condition="@(((IResponse)context.Variables[&quot;token&quot;]).StatusCode == 401 || ((IResponse)context.Variables[&quot;token&quot;]).StatusCode == 403)">
+          <return-response>
+            <set-status code="403" reason="Forbidden" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>{"error":"token-invalid","detail":"Eloverblik refused the company's token (token). Create a new token on eloverblik.dk."}</set-body>
+          </return-response>
+        </when>
+        <when condition="@(((IResponse)context.Variables[&quot;token&quot;]).StatusCode != 200)">
+          <return-response>
+            <set-status code="502" reason="Bad Gateway" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>{"error":"datahub-error","detail":"Eloverblik answered with an unexpected status (token)."}</set-body>
+          </return-response>
+        </when>
+      </choose>
+      <set-variable name="accessToken" value="@((string)((IResponse)context.Variables[&quot;token&quot;]).Body.As&lt;JObject&gt;()[&quot;result&quot;])" />
+      <!-- 3. The consumption metering points linked to the token (E17 = consumption). -->
+      <send-request mode="new" response-variable-name="points" timeout="30" ignore-error="true">
+        <set-url>https://api.eloverblik.dk/customerapi/api/meteringpoints/meteringpoints?includeAll=false</set-url>
+        <set-method>GET</set-method>
+        <set-header name="Authorization" exists-action="override">
+          <value>@("Bearer " + (string)context.Variables["accessToken"])</value>
+        </set-header>
+      </send-request>
+      <choose>
+        <when condition="@(context.Variables[&quot;points&quot;] == null || ((IResponse)context.Variables[&quot;points&quot;]).StatusCode == 429 || ((IResponse)context.Variables[&quot;points&quot;]).StatusCode == 503)">
+          <return-response>
+            <set-status code="503" reason="Service Unavailable" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-header name="Retry-After" exists-action="override"><value>60</value></set-header>
+            <set-body>{"error":"datahub-busy","detail":"Eloverblik is busy or rate-limited (metering points). Retry after 60 seconds."}</set-body>
+          </return-response>
+        </when>
+        <when condition="@(((IResponse)context.Variables[&quot;points&quot;]).StatusCode == 401 || ((IResponse)context.Variables[&quot;points&quot;]).StatusCode == 403)">
+          <return-response>
+            <set-status code="403" reason="Forbidden" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>{"error":"token-invalid","detail":"Eloverblik refused the company's token (metering points). Create a new token on eloverblik.dk."}</set-body>
+          </return-response>
+        </when>
+        <when condition="@(((IResponse)context.Variables[&quot;points&quot;]).StatusCode != 200)">
+          <return-response>
+            <set-status code="502" reason="Bad Gateway" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>{"error":"datahub-error","detail":"Eloverblik answered with an unexpected status (metering points)."}</set-body>
+          </return-response>
+        </when>
+      </choose>
+      <set-variable name="meteringPoints" value="@{
+        var all = ((IResponse)context.Variables[&quot;points&quot;]).Body.As&lt;JObject&gt;()[&quot;result&quot;] as JArray ?? new JArray();
+        return new JArray(all.Where(p =&gt; (string)p[&quot;typeOfMP&quot;] == &quot;E17&quot;).Select(p =&gt; new JObject(
+          new JProperty(&quot;meteringPointId&quot;, p[&quot;meteringPointId&quot;]),
+          new JProperty(&quot;typeOfMP&quot;, p[&quot;typeOfMP&quot;]),
+          new JProperty(&quot;streetName&quot;, p[&quot;streetName&quot;]),
+          new JProperty(&quot;buildingNumber&quot;, p[&quot;buildingNumber&quot;]),
+          new JProperty(&quot;postcode&quot;, p[&quot;postcode&quot;]),
+          new JProperty(&quot;cityName&quot;, p[&quot;cityName&quot;]))));
+      }" />
+      <choose>
+        <when condition="@(((JArray)context.Variables[&quot;meteringPoints&quot;]).Count &gt; 50)">
+          <return-response>
+            <set-status code="422" reason="Unprocessable Entity" />
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>{"error":"too-many-metering-points","detail":"The company has more than 50 consumption metering points; the proxy fetches at most 50."}</set-body>
+          </return-response>
+        </when>
+      </choose>
+      <!-- 4. Monthly time series, 10 metering points per request as Energinet advises. -->
+      <!-- Batch 1: metering points 1-10. -->
+      <choose>
+        <when condition="@(((JArray)context.Variables[&quot;meteringPoints&quot;]).Count &gt; 0)">
+          <send-request mode="new" response-variable-name="series0" timeout="60" ignore-error="true">
+            <set-url>@("https://api.eloverblik.dk/customerapi/api/meterdata/gettimeseries/" + (string)context.Variables["from"] + "/" + (string)context.Variables["to"] + "/Month")</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Authorization" exists-action="override">
+              <value>@("Bearer " + (string)context.Variables["accessToken"])</value>
+            </set-header>
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>@{
+              var ids = ((JArray)context.Variables["meteringPoints"]).Skip(0).Take(10).Select(p =&gt; (string)p["meteringPointId"]);
+              return new JObject(new JProperty("meteringPoints", new JObject(new JProperty("meteringPoint", new JArray(ids))))).ToString();
+            }</set-body>
+          </send-request>
+          <choose>
+            <when condition="@(context.Variables[&quot;series0&quot;] == null || ((IResponse)context.Variables[&quot;series0&quot;]).StatusCode == 429 || ((IResponse)context.Variables[&quot;series0&quot;]).StatusCode == 503)">
+              <return-response>
+                <set-status code="503" reason="Service Unavailable" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-header name="Retry-After" exists-action="override"><value>60</value></set-header>
+                <set-body>{"error":"datahub-busy","detail":"Eloverblik is busy or rate-limited (time series, batch 1). Retry after 60 seconds."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series0&quot;]).StatusCode == 401 || ((IResponse)context.Variables[&quot;series0&quot;]).StatusCode == 403)">
+              <return-response>
+                <set-status code="403" reason="Forbidden" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"token-invalid","detail":"Eloverblik refused the company's token (time series, batch 1). Create a new token on eloverblik.dk."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series0&quot;]).StatusCode != 200)">
+              <return-response>
+                <set-status code="502" reason="Bad Gateway" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"datahub-error","detail":"Eloverblik answered with an unexpected status (time series, batch 1)."}</set-body>
+              </return-response>
+            </when>
+          </choose>
+        </when>
+      </choose>
+      <!-- Batch 2: metering points 11-20. -->
+      <choose>
+        <when condition="@(((JArray)context.Variables[&quot;meteringPoints&quot;]).Count &gt; 10)">
+          <send-request mode="new" response-variable-name="series1" timeout="60" ignore-error="true">
+            <set-url>@("https://api.eloverblik.dk/customerapi/api/meterdata/gettimeseries/" + (string)context.Variables["from"] + "/" + (string)context.Variables["to"] + "/Month")</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Authorization" exists-action="override">
+              <value>@("Bearer " + (string)context.Variables["accessToken"])</value>
+            </set-header>
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>@{
+              var ids = ((JArray)context.Variables["meteringPoints"]).Skip(10).Take(10).Select(p =&gt; (string)p["meteringPointId"]);
+              return new JObject(new JProperty("meteringPoints", new JObject(new JProperty("meteringPoint", new JArray(ids))))).ToString();
+            }</set-body>
+          </send-request>
+          <choose>
+            <when condition="@(context.Variables[&quot;series1&quot;] == null || ((IResponse)context.Variables[&quot;series1&quot;]).StatusCode == 429 || ((IResponse)context.Variables[&quot;series1&quot;]).StatusCode == 503)">
+              <return-response>
+                <set-status code="503" reason="Service Unavailable" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-header name="Retry-After" exists-action="override"><value>60</value></set-header>
+                <set-body>{"error":"datahub-busy","detail":"Eloverblik is busy or rate-limited (time series, batch 2). Retry after 60 seconds."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series1&quot;]).StatusCode == 401 || ((IResponse)context.Variables[&quot;series1&quot;]).StatusCode == 403)">
+              <return-response>
+                <set-status code="403" reason="Forbidden" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"token-invalid","detail":"Eloverblik refused the company's token (time series, batch 2). Create a new token on eloverblik.dk."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series1&quot;]).StatusCode != 200)">
+              <return-response>
+                <set-status code="502" reason="Bad Gateway" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"datahub-error","detail":"Eloverblik answered with an unexpected status (time series, batch 2)."}</set-body>
+              </return-response>
+            </when>
+          </choose>
+        </when>
+      </choose>
+      <!-- Batch 3: metering points 21-30. -->
+      <choose>
+        <when condition="@(((JArray)context.Variables[&quot;meteringPoints&quot;]).Count &gt; 20)">
+          <send-request mode="new" response-variable-name="series2" timeout="60" ignore-error="true">
+            <set-url>@("https://api.eloverblik.dk/customerapi/api/meterdata/gettimeseries/" + (string)context.Variables["from"] + "/" + (string)context.Variables["to"] + "/Month")</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Authorization" exists-action="override">
+              <value>@("Bearer " + (string)context.Variables["accessToken"])</value>
+            </set-header>
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>@{
+              var ids = ((JArray)context.Variables["meteringPoints"]).Skip(20).Take(10).Select(p =&gt; (string)p["meteringPointId"]);
+              return new JObject(new JProperty("meteringPoints", new JObject(new JProperty("meteringPoint", new JArray(ids))))).ToString();
+            }</set-body>
+          </send-request>
+          <choose>
+            <when condition="@(context.Variables[&quot;series2&quot;] == null || ((IResponse)context.Variables[&quot;series2&quot;]).StatusCode == 429 || ((IResponse)context.Variables[&quot;series2&quot;]).StatusCode == 503)">
+              <return-response>
+                <set-status code="503" reason="Service Unavailable" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-header name="Retry-After" exists-action="override"><value>60</value></set-header>
+                <set-body>{"error":"datahub-busy","detail":"Eloverblik is busy or rate-limited (time series, batch 3). Retry after 60 seconds."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series2&quot;]).StatusCode == 401 || ((IResponse)context.Variables[&quot;series2&quot;]).StatusCode == 403)">
+              <return-response>
+                <set-status code="403" reason="Forbidden" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"token-invalid","detail":"Eloverblik refused the company's token (time series, batch 3). Create a new token on eloverblik.dk."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series2&quot;]).StatusCode != 200)">
+              <return-response>
+                <set-status code="502" reason="Bad Gateway" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"datahub-error","detail":"Eloverblik answered with an unexpected status (time series, batch 3)."}</set-body>
+              </return-response>
+            </when>
+          </choose>
+        </when>
+      </choose>
+      <!-- Batch 4: metering points 31-40. -->
+      <choose>
+        <when condition="@(((JArray)context.Variables[&quot;meteringPoints&quot;]).Count &gt; 30)">
+          <send-request mode="new" response-variable-name="series3" timeout="60" ignore-error="true">
+            <set-url>@("https://api.eloverblik.dk/customerapi/api/meterdata/gettimeseries/" + (string)context.Variables["from"] + "/" + (string)context.Variables["to"] + "/Month")</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Authorization" exists-action="override">
+              <value>@("Bearer " + (string)context.Variables["accessToken"])</value>
+            </set-header>
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>@{
+              var ids = ((JArray)context.Variables["meteringPoints"]).Skip(30).Take(10).Select(p =&gt; (string)p["meteringPointId"]);
+              return new JObject(new JProperty("meteringPoints", new JObject(new JProperty("meteringPoint", new JArray(ids))))).ToString();
+            }</set-body>
+          </send-request>
+          <choose>
+            <when condition="@(context.Variables[&quot;series3&quot;] == null || ((IResponse)context.Variables[&quot;series3&quot;]).StatusCode == 429 || ((IResponse)context.Variables[&quot;series3&quot;]).StatusCode == 503)">
+              <return-response>
+                <set-status code="503" reason="Service Unavailable" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-header name="Retry-After" exists-action="override"><value>60</value></set-header>
+                <set-body>{"error":"datahub-busy","detail":"Eloverblik is busy or rate-limited (time series, batch 4). Retry after 60 seconds."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series3&quot;]).StatusCode == 401 || ((IResponse)context.Variables[&quot;series3&quot;]).StatusCode == 403)">
+              <return-response>
+                <set-status code="403" reason="Forbidden" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"token-invalid","detail":"Eloverblik refused the company's token (time series, batch 4). Create a new token on eloverblik.dk."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series3&quot;]).StatusCode != 200)">
+              <return-response>
+                <set-status code="502" reason="Bad Gateway" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"datahub-error","detail":"Eloverblik answered with an unexpected status (time series, batch 4)."}</set-body>
+              </return-response>
+            </when>
+          </choose>
+        </when>
+      </choose>
+      <!-- Batch 5: metering points 41-50. -->
+      <choose>
+        <when condition="@(((JArray)context.Variables[&quot;meteringPoints&quot;]).Count &gt; 40)">
+          <send-request mode="new" response-variable-name="series4" timeout="60" ignore-error="true">
+            <set-url>@("https://api.eloverblik.dk/customerapi/api/meterdata/gettimeseries/" + (string)context.Variables["from"] + "/" + (string)context.Variables["to"] + "/Month")</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Authorization" exists-action="override">
+              <value>@("Bearer " + (string)context.Variables["accessToken"])</value>
+            </set-header>
+            <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+            <set-body>@{
+              var ids = ((JArray)context.Variables["meteringPoints"]).Skip(40).Take(10).Select(p =&gt; (string)p["meteringPointId"]);
+              return new JObject(new JProperty("meteringPoints", new JObject(new JProperty("meteringPoint", new JArray(ids))))).ToString();
+            }</set-body>
+          </send-request>
+          <choose>
+            <when condition="@(context.Variables[&quot;series4&quot;] == null || ((IResponse)context.Variables[&quot;series4&quot;]).StatusCode == 429 || ((IResponse)context.Variables[&quot;series4&quot;]).StatusCode == 503)">
+              <return-response>
+                <set-status code="503" reason="Service Unavailable" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-header name="Retry-After" exists-action="override"><value>60</value></set-header>
+                <set-body>{"error":"datahub-busy","detail":"Eloverblik is busy or rate-limited (time series, batch 5). Retry after 60 seconds."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series4&quot;]).StatusCode == 401 || ((IResponse)context.Variables[&quot;series4&quot;]).StatusCode == 403)">
+              <return-response>
+                <set-status code="403" reason="Forbidden" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"token-invalid","detail":"Eloverblik refused the company's token (time series, batch 5). Create a new token on eloverblik.dk."}</set-body>
+              </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables[&quot;series4&quot;]).StatusCode != 200)">
+              <return-response>
+                <set-status code="502" reason="Bad Gateway" />
+                <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                <set-body>{"error":"datahub-error","detail":"Eloverblik answered with an unexpected status (time series, batch 5)."}</set-body>
+              </return-response>
+            </when>
+          </choose>
+        </when>
+      </choose>
+      <!-- 5. A compact answer. The app parses the quantities and sums them. -->
+      <return-response>
+        <set-status code="200" reason="OK" />
+        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+        <set-body>@{
+          var periods = new JArray();
+          var errors = new JArray();
+          for (var i = 0; i &lt; 5; i++) {
+            object held;
+            if (!context.Variables.TryGetValue("series" + i, out held) || held == null) { continue; }
+            var items = ((IResponse)held).Body.As&lt;JObject&gt;()["result"] as JArray ?? new JArray();
+            foreach (var item in items) {
+              if (item["success"] != null &amp;&amp; !(bool)item["success"]) {
+                errors.Add(new JObject(
+                  new JProperty("meteringPointId", item["id"]),
+                  new JProperty("errorCode", item["errorCode"]),
+                  new JProperty("errorText", item["errorText"])));
+                continue;
+              }
+              var series = item["MyEnergyData_MarketDocument"]?["TimeSeries"] as JArray ?? new JArray();
+              foreach (var ts in series) {
+                var id = (string)ts["MarketEvaluationPoint"]?["mRID"]?["name"];
+                var unit = (string)ts["measurement_Unit"]?["name"];
+                foreach (var period in ts["Period"] as JArray ?? new JArray()) {
+                  var points = new JArray((period["Point"] as JArray ?? new JArray()).Select(pt =&gt; new JObject(
+                    new JProperty("quantity", pt["out_Quantity.quantity"]),
+                    new JProperty("quality", pt["out_Quantity.quality"]))));
+                  periods.Add(new JObject(
+                    new JProperty("meteringPointId", id),
+                    new JProperty("unit", unit),
+                    new JProperty("start", period["timeInterval"]?["start"]),
+                    new JProperty("end", period["timeInterval"]?["end"]),
+                    new JProperty("points", points)));
+                }
+              }
+            }
+          }
+          return new JObject(
+            new JProperty("cvr", (string)context.Variables["cvr"]),
+            new JProperty("from", (string)context.Variables["from"]),
+            new JProperty("to", (string)context.Variables["to"]),
+            new JProperty("meteringPoints", (JArray)context.Variables["meteringPoints"]),
+            new JProperty("periods", periods),
+            new JProperty("errors", errors)).ToString();
+        }</set-body>
+      </return-response>
+    </limit-concurrency>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+    <!-- Anything unexpected, e.g. an answer Eloverblik changed the shape of. No details leave the proxy. -->
+    <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+    <set-body>@(new JObject(new JProperty("error", context.Response.StatusCode == 429 ? "sync-running" : "proxy-error"), new JProperty("detail", context.LastError.Reason ?? "")).ToString())</set-body>
+  </on-error>
+</policies>
