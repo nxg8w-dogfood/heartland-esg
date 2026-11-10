@@ -166,11 +166,33 @@ function LocationCard({
   const id = useId()
   const { location } = summary
   const rows = [...summary.electricity, ...summary.heating].sort((a, b) => a.line.date.localeCompare(b.line.date))
+  // Collapsed to its sums once it has lines; a new, empty location opens so it can be named.
+  const [open, setOpen] = useState(() => rows.length === 0)
   return (
-    <article className="card" aria-labelledby={`${id}-name-label`}>
+    <article className="card" aria-labelledby={`${id}-title`}>
+      <div className="location-head">
+        <h3 id={`${id}-title`}>{location.name || 'Unavngivet lokation'}</h3>
+        <button type="button" className="link" aria-expanded={open} aria-controls={`${id}-details`} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Skjul detaljer' : 'Vis detaljer'}<span className="visually-hidden">: {location.name}</span>
+        </button>
+      </div>
+      <dl className="location-sums">
+        <div><dt>El</dt><dd>{formatNumber(summary.electricityKWh, 0)} kWh</dd></div>
+        <div><dt>Fjernvarme</dt><dd>{formatNumber(summary.heatingKWh, 0)} kWh</dd></div>
+        <div><dt>Location-based</dt><dd>{formatNumber(summary.locationTotal, 3)} tCO2e</dd></div>
+        <div>
+          <dt>Market-based</dt>
+          <dd>
+            {formatNumber(summary.marketTotal, 3)} tCO2e
+            {summary.pendingMarket && <span className="sub warning-text">Ufuldstændig</span>}
+          </dd>
+        </div>
+        <div><dt>Linjer i perioden</dt><dd>{rows.length}</dd></div>
+      </dl>
+      <div id={`${id}-details`} className="location-details" hidden={!open}>
       <div className="location-settings">
         <div className="field">
-          <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Lokation</label>
+          <label htmlFor={`${id}-name`}>Navn</label>
           <input id={`${id}-name`} value={location.name} onChange={(e) => onChange({ name: e.target.value })} />
         </div>
         <div className="field">
@@ -255,6 +277,7 @@ function LocationCard({
           </table>
         </div>
       )}
+      </div>
     </article>
   )
 }

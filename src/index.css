@@ -596,6 +596,41 @@ footer {
   margin-bottom: var(--hl-sp-4);
 }
 
+/* A location collapses to its sums; details (settings and lines) open on request. */
+.location-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hl-sp-3);
+}
+
+.location-head > h3 {
+  margin: 0;
+}
+
+.location-sums {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--hl-sp-4);
+  margin: var(--hl-sp-4) 0 0;
+}
+
+.location-sums dt {
+  font-size: var(--hl-fs-sm);
+  color: var(--hl-text-muted);
+}
+
+.location-sums dd {
+  margin: var(--hl-sp-1) 0 0;
+  font-weight: var(--hl-fw-bold);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.location-details:not([hidden]) {
+  margin-top: var(--hl-sp-5);
+}
+
 .location-settings {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
