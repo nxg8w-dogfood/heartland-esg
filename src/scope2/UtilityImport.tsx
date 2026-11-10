@@ -100,7 +100,7 @@ export function UtilityImport({ period, locations, lines, setLines }: Props) {
     // Keep the tokens in memory no longer than the fetch needs them.
     setElToken('')
     setHeatToken('')
-    setStatus(found.length ? `Fandt ${found.length} ${found.length === 1 ? 'måler' : 'målere'}. Vælg en lokation for hver, og importér.` : 'Ingen målere fundet.')
+    setStatus(found.length ? `Fandt ${found.length} ${found.length === 1 ? 'måler' : 'målere'}. Vælg en lokation for hver, og importér.` : problems.length ? '' : 'Ingen målere fundet.')
   }
 
   function importLines() {
@@ -116,7 +116,7 @@ export function UtilityImport({ period, locations, lines, setLines }: Props) {
       next.push(...plan.lines.map((l) => ({ ...l, id: newId() })))
       added += plan.lines.length
       duplicates += plan.duplicates
-      overlaps.push(...plan.overlaps.map((month) => `${m.label}, ${month}`))
+      if (plan.overlaps.length) overlaps.push(`${m.label} (${plan.overlaps.length === 1 ? plan.overlaps[0] : `${plan.overlaps.length} måneder`})`)
       skipped.push(...plan.skipped.map((s) => `${m.label}, ${s.month}: ${s.reason}`))
     }
     setLines((ls) => [...ls, ...next])
@@ -124,7 +124,7 @@ export function UtilityImport({ period, locations, lines, setLines }: Props) {
       [
         `${added} ${added === 1 ? 'linje' : 'linjer'} tilføjet.`,
         duplicates ? `${duplicates} fandtes allerede og blev sprunget over.` : '',
-        overlaps.length ? `Tjek for dobbelttælling: en anden linje dækker også ${overlaps.join('; ')}.` : '',
+        overlaps.length ? `Tjek for dobbelttælling: andre linjer på samme lokation dækker også ${overlaps.join('; ')}.` : '',
         skipped.length ? `Ikke importeret: ${skipped.join('; ')}. Indtast dem i hånden.` : '',
       ]
         .filter(Boolean)

@@ -234,7 +234,8 @@ describe('planning the import', () => {
     expect(again).toMatchObject({ duplicates: 1, lines: [] })
     const other = planImport(first.lines, 'loc', 'electricity', 'Eloverblik · B', [{ month: oct, kWh: 7, missing: false }])
     expect(other.lines).toHaveLength(1)
-    expect(other.overlaps).toEqual(['oktober 2026'])
+    // Several meters at one location is normal, not double counting.
+    expect(other.overlaps).toEqual([])
   })
 
   it('warns when a hand-typed yearly bill covers the month', () => {

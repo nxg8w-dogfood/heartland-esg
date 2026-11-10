@@ -21,6 +21,10 @@ const ESTIMATED = ' (anslået: interpoleret måling)'
 const fromSource = (line: Pick<Scope2Line, 'description'>, source: string) =>
   line.description === source || line.description === `${source}${ESTIMATED}`
 
+/** Lines imported from either API: another meter's months are not an overlap, since a location can have several meters. */
+const SOURCES = ['Eloverblik · ', 'Varmeoverblik · ']
+const imported = (line: Pick<Scope2Line, 'description'>) => SOURCES.some((p) => line.description?.startsWith(p))
+
 export function planImport(
   existing: readonly Pick<Scope2Line, 'locationId' | 'kind' | 'date' | 'dateTo' | 'description'>[],
   locationId: string,
@@ -45,7 +49,7 @@ export function planImport(
       plan.duplicates++
       continue
     }
-    if (covering.length) plan.overlaps.push(label)
+    if (covering.some((l) => !imported(l))) plan.overlaps.push(label)
     plan.lines.push({
       locationId,
       kind,

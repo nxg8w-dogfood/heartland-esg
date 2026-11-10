@@ -52,7 +52,8 @@ Inside Power Apps, the browser therefore blocks both APIs until an environment a
      <address>`, `Varmeoverblik · <utility> · <address>`). Fetching again skips months already
      imported for that meter.
    - If another line for the same location and type covers part of a month, such as a yearly
-     bill typed in by hand, the month is still imported, and the user is told to check it.
+     bill typed in by hand, the month is still imported, and the user is told to check it. Other meters' fetched lines
+     don't count as overlaps, because one location often has several meters.
    - The user picks a location for each meter. A meter without a location is skipped.
 6. **Inside Power Apps, an admin must allow the two hosts.** `https://api.eloverblik.dk` and
    `https://api.varmeoverblik.dk` are added to `connect-src` in the environment's code-app CSP
@@ -72,8 +73,11 @@ Inside Power Apps, the browser therefore blocks both APIs until an environment a
   120 calls a minute in total. A 429 or 503 shows "vent et minut".
 - **The environment CSP change applies to every code app in the environment**, not only this one.
 - **No new Azure resources**, so no new cost.
+- **Checked against the live APIs on 2026-11-10:** Eloverblik for 2025 returned 7 metering
+  points with monthly kWh (unit `KWH`, one `Period` per month), including a point without data
+  (error 30018) and one with only part of the year.
 - **Not yet verified against the live APIs:**
-  - the Eloverblik response with real data (unit `KWH`, one `Period` per month);
+  - a full Varmeoverblik fetch through the app;
   - the 48-hour fallback when a heating meter has a gap;
   - the CSP change inside Power Apps.
 
