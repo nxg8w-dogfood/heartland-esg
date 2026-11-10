@@ -4,6 +4,7 @@
 
 import type { Factor } from '../data/factors'
 import { periodShare, type Period } from './dates'
+import { factorChoices } from './factorChoices'
 import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
 import { lineEmissions, type LineResult } from './lineEmissions'
@@ -13,10 +14,8 @@ export type ActivityGroup = {
   label: string
   /** The unit quantities are entered in, e.g. "liter" or "passagerkm" */
   unit: string
-  /** The factor a new line starts with */
+  /** The factor a new line starts with; a line may switch to any of its `factorChoices` */
   factorId: string
-  /** If set, a line may use any factor in this factor-table category instead, e.g. hotel countries */
-  factorChoices?: string
 }
 
 export type ActivityLine = {
@@ -26,7 +25,7 @@ export type ActivityLine = {
   dateTo?: string | null
   /** In the group's unit */
   quantity: number | null
-  /** Overrides the group's factor; must be one of its choices */
+  /** Overrides the group's factor; one of `factorOptions` */
   factorId?: string | null
   /** kg CO2e per unit, overriding the table factor */
   customFactor?: number | null
@@ -42,11 +41,9 @@ export type ActivityResult<G extends ActivityGroup = ActivityGroup, L extends Ac
   share: number
 }
 
-/** The factors a line in this group may use. Always includes the group's default. */
+/** The factors a line in this group may use, the group's default first. */
 export function factorOptions(group: ActivityGroup, factors: readonly Factor[]): Factor[] {
-  const own = factors.filter((f) => f.id === group.factorId)
-  if (!group.factorChoices) return own
-  return [...own, ...factors.filter((f) => f.category === group.factorChoices && f.id !== group.factorId)]
+  return factorChoices(group.factorId, factors)
 }
 
 export function activityLine<G extends ActivityGroup, L extends ActivityLine>(

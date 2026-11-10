@@ -14,6 +14,7 @@ import {
   type Scope2Line,
 } from '../calc/scope2'
 import { formatDate, formatFactor, formatNumber } from '../format'
+import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 import { defaultLocation } from './defaultLocation'
@@ -255,23 +256,34 @@ function LocationCard({
   )
 }
 
-function Figure({ t, value, factor, custom }: { t: number; value: number | null; factor: Factor | null; custom?: boolean }) {
-  if (value === null) return <span className="pending">Faktor mangler</span>
+/** A line's tCO2e for one method, with the factor's value, name and source underneath. */
+export function Figure({ t, value, factor, custom }: { t: number; value: number | null; factor: Factor | null; custom?: boolean }) {
+  const label = factorLabel(factor)
+  if (value === null) {
+    return (
+      <>
+        <span className="pending">Faktor mangler</span>
+        {label && <span className="sub">{label}</span>}
+      </>
+    )
+  }
   return (
     <>
       <span className="strong">{formatNumber(t, 3)}</span>
-      <span className="sub">
-        {formatFactor(value)} kg/kWh · {custom ? 'Egen faktor' : factor?.name}
-      </span>
+      <span className="sub">{formatFactor(value)} kg/kWh</span>
+      {label && <span className="sub">{label}</span>}
+      <span className="sub">{custom ? 'Egen faktor' : factor?.source}</span>
     </>
   )
 }
 
 /** A bill spanning two grid-mix years: show each year's part, so the total can be checked. */
-function SplitFigure({ t, parts }: { t: number; parts: { factor: Factor | null; kWh: number }[] }) {
+export function SplitFigure({ t, parts }: { t: number; parts: { factor: Factor | null; kWh: number }[] }) {
+  const label = factorLabel(parts[0]?.factor)
   return (
     <>
       <span className="strong">{formatNumber(t, 3)}</span>
+      {label && <span className="sub">{label}</span>}
       {parts.map((p, i) => (
         <span key={i} className="sub">
           {p.factor?.validFrom?.slice(0, 4) ?? p.factor?.name}: {formatNumber(p.kWh, 0)} kWh × {p.factor?.value == null ? '—' : formatFactor(p.factor.value)}

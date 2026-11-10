@@ -24,6 +24,8 @@ export type Scope1Line = {
   dateTo?: string | null
   /** In the group's unit */
   quantity: number | null
+  /** Overrides the group's factor; one of `factorOptions` */
+  factorId?: string | null
   /** kg CO2e per unit, overriding the table factor */
   customFactor?: number | null
   description?: string

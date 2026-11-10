@@ -756,3 +756,12 @@ ul.plain {
     transition-duration: 0s !important;
   }
 }
+
+/* The factor dropdown on a line; long factor names wrap the cell rather than widen the table */
+.factor-choice {
+  display: block;
+  margin: 0.25rem 0 0 auto;
+  max-width: 16rem;
+  font-size: 0.8rem;
+  min-height: 2rem;
+}
