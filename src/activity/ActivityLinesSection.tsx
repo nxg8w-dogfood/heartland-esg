@@ -2,7 +2,10 @@ import { useId, useState, type Dispatch, type FormEvent, type SetStateAction } f
 import type { Factor } from '../data/factors'
 import { factorOptions, type ActivityGroup, type ActivityLine, type ActivitySummary } from '../calc/activity'
 import { parseNumber } from '../calc/parseNumber'
-import { formatDate, formatFactor, formatNumber } from '../format'
+import { formatDate, formatNumber } from '../format'
+import { FactorCell } from '../factors/FactorCell'
+import { lineFactorChoice } from '../factors/choice'
+import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
 
 type Props = {
@@ -22,7 +25,6 @@ type Props = {
 export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText, examples }: Props) {
   const id = useId()
   const hiddenCount = lines.length - summary.lines.length
-  const factorLabel = (f: Factor | null) => (f ? `${f.name}${f.region && f.region !== 'UK/generisk' ? `, ${f.region}` : ''}` : '')
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -67,14 +69,12 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
                     {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
                   </td>
                   <td className="num">
-                    {r.factorValue === null ? (
-                      <span className="pending">Faktor mangler<span className="sub">{factorLabel(r.factor)}</span></span>
-                    ) : (
-                      <>
-                        {formatFactor(r.factorValue)}
-                        <span className="sub">{r.line.customFactor != null ? 'Egen faktor' : factorLabel(r.factor)}</span>
-                      </>
-                    )}
+                    <FactorCell
+                      value={r.factorValue}
+                      factor={r.factor}
+                      custom={r.line.customFactor != null}
+                      choice={lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
+                    />
                   </td>
                   <td className="num strong">
                     {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}
@@ -172,11 +172,11 @@ function AddLineForm({ groups, factors, defaultDate, onAdd }: { groups: readonly
       </div>
       {options.length > 1 && (
         <div className="field">
-          <label htmlFor={`${id}-factor-choice`}>Land</label>
+          <label htmlFor={`${id}-factor-choice`}>Emissionsfaktor</label>
           <select id={`${id}-factor-choice`} value={chosen} onChange={(e) => setFactorId(e.target.value)}>
             {options.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.region}{f.value === null ? ' (faktor mangler)' : ''}
+                {factorLabel(f)}{f.value === null ? ' (afventer)' : ''}
               </option>
             ))}
           </select>

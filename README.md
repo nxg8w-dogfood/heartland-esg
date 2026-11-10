@@ -63,6 +63,28 @@ Each environment needs a one-time setup first (a Power Platform environment, a s
 principal and a GitHub environment). Until then its deploy run warns and deploys nothing.
 The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR 0003.
 
+### Dataverse tables
+
+The tables are defined in `src/dataverse/schema.ts` and created with a script (ADR 0007). It
+creates missing tables and columns, and never changes or deletes existing ones. Sign in to the
+environment's tenant with the Azure CLI, check what it would do with `--dry-run`, then apply:
+
+```bash
+az login --tenant <tenant-id>
+npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com --dry-run
+npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com
+```
+
+The same script creates the security roles and keeps their privileges in step with
+`src/dataverse/roles.ts`. Each company in the group gets its own business unit and owner team
+(ADR 0006):
+
+```bash
+npm run dataverse:company -- --url https://<org>.crm4.dynamics.com --name "Heartland A/S"
+```
+
+You need the System Administrator role in the environment.
+
 ### Layout
 
 | Path | What it is |
@@ -72,7 +94,10 @@ The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
 | `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
 | `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
+| `src/dataverse/`, `scripts/dataverse-*.ts` | The Dataverse tables and security roles as code, and the scripts that set them up in an environment (ADR 0007). |
 | `src/storage/` | Saving and loading the group and each company's account (`GroupStore`). For now a browser draft store with backup export and import; Dataverse per ADR 0005 and 0006. |
+| `src/brand/` | The HEARTLAND Design System tokens (`tokens.css`) and logotype (ADR 0008). |
+| `src/index.css` | The app's styles, built only on the `--hl-*` tokens. |
 | `src/App.tsx` | The app shell. |
 | `docs/adr/` | Architecture decisions. |
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |

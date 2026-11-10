@@ -1,0 +1,103 @@
+/*
+ * HEARTLAND Design System 0.1 — design tokens.
+ *
+ * Copied value for value from the published design system
+ * (https://witty-beach-0db1a1203-heartland.westeurope.7.azurestaticapps.net/), Linen theme.
+ * The design system has no dark theme, so the app is light only (docs/adr/0008).
+ * Change values in the design system first, then copy them here; app styles in
+ * src/index.css only ever refer to these tokens.
+ */
+
+:root {
+  /* Brand palette */
+  --hl-moss: #4d5640;
+  --hl-bark: #644336;
+  --hl-sage: #a3a38b;
+  --hl-linen: #f2ede4;
+  --hl-stone: #cccbc4;
+  --hl-leather: #dbcfba;
+  --hl-mist: #222;
+  --hl-paper: #fff;
+  --hl-moss-700: color-mix(in oklab, var(--hl-moss) 82%, black);
+  --hl-moss-15: color-mix(in oklab, var(--hl-moss) 15%, var(--hl-linen));
+  --hl-linen-2: color-mix(in oklab, var(--hl-linen) 70%, var(--hl-stone));
+
+  /* Roles (Linen theme) */
+  --hl-surface: var(--hl-linen);
+  --hl-surface-raised: var(--hl-paper);
+  --hl-surface-sunken: var(--hl-linen-2);
+  --hl-text: var(--hl-mist);
+  --hl-text-strong: #000;
+  --hl-heading: #000;
+  --hl-text-muted: #5b5e4f;
+  --hl-rule: color-mix(in oklab, var(--hl-mist) 28%, transparent);
+  --hl-rule-strong: var(--hl-mist);
+  --hl-highlight: var(--hl-moss);
+  --hl-highlight-text: var(--hl-linen);
+  --hl-panel: var(--hl-moss);
+  --hl-panel-text: var(--hl-linen);
+  --hl-note-bg: color-mix(in oklab, var(--hl-stone) 60%, var(--hl-linen));
+  --hl-note-text: var(--hl-mist);
+  --hl-dash: var(--hl-text-strong);
+  --hl-link: var(--hl-moss);
+  --hl-focus: var(--hl-bark);
+  --hl-action: var(--hl-moss);
+  --hl-action-hover: var(--hl-moss-700);
+  --hl-action-text: var(--hl-linen);
+
+  /* Status */
+  --hl-success: #2f6b4f;
+  --hl-success-bg: #dfe8dc;
+  --hl-warning: #8a5a00;
+  --hl-warning-bg: #f1e3c4;
+  --hl-danger: #a3302a;
+  --hl-danger-bg: #f2d9d3;
+  --hl-info: #2e5d86;
+  --hl-info-bg: #dbe4ea;
+
+  /* Type. Plantin MT Pro is licensed and not bundled; Newsreader (OFL) is the design system's fallback. */
+  --hl-font-serif: 'Plantin MT Pro', 'Plantin', 'Newsreader Variable', 'Newsreader', Georgia, serif;
+  --hl-fs-h1: 44px;
+  --hl-lh-h1: 1.06;
+  --hl-fs-h2: 30px;
+  --hl-lh-h2: 1.12;
+  --hl-fs-h3: 22px;
+  --hl-lh-h3: 1.2;
+  --hl-fs-h4: 17px;
+  --hl-lh-h4: 1.3;
+  --hl-fs-lead: 22px;
+  --hl-lh-lead: 1.45;
+  --hl-fs-lg: 18px;
+  --hl-lh-lg: 1.55;
+  --hl-fs-base: 16px;
+  --hl-lh-base: 1.6;
+  --hl-fs-sm: 14px;
+  --hl-lh-sm: 1.5;
+  --hl-fs-xs: 12px;
+  --hl-lh-xs: 1.45;
+  --hl-tr-caps: 0.07em;
+  --hl-tr-nav: 0.08em;
+  --hl-tr-lead: 0.03em;
+  --hl-tr-body: 0.015em;
+  --hl-fw-regular: 400;
+  --hl-fw-bold: 700;
+
+  /* Space and shape */
+  --hl-sp-1: 4px;
+  --hl-sp-2: 8px;
+  --hl-sp-3: 12px;
+  --hl-sp-4: 16px;
+  --hl-sp-5: 24px;
+  --hl-sp-6: 32px;
+  --hl-sp-7: 48px;
+  --hl-sp-8: 64px;
+  --hl-rule-w: 1px;
+  --hl-rule-strong-w: 1.5px;
+  --hl-measure: 62ch;
+  --hl-page-max: 1200px;
+  --hl-row-h: 34px;
+  --hl-radius: 0;
+  --hl-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --hl-dur-fast: 0.12s;
+  --hl-dur-mid: 0.22s;
+}

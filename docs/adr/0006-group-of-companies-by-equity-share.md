@@ -1,7 +1,7 @@
 # 6. A group of companies, consolidated by equity share
 
-- **Status:** Accepted for the app's model and the group summary; the Dataverse part (section 4)
-  is Proposed, like ADR 0005.
+- **Status:** Accepted. The app's model and the group summary on 2026-10-01; the Dataverse part
+  (section 4) by @mortengad on 2026-10-06, together with ADR 0005.
 - **Date:** 2026-10-01
 - **Decided by:** @mortengad (tech lead), 2026-10-01
 - **Changes:** ADR 0005's "one climate account per environment" (section 3)
@@ -66,13 +66,20 @@ The Koncern page shows, for a chosen period:
 Factor sources are chosen per company. So the summary lists every factor where the companies
 chose different sources, because the group total then mixes bases.
 
-### 4. Access per company, enforced by Dataverse (proposed)
+### 4. Access per company, enforced by Dataverse
 
 **Each company sees only its own data** (decided 2026-10-01). This changes ADR 0005's tables and
 roles:
 
 - **A business unit per company**, under a root business unit for the group. Each company's
   records are owned by teams in its business unit.
+  - **The root business unit stands for the group;** the parent company gets its own unit below
+    it like every other company (decided by @mortengad on 2026-10-06). The first is
+    *Heartland A/S*.
+  - **Each company's unit has an owner team,** *<company> – klimaregnskab*, which owns the
+    company record. Through the parental relationships (ADR 0007), assigning the company to the
+    team moves all its records with it.
+  - Set up with `npm run dataverse:company -- --url <environment> --name "<company>"`.
 - **A new table, `hlesg_virksomhed`,** holds each company's name and its ownership shares (or a
   child table `hlesg_ejerandel`). Every account table in ADR 0005 gets a lookup to it.
   `hlesg_klimaregnskab` becomes one row per company, not per environment.
