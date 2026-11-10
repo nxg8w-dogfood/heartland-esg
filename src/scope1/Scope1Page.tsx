@@ -3,7 +3,8 @@ import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { parseNumber } from '../calc/parseNumber'
 import { scope1Groups, scope1Summary, type Scope1GroupId, type Scope1Line } from '../calc/scope1'
-import { formatDate, formatFactor, formatNumber } from '../format'
+import { formatDate, formatNumber } from '../format'
+import { FactorCell } from '../factors/FactorCell'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 
@@ -93,16 +94,7 @@ export function Scope1Page({ period, factors, lines, setLines }: Props) {
                       {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
                     </td>
                     <td className="num">
-                      {r.factorValue === null ? (
-                        <span className="pending">Faktor mangler</span>
-                      ) : (
-                        <>
-                          {formatFactor(r.factorValue)}
-                          <span className="sub">
-                            {r.line.customFactor != null ? 'Egen faktor' : r.factor?.source}
-                          </span>
-                        </>
-                      )}
+                      <FactorCell value={r.factorValue} factor={r.factor} custom={r.line.customFactor != null} />
                     </td>
                     <td className="num strong">
                       {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}

@@ -4,7 +4,8 @@ import type { ActivityLine } from '../calc/activity'
 import { category4Groups, category4SpendGroups, type Category4 } from '../calc/scope3'
 import type { SpendLine } from '../calc/spend'
 import type { Factor } from '../data/factors'
-import { formatDate, formatFactor, formatNumber } from '../format'
+import { formatDate, formatNumber } from '../format'
+import { FactorCell } from '../factors/FactorCell'
 import { newId } from '../newId'
 import { AddSpendForm } from './PurchasesSection'
 
@@ -76,7 +77,7 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
                     </td>
                     <td>{r.line.description}</td>
                     <td className="num">{r.line.amount === null ? '—' : `${formatNumber(r.line.amount * r.share, 0)} ${r.line.currency}`}</td>
-                    <td className="num">{r.factorValue === null ? <span className="pending">Faktor mangler</span> : <>{formatFactor(r.factorValue)}<span className="sub">{r.factor?.unit}</span></>}</td>
+                    <td className="num"><FactorCell value={r.factorValue} factor={r.factor} custom={r.line.customFactor != null} /></td>
                     <td className="num strong">
                       {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}
                       {r.warning && <span className="sub warning-text">{r.warning}</span>}

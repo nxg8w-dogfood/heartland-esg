@@ -3,6 +3,7 @@ import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { surveyResult, type Category7, type CommutingModeId, type ModeAnswers, type Survey, type SurveyResult } from '../calc/commuting'
 import { formatFactor, formatNumber } from '../format'
+import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
 
@@ -185,10 +186,11 @@ function SurveyCard({ result, counted, factors, onChange, onModeChange, onDelete
                       </>
                     ) : m.mode.id === 'k7-andet' ? (
                       <NumberField label="Egen faktor for andet transportmiddel (kg CO2e/km)" hideLabel placeholder="Faktor mangler" value={a?.customFactor ?? null} onCommit={(v) => onModeChange(m.mode.id, { customFactor: v })} />
-                    ) : m.factorValue === null ? (
-                      <span className="pending">Faktor mangler</span>
                     ) : (
-                      formatFactor(m.factorValue)
+                      <>
+                        {m.factorValue === null ? <span className="pending">Faktor mangler</span> : formatFactor(m.factorValue)}
+                        {m.factor && <span className="sub">{factorLabel(m.factor)}</span>}
+                      </>
                     )}
                   </td>
                   <td className="num strong">{m.pending ? <span className="pending">Afventer</span> : formatNumber(m.tCO2e, 3)}</td>
