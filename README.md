@@ -99,6 +99,8 @@ You need the System Administrator role in the environment.
 | `src/brand/` | The HEARTLAND Design System tokens (`tokens.css`) and logotype (ADR 0008). |
 | `src/index.css` | The app's styles, built only on the `--hl-*` tokens. |
 | `src/App.tsx` | The app shell. |
+| `connectors/eloverblik/` | The Eloverblik custom connector and the API Management policy that fetches a company's monthly electricity consumption with its token from Key Vault, with setup steps (ADR 0010). Not wired into the app yet. |
+| `connectors/varmeoverblik/` | The Varmeoverblik custom connector and the API Management policy that forwards to the district heating sync Function (ADR 0010). The Function and the app side come later. |
 | `docs/adr/` | Architecture decisions. |
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |
 | `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |

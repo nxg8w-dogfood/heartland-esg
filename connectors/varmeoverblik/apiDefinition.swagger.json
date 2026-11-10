@@ -1,0 +1,91 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Heartland Varmeoverblik",
+    "description": "Monthly district heating consumption per installation for a company, worked out from Varmeoverblik's cumulative meter readings by Heartland's sync Function behind API Management, which holds each company's refresh token in Key Vault (docs/adr/0010).",
+    "version": "1.0"
+  },
+  "host": "@environmentVariables(\"hlesg_VarmeoverblikHost\")",
+  "basePath": "/varmeoverblik",
+  "schemes": ["https"],
+  "produces": ["application/json"],
+  "paths": {
+    "/companies/{cvr}/consumption": {
+      "get": {
+        "operationId": "GetHeatConsumption",
+        "summary": "Get a company's monthly district heating consumption",
+        "description": "Lists the company's installation points and works out each month's consumption from the meter readings at the month boundaries (Danish local time).",
+        "parameters": [
+          { "name": "cvr", "in": "path", "required": true, "type": "string", "pattern": "^[0-9]{8}$", "description": "The company's CVR number, 8 digits" },
+          { "name": "from", "in": "query", "required": true, "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$", "description": "First month, YYYY-MM" },
+          { "name": "to", "in": "query", "required": true, "type": "string", "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$", "description": "Last month, YYYY-MM, inclusive; at most 24 months" }
+        ],
+        "responses": {
+          "200": { "description": "The consumption", "schema": { "$ref": "#/definitions/HeatConsumption" } },
+          "400": { "description": "Bad CVR or months (error: bad-request)", "schema": { "$ref": "#/definitions/Error" } },
+          "403": { "description": "The company's Varmeoverblik token is invalid or expired (error: token-invalid)", "schema": { "$ref": "#/definitions/Error" } },
+          "404": { "description": "No Varmeoverblik token is stored for this CVR (error: token-missing)", "schema": { "$ref": "#/definitions/Error" } },
+          "429": { "description": "Another sync is running; retry shortly (error: sync-running)", "schema": { "$ref": "#/definitions/Error" } },
+          "502": { "description": "Varmeoverblik answered with an unexpected error (error: datahub-error)", "schema": { "$ref": "#/definitions/Error" } },
+          "503": { "description": "Varmeoverblik kept rate-limiting after three retries; retry later (error: datahub-busy)", "schema": { "$ref": "#/definitions/Error" } }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "HeatConsumption": {
+      "type": "object",
+      "properties": {
+        "cvr": { "type": "string" },
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "months": {
+          "type": "array",
+          "description": "One entry per installation and month",
+          "items": {
+            "type": "object",
+            "properties": {
+              "installationPointId": { "type": "string", "description": "UUID" },
+              "darId": { "type": "string", "description": "The address's UUID in DAR (Danmarks Adresseregister)" },
+              "address": { "type": "string" },
+              "utilityCompanyName": { "type": "string" },
+              "month": { "type": "string", "description": "YYYY-MM" },
+              "mwh": { "type": "number", "description": "Rounded to 4 decimals; absent when flagged meter-reset or no-reading" },
+              "kwh": { "type": "number" },
+              "estimated": { "type": "boolean", "description": "A boundary reading was interpolated" },
+              "flags": { "type": "array", "items": { "type": "string", "enum": ["meter-reset", "no-reading"] } }
+            }
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "description": "Installation points that can't be read, e.g. the utility sends no data",
+          "items": {
+            "type": "object",
+            "properties": {
+              "utilityCompanyName": { "type": "string" },
+              "reason": { "type": "string", "enum": ["no-data-from-utility"] }
+            }
+          }
+        }
+      }
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "error": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "oauth2-auth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/authorize",
+      "tokenUrl": "https://login.windows.net/common/oauth2/authorize",
+      "scopes": {}
+    }
+  },
+  "security": [{ "oauth2-auth": [] }]
+}

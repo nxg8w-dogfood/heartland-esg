@@ -1,0 +1,76 @@
+<!--
+  API-level policy for the Varmeoverblik proxy in Azure API Management (docs/adr/0010).
+  It serves one operation, GET /companies/{cvr}/consumption?from=YYYY-MM&to=YYYY-MM, checks who
+  is calling and what they ask for, and forwards to the Azure Function that does the sync
+  (month boundaries need loops and paging, which a policy can't do). API Management signs in to
+  the Function with its managed identity; the Function reads varmeoverblik-<cvr> from Key Vault.
+
+  Named values, all configured in APIM, none in this repository:
+    tenant-id                       Entra tenant ID (heartcorp)
+    varmeoverblik-connector-app-id  Client ID of the custom connector's Entra app registration
+    consumption-audience            Application ID URI of the proxy's Entra app registration (shared with Eloverblik)
+    consumption-user-role           App role a user must hold, Consumption.Read (shared with Eloverblik)
+    varmeoverblik-function-url      Base URL of the Function app, e.g. https://<name>.azurewebsites.net
+    varmeoverblik-function-audience Application ID URI the Function's App Service authentication accepts
+-->
+<policies>
+  <inbound>
+    <base />
+    <!-- Only signed-in Heartland users with the role, through our connector. -->
+    <validate-azure-ad-token tenant-id="{{tenant-id}}" header-name="Authorization" failed-validation-httpcode="401">
+      <client-application-ids>
+        <application-id>{{varmeoverblik-connector-app-id}}</application-id>
+      </client-application-ids>
+      <audiences>
+        <audience>{{consumption-audience}}</audience>
+      </audiences>
+      <required-claims>
+        <claim name="roles" match="any">
+          <value>{{consumption-user-role}}</value>
+        </claim>
+      </required-claims>
+    </validate-azure-ad-token>
+    <!-- The user's token never leaves API Management. -->
+    <set-header name="Authorization" exists-action="delete" />
+    <set-variable name="cvr" value="@(context.Request.MatchedParameters.GetValueOrDefault(&quot;cvr&quot;, &quot;&quot;))" />
+    <set-variable name="from" value="@(context.Request.Url.Query.GetValueOrDefault(&quot;from&quot;, &quot;&quot;))" />
+    <set-variable name="to" value="@(context.Request.Url.Query.GetValueOrDefault(&quot;to&quot;, &quot;&quot;))" />
+    <!-- 8-digit CVR; months as YYYY-MM; from not after to; at most 24 months. -->
+    <choose>
+      <when condition="@{
+        var month = new System.Text.RegularExpressions.Regex(&quot;^[0-9]{4}-(0[1-9]|1[0-2])$&quot;);
+        var cvr = (string)context.Variables[&quot;cvr&quot;];
+        var from = (string)context.Variables[&quot;from&quot;];
+        var to = (string)context.Variables[&quot;to&quot;];
+        if (!System.Text.RegularExpressions.Regex.IsMatch(cvr, &quot;^[0-9]{8}$&quot;) || !month.IsMatch(from) || !month.IsMatch(to)) { return true; }
+        var months = (int.Parse(to.Substring(0, 4)) * 12 + int.Parse(to.Substring(5, 2))) - (int.Parse(from.Substring(0, 4)) * 12 + int.Parse(from.Substring(5, 2))) + 1;
+        return months &lt; 1 || months &gt; 24;
+      }">
+        <return-response>
+          <set-status code="400" reason="Bad Request" />
+          <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+          <set-body>{"error":"bad-request","detail":"cvr must be 8 digits; from and to YYYY-MM, from not after to, at most 24 months."}</set-body>
+        </return-response>
+      </when>
+    </choose>
+    <!-- To the Function, signed in as API Management. Only the checked values go on. -->
+    <authentication-managed-identity resource="{{varmeoverblik-function-audience}}" />
+    <set-backend-service base-url="{{varmeoverblik-function-url}}" />
+    <rewrite-uri template="@(&quot;/api/consumption?cvr=&quot; + (string)context.Variables[&quot;cvr&quot;] + &quot;&amp;from=&quot; + (string)context.Variables[&quot;from&quot;] + &quot;&amp;to=&quot; + (string)context.Variables[&quot;to&quot;])" copy-unmatched-params="false" />
+  </inbound>
+  <backend>
+    <!-- One sync at a time: Varmeoverblik publishes no limits, so be gentle. A second sync gets 429. -->
+    <limit-concurrency key="varmeoverblik-sync" max-count="1">
+      <forward-request timeout="230" />
+    </limit-concurrency>
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+    <!-- Anything unexpected. No details leave the proxy. -->
+    <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+    <set-body>@(new JObject(new JProperty("error", context.Response.StatusCode == 429 ? "sync-running" : "proxy-error"), new JProperty("detail", context.LastError.Reason ?? "")).ToString())</set-body>
+  </on-error>
+</policies>
