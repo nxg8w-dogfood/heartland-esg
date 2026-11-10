@@ -9,8 +9,8 @@
   Named values, all configured in APIM, none in this repository:
     tenant-id                    Entra tenant ID (heartcorp)
     eloverblik-connector-app-id  Client ID of the custom connector's Entra app registration
-    eloverblik-audience          Application ID URI of the proxy's Entra app registration
-    eloverblik-user-role         App role a user must hold, e.g. Electricity.Read
+    consumption-audience         Application ID URI of the proxy's Entra app registration (shared with Varmeoverblik)
+    consumption-user-role        App role a user must hold, Consumption.Read (shared with Varmeoverblik)
     eloverblik-key-vault-name    Name of the Key Vault holding the secrets eloverblik-<cvr>
   APIM's managed identity needs "Key Vault Secrets User" on that vault.
 
@@ -25,11 +25,11 @@
         <application-id>{{eloverblik-connector-app-id}}</application-id>
       </client-application-ids>
       <audiences>
-        <audience>{{eloverblik-audience}}</audience>
+        <audience>{{consumption-audience}}</audience>
       </audiences>
       <required-claims>
         <claim name="roles" match="any">
-          <value>{{eloverblik-user-role}}</value>
+          <value>{{consumption-user-role}}</value>
         </claim>
       </required-claims>
     </validate-azure-ad-token>

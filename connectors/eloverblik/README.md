@@ -63,7 +63,7 @@ Central, tags and budget).
 1. **Key Vault:** a secret `eloverblik-<cvr>` per company (above). Give API Management's
    system-assigned identity *Key Vault Secrets User* on the vault, if it doesn't have it already.
 2. **Entra ID:**
-   - register the proxy as an app with an Application ID URI and an app role `Electricity.Read`,
+   - register the proxy as an app with an Application ID URI and an app role `Consumption.Read`,
      and assign the role to the users or groups who may fetch consumption (see ADR 0010's open
      question on which companies a user may reach);
    - register the connector as a second app, with a delegated permission on the proxy and the
@@ -77,7 +77,7 @@ Central, tags and budget).
    - turn off subscription keys for the API, because Entra ID does the authentication.
 4. **Power Platform**, in the HeartlandESG solution:
    - create environment variables `hlesg_EloverblikHost` (the API Management host),
-     `hlesg_EloverblikAudience` and `hlesg_EloverblikConnectorClientId` as Text, and reuse
+     `hlesg_ConsumptionAudience` and `hlesg_EloverblikConnectorClientId` as Text, and reuse
      `hlesg_TenantId`;
    - create `hlesg_EloverblikConnectorClientSecret` as Secret, backed by Key Vault
      ([docs](https://learn.microsoft.com/power-apps/maker/data-platform/environmentvariables-azure-key-vault-secrets));

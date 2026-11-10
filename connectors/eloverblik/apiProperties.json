@@ -10,11 +10,11 @@
           "scopes": [],
           "redirectMode": "GlobalPerConnector",
           "redirectUrl": "https://global.consent.azure-apim.net/redirect",
-          "properties": { "IsFirstParty": "False", "AzureActiveDirectoryResourceId": "@environmentVariables(\"hlesg_EloverblikAudience\")", "IsOnbehalfofLoginSupported": true },
+          "properties": { "IsFirstParty": "False", "AzureActiveDirectoryResourceId": "@environmentVariables(\"hlesg_ConsumptionAudience\")", "IsOnbehalfofLoginSupported": true },
           "customParameters": {
             "loginUri": { "value": "https://login.microsoftonline.com" },
             "tenantId": { "value": "@environmentVariables(\"hlesg_TenantId\")" },
-            "resourceUri": { "value": "@environmentVariables(\"hlesg_EloverblikAudience\")" },
+            "resourceUri": { "value": "@environmentVariables(\"hlesg_ConsumptionAudience\")" },
             "enableOnbehalfOfLogin": { "value": "true" }
           }
         }
