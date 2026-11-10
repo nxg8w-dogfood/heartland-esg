@@ -21,6 +21,9 @@ param keyVaultName string
 @description('Name of the secret holding the MotorAPI key, e.g. motorapi-key-dev')
 param motorApiKeySecretName string
 
+@description('Name of the secret holding the connector\'s client secret, once it exists (README step 3). Dataverse gets read access to it, for the Secret environment variable. Empty until then.')
+param connectorSecretName string = ''
+
 @description('Owner tag, and API Management publisher email: the owning team, not a shared mailbox')
 param ownerEmail string
 
@@ -137,6 +140,29 @@ resource vault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
 resource keySecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' existing = {
   parent: vault
   name: motorApiKeySecretName
+}
+
+// The connector's client secret is a Secret environment variable in Power Platform, which
+// Dataverse reads from Key Vault itself. Dataverse's service principal has its own object ID in
+// every tenant, so it's looked up by its well-known app ID.
+// https://learn.microsoft.com/power-apps/maker/data-platform/environmentvariables-azure-key-vault-secrets
+resource connectorSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' existing = {
+  parent: vault
+  name: empty(connectorSecretName) ? 'not-set' : connectorSecretName
+}
+
+resource dataverseSp 'Microsoft.Graph/servicePrincipals@v1.0' existing = {
+  appId: '00000007-0000-0000-c000-000000000000'
+}
+
+resource connectorSecretReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(connectorSecretName)) {
+  scope: connectorSecret
+  name: guid(connectorSecret.id, '00000007-0000-0000-c000-000000000000', keyVaultSecretsUserRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
+    principalId: dataverseSp.id
+    principalType: 'ServicePrincipal'
+  }
 }
 
 // ---- API Management --------------------------------------------------------------------

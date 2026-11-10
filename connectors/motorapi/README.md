@@ -60,10 +60,18 @@ You need:
    `Remove-Variable s`. Note the expiry date: the secret has to be renewed before it runs out.
 
 4. **Power Platform**, in the HeartlandESG solution:
-   - create the environment variables from the deployment outputs as Text: `hlesg_MotorApiHost`,
-     `hlesg_TenantId`, `hlesg_MotorApiAudience` and `hlesg_MotorApiConnectorClientId`;
-   - create `hlesg_MotorApiConnectorClientSecret` as Secret, pointing at the secret from step 3
+   - set `connectorSecretName` in the `.bicepparam` to the secret from step 3 and deploy again.
+     This gives Dataverse read access to that one secret, which a Secret environment variable needs
      ([docs](https://learn.microsoft.com/power-apps/maker/data-platform/environmentvariables-azure-key-vault-secrets));
+   - create the environment variables from the deployment's outputs: four as Text
+     (`hlesg_MotorApiHost`, `hlesg_TenantId`, `hlesg_MotorApiAudience`,
+     `hlesg_MotorApiConnectorClientId`) and `hlesg_MotorApiConnectorClientSecret` as Secret.
+     A script does it, and can be run again to update the values:
+
+     ```bash
+     npm run motorapi:env-vars -- --url https://<org>.crm4.dynamics.com --env dev --dry-run
+     npm run motorapi:env-vars -- --url https://<org>.crm4.dynamics.com --env dev
+     ```
    - import the connector from these files, e.g. with `paconn create`, and validate it;
    - create a connection reference to it.
 
