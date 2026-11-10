@@ -10,7 +10,16 @@
   "buildEntryPoint": "index.html",
   "localAppUrl": "http://localhost:3000",
   "logoPath": "Default",
-  "connectionReferences": {},
+  "connectionReferences": {
+    "e9d60d99-2cb8-4375-8589-00c663798d23": {
+      "id": "/providers/Microsoft.PowerApps/apis/shared_hlesg-5fmotorapi-5f40b405ceb15270d7",
+      "displayName": "MotorAPI",
+      "dataSources": [
+        "hlesg_5fmotorapi_5f40b405ceb15270d7"
+      ],
+      "dataSets": {}
+    }
+  },
   "databaseReferences": {
     "default.cds": {
       "dataSources": {

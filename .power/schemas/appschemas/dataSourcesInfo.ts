@@ -5,6 +5,72 @@
  */
 
 export const dataSourcesInfo = {
+  "hlesg_5fmotorapi_5f40b405ceb15270d7": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "",
+    "dataSourceType": "Connector",
+    "apis": {
+      "GetVehicle": {
+        "path": "/{connectionId}/vehicles/{plate}",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "plate",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          },
+          "403": {
+            "type": "void"
+          },
+          "404": {
+            "type": "void"
+          }
+        }
+      },
+      "GetVehicleEnvironment": {
+        "path": "/{connectionId}/vehicles/{plate}/environment",
+        "method": "GET",
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "plate",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responseInfo": {
+          "200": {
+            "type": "object"
+          },
+          "403": {
+            "type": "void"
+          },
+          "404": {
+            "type": "void"
+          }
+        }
+      }
+    }
+  },
   "hlesg_ejerandels": {
     "tableId": "",
     "version": "",

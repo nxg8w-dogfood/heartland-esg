@@ -28,7 +28,8 @@ import { chooseStore } from './storage/choose'
 import type { GroupStore } from './storage/store'
 import { PeriodPicker } from './ui'
 import { exampleLookup } from './vehicles/exampleLookup'
-import { noLookup } from './vehicles/lookup'
+import { connectorLookup } from './vehicles/connectorLookup'
+import { MotorAPIService } from './generated'
 import { VehiclesPage } from './vehicles/VehiclesPage'
 
 const pages = [
@@ -48,9 +49,9 @@ const pageFromHash = (): PageId => {
   return pages.some((p) => p.id === id) ? (id as PageId) : 'scope1'
 }
 
-// Plate lookups go through the MotorAPI connector inside Power Apps (ADR 0009). Until it's added
-// there's no lookup, only manual entry; `npm run dev` in a plain browser gets example answers.
-const plateLookup = import.meta.env.DEV && window.self === window.top ? exampleLookup : noLookup
+// Plate lookups go through the MotorAPI connector inside Power Apps (ADR 0009), which adds the
+// key on the server. `npm run dev` in a plain browser has no connector, so it gets example answers.
+const plateLookup = import.meta.env.DEV && window.self === window.top ? exampleLookup : connectorLookup(MotorAPIService)
 
 type Loaded = { store: GroupStore; group: GroupData; generation: number; message: string | null }
 

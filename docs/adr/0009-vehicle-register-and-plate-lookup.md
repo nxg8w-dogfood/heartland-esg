@@ -101,15 +101,15 @@ requested or stored.
   hand:
   - putting the key and the connector's client secret in Key Vault;
   - importing the connector and its environment variables;
-  - running `pa app add data-source` and wiring `connectorLookup` in `App.tsx`;
+  - adding the connector to each environment's `deploy/<env>/power.config.json` (dev's is in);
   - applying the schema (the new table and the two line columns) to each environment, then
     `pa app add data-source --connector dataverse --table hlesg_koeretoej`, and adding the
     generated service to `src/storage/dataverse/generated.ts`. Until then the Dataverse store
     reads no cars and refuses to save one, with a message; it can't read lines either until
     the two new line columns exist, so the schema goes on before this version of the app.
 
-  `connectors/motorapi/README.md` lists the steps. Until they're done, the app inside Power Apps
-  offers manual entry only.
+  `connectors/motorapi/README.md` lists the steps. Until they're done in an environment, the
+  lookup there fails with a message and the user enters the car by hand.
 - **A contributor can change a car's km/l, which changes the litres of every km line for it.**
   The register shows where each car's figures came from (looked up, or entered by hand). The
   audit flag on the table (ADR 0005) records who changed what.

@@ -78,11 +78,15 @@ You need:
 5. **The connector's redirect URI:** the import shows a per-connector redirect URI. Add it to
    `connectorRedirectUris` and deploy again.
 
-6. **The app:**
-   - run `pa app add data-source --connector <connector-id> --connection-ref <ref> --solution-id <id>`;
-   - in `src/App.tsx`, use `connectorLookup(<generated service>)` inside Power Apps instead of
-     `noLookup`.
+6. **The app:** the data source is already in the repository (`src/generated/services/MotorAPIService.ts`,
+   `.power/schemas/`), and `src/App.tsx` uses `connectorLookup(MotorAPIService)` inside Power Apps.
+   Each environment's `deploy/<env>/power.config.json` needs the connector under
+   `connectionReferences`; dev's was made with
+   `pa app add data-source --non-interactive --connector shared_hlesg-5fmotorapi-<id> --connection-id <id>`.
+   For test and prod, use a connection reference in the HeartlandESG solution
+   (`--connection-ref <ref> --solution-id <id>`) rather than one person's connection.
 
-Check the OAuth settings in `apiProperties.json` against what the portal generates the first time
-the connector is imported. They follow Microsoft's Entra ID connector template, but haven't been
-imported anywhere yet.
+The OAuth settings in `apiProperties.json` work as committed (dev, 2026-11-10). One gotcha: if
+you edit the connector's Security tab in the portal, check that the client secret is still
+`@environmentVariables("hlesg_MotorApiConnectorClientSecret")`. The portal once saved the client
+ID variable there, and the sign-in then failed with AADSTS7000215 ("failed to exchange code").

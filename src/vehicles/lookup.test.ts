@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { connectorLookup } from './connectorLookup'
 import { exampleLookup } from './exampleLookup'
-import { fromMotorApi, lookupFailure, noLookup, type MotorApiEnvironment, type MotorApiVehicle } from './lookup'
+import { fromMotorApi, lookupFailure, type MotorApiEnvironment, type MotorApiVehicle } from './lookup'
 
 const at = '2026-11-10T09:00:00.000Z'
 
@@ -129,11 +129,6 @@ describe('lookupFailure', () => {
 })
 
 describe('the lookups the app ships', () => {
-  it('noLookup offers manual entry only', async () => {
-    expect(noLookup.available).toBe(false)
-    expect(await noLookup.lookup('AB12345')).toMatchObject({ ok: false, reason: 'unavailable' })
-  })
-
   it('exampleLookup answers its example plates and nothing else', async () => {
     expect(await exampleLookup.lookup('AB12345')).toMatchObject({ ok: true, vehicle: { fuel: 'diesel', kmPerLitre: 22.7 } })
     expect(await exampleLookup.lookup('ZZ99999')).toMatchObject({ ok: false, reason: 'not-found' })

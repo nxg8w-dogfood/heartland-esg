@@ -120,10 +120,3 @@ export function lookupFailure(status: number | undefined): LookupResult & { ok: 
     default: return { ok: false, reason: 'failed', message: 'Opslaget mislykkedes. Prøv igen om lidt, eller indtast bilen selv.' }
   }
 }
-
-/** Used until the MotorAPI connector is added to the app: manual entry only. */
-export const noLookup: PlateLookup = {
-  available: false,
-  label: 'Opslag i Motorregistret er ikke sat op endnu. Indtast bilens data selv.',
-  lookup: async () => ({ ok: false, reason: 'unavailable', message: 'Opslag er ikke sat op endnu. Indtast bilens data selv.' }),
-}

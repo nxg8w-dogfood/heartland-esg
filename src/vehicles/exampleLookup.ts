@@ -1,6 +1,6 @@
 // Example answers for `npm run dev` in a plain browser, where there is no connector. They let
 // the lookup flow be tried and tested without a MotorAPI key. Inside Power Apps the app uses the
-// connector instead (or noLookup until it's added). The cars are made up.
+// connector instead. The cars are made up.
 
 import { fromMotorApi, lookupFailure, type MotorApiEnvironment, type MotorApiVehicle, type PlateLookup } from './lookup'
 

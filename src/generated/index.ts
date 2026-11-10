@@ -20,6 +20,7 @@ export * as Hlesg_prisaarsModel from './models/Hlesg_prisaarsModel';
 export * as Hlesg_regelsModel from './models/Hlesg_regelsModel';
 export * as Hlesg_relevansesModel from './models/Hlesg_relevansesModel';
 export * as Hlesg_virksomhedsModel from './models/Hlesg_virksomhedsModel';
+export * as MotorAPIModel from './models/MotorAPIModel';
 
 // Services
 export * from './services/Hlesg_ejerandelsService';
@@ -37,3 +38,4 @@ export * from './services/Hlesg_prisaarsService';
 export * from './services/Hlesg_regelsService';
 export * from './services/Hlesg_relevansesService';
 export * from './services/Hlesg_virksomhedsService';
+export * from './services/MotorAPIService';
