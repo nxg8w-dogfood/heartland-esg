@@ -3,8 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-11-10
 - **Decided by:** @mortengad (tech lead), 2026-11-10: the data source, how Scope 1 uses a car,
-  the range field and the API Management proxy. One point still needs confirming; see
-  *Open questions*.
+  the range field, the API Management proxy, and who may register cars.
 
 ## Context
 
@@ -79,7 +78,11 @@ requested or stored.
    feed Scope 3 category 3 (well-to-tank).
 5. **Range is optional and entered by hand.** No source gives a range for diesel or petrol cars.
    It isn't used in any calculation.
-6. **Without the connector, the page still works.** Cars can be entered by hand. `npm run dev` in
+6. **Contributors register cars.** *Bidragyder* and *Ansvarlig* may create, change and delete
+   their company's cars, as for lines, because whoever enters the driving also knows the
+   cars (decided 2026-11-10). A car in use by a line can't be deleted in the app, and Dataverse
+   enforces it too: `hlesg_linje.hlesg_koeretoejid` is Restrict on delete.
+7. **Without the connector, the page still works.** Cars can be entered by hand. `npm run dev` in
    a plain browser answers lookups with clearly labelled example data (`src/vehicles/exampleLookup.ts`),
    which isn't in the production build.
 
@@ -97,6 +100,9 @@ requested or stored.
 
   `connectors/motorapi/README.md` lists the steps. Until then, the app inside Power Apps offers
   manual entry only.
+- **A contributor can change a car's km/l, which changes the litres of every km line for it.**
+  The register shows where each car's figures came from (looked up, or entered by hand). The
+  audit flag on the table (ADR 0005) records who changed what.
 - **Estimates are weaker data.** WLTP figures understate real consumption, and NEDC figures (older
   cars) even more, so the page says so, and lines entered in km are counted and flagged.
 - **MotorAPI's limit is 100 lookups a day on the free plan.** Going over returns 403, which the
@@ -115,9 +121,3 @@ requested or stored.
   deploy, patch and monitor. API Management does the same job with configuration only.
 - **Reference only (a car on a line, but litres still required).** It would leave the WLTP data
   unused and give companies without fuel cards no way to enter mobile combustion.
-
-## Open questions
-
-- **Who may register cars?** *Proposed:* *Ansvarlig*, as for locations, because a car's km/l
-  changes how lines are calculated. *Bidragyder* may point lines at cars (AppendTo).
-  `src/dataverse/roles.ts` already does this. Not yet confirmed by @mortengad.
