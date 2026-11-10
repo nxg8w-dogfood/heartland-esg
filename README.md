@@ -50,6 +50,13 @@ Open the URL labelled **Local Play** in the browser profile you use for the Powe
 tenant. `pa app init` writes `power.config.json` for your own environment. It's git-ignored;
 the shared environments' configs live in `deploy/`.
 
+Fetching consumption from Eloverblik and Varmeoverblik (Scope 2, ADR 0011) calls those APIs from
+the browser. Inside Power Apps that's blocked until an environment admin adds
+`https://api.eloverblik.dk` and `https://api.varmeoverblik.dk` to `connect-src` in the
+environment's
+[code-app Content Security Policy](https://learn.microsoft.com/power-apps/developer/code-apps/how-to/content-security-policy).
+`npm run dev` in a plain browser needs no change.
+
 ### Deploy
 
 Deploys run from `.github/workflows/deploy.yml`, never from a laptop:
@@ -92,6 +99,7 @@ You need the System Administrator role in the environment.
 | `src/calc/` | Emission calculations as plain TypeScript, with tests next to them. No UI, no Power Platform dependencies. |
 | `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
+| `src/utility/` | Fetching monthly electricity (Eloverblik) and district-heating (Varmeoverblik) consumption, called from the Scope 2 screen (ADR 0011). |
 | `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
 | `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
 | `src/dataverse/`, `scripts/dataverse-*.ts` | The Dataverse tables and security roles as code, and the scripts that set them up in an environment (ADR 0007). |

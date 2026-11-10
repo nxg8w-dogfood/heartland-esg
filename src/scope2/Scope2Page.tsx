@@ -18,6 +18,7 @@ import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 import { defaultLocation } from './defaultLocation'
+import { UtilityImport } from './UtilityImport'
 
 const kindLabel: Record<Scope2Kind, string> = { electricity: 'El', heating: 'Fjernvarme' }
 
@@ -143,6 +144,8 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
           onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])}
         />
       )}
+
+      {locations.length > 0 && <UtilityImport period={period} locations={locations} lines={lines} setLines={setLines} />}
 
       {summary.locations.length > 1 && <Consolidated summary={summary.locations} totals={summary} />}
     </>
