@@ -20,28 +20,14 @@ import { Scope1Page } from './scope1/Scope1Page'
 import { Scope2Page } from './scope2/Scope2Page'
 import { Scope3Page } from './scope3/Scope3Page'
 import type { Relevance } from './scope3/relevance'
+import { scope3SubpageFromHash, type Scope3SubpageId } from './scope3/subpages'
 import { ACCOUNT_VERSION, type AccountData } from './storage/account'
 import { DataBar, type SaveStatus } from './storage/DataBar'
 import { emptyGroup, type GroupData } from './storage/group'
 import { chooseStore } from './storage/choose'
 import type { GroupStore } from './storage/store'
+import { pageFromHash, pages, type CompanyPageId } from './pages'
 import { PeriodPicker } from './ui'
-
-const pages = [
-  { id: 'koncern', label: 'Koncern' },
-  { id: 'scope1', label: 'Scope 1' },
-  { id: 'scope2', label: 'Scope 2' },
-  { id: 'scope3', label: 'Scope 3' },
-  { id: 'kontoplan', label: 'Kontoplan' },
-  { id: 'faktorer', label: 'Faktorer' },
-] as const
-type PageId = (typeof pages)[number]['id']
-type CompanyPageId = Exclude<PageId, 'koncern'>
-
-const pageFromHash = (): PageId => {
-  const id = window.location.hash.replace('#/', '')
-  return pages.some((p) => p.id === id) ? (id as PageId) : 'scope1'
-}
 
 type Loaded = { store: GroupStore; group: GroupData; generation: number; message: string | null }
 
@@ -106,7 +92,8 @@ function App() {
 
 function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupStore; initial: GroupData; initialMessage: string | null; onReplace: (group: GroupData, message: string | null) => void }) {
   const [group, setGroup] = useState(initial)
-  const [page, setPage] = useState<PageId>(pageFromHash)
+  const [hash, setHash] = useState(() => window.location.hash)
+  const page = pageFromHash(hash)
   const companyId = useId()
   const active = group.companies.find((c) => c.id === group.activeCompanyId) ?? group.companies[0]
   const activeId = active.id
@@ -127,7 +114,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
   }, [group, initial, store])
 
   useEffect(() => {
-    const onHash = () => setPage(pageFromHash())
+    const onHash = () => setHash(window.location.hash)
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -181,7 +168,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
         {page === 'koncern' ? (
           <GroupPage group={group} setGroup={setGroup} />
         ) : (
-          <Workspace key={active.id} page={page} companyName={active.name} initial={active.account} onChange={onAccountChange} />
+          <Workspace key={active.id} page={page} scope3Subpage={scope3SubpageFromHash(hash)} companyName={active.name} initial={active.account} onChange={onAccountChange} />
         )}
       </main>
     </>
@@ -189,7 +176,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 }
 
 /** One company's pages. Reports every change to its account upwards. */
-function Workspace({ page, companyName, initial, onChange }: { page: CompanyPageId; companyName: string; initial: AccountData; onChange: (account: AccountData) => void }) {
+function Workspace({ page, scope3Subpage, companyName, initial, onChange }: { page: CompanyPageId; scope3Subpage: Scope3SubpageId; companyName: string; initial: AccountData; onChange: (account: AccountData) => void }) {
   const [period, setPeriod] = useState<Period>(initial.period)
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
   const [locations, setLocations] = useState<Location[]>(initial.locations)
@@ -243,6 +230,7 @@ function Workspace({ page, companyName, initial, onChange }: { page: CompanyPage
       )}
       {page === 'scope3' && (
         <Scope3Page
+          subpage={scope3Subpage}
           period={period}
           factors={factors}
           scope1Lines={scope1Lines}
