@@ -35,7 +35,7 @@ centralt, og deles ikke med andre."** Backup export and import as JSON are there
 against lost browser data, and they'll also be the way to bring drafts into Dataverse. This
 store is **not** the product's storage.
 
-**Since 2026-10-06 (proposed, awaiting @mortengad's confirmation):** the Dataverse store exists
+**Since 2026-10-06 (accepted by @mortengad on 2026-11-10, when PR #37 was merged):** the Dataverse store exists
 (`src/storage/dataverse/`), and the app uses it whenever it runs inside Power Apps, which is
 always the case for users. The browser store is kept, instead of removed, for one case only:
 local development with `npm run dev` opened directly, outside Power Apps, where there's no
@@ -194,7 +194,8 @@ Built 2026-10-06 in `src/storage/dataverse/`:
   1. Create the tables and roles in a solution in dev.
   2. `pa app add data-source` for each table.
   3. A `dataverseStore` implementing `AccountStore`.
-  4. Remove `browserStore`.
+  4. Remove `browserStore`. (Changed on 2026-11-10: it's kept for local development outside
+     Power Apps only; see section 2.)
 - Tables and roles move between environments in the solution, alongside the app. This is the
   point where ADR 0003's solution-based promotion comes due.
 - Drafts made in the browser can be brought in by importing their backup file once the
