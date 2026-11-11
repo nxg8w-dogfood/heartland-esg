@@ -102,6 +102,11 @@
           "entitySetName": "hlesg_koeretoejs",
           "logicalName": "hlesg_koeretoej",
           "isHidden": false
+        },
+        "regnskabsperioder": {
+          "entitySetName": "hlesg_regnskabsperiodes",
+          "logicalName": "hlesg_regnskabsperiode",
+          "isHidden": false
         }
       },
       "environmentVariableName": ""
