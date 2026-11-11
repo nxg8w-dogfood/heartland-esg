@@ -33,6 +33,7 @@ export interface Hlesg_koeretoejsBase {
   hlesg_braendstofandel?: number;
   hlesg_co2gperkm?: number;
   hlesg_datakilde: Hlesg_koeretoejshlesg_datakilde;
+  hlesg_elforbrug?: number;
   hlesg_foersteregistrering?: string;
   hlesg_hentet?: string;
   hlesg_kmperliter?: number;

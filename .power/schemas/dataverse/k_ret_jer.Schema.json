@@ -162,6 +162,13 @@
           "x-ms-dataverse-attribute-of": "hlesg_datakilde",
           "x-ms-read-only": true
         },
+        "hlesg_elforbrug": {
+          "type": "string",
+          "title": "Elforbrug (Wh/km)",
+          "x-ms-dataverse-attribute": "hlesg_elforbrug",
+          "x-ms-dataverse-type": "DecimalType",
+          "x-ms-schema-name": "hlesg_Elforbrug"
+        },
         "hlesg_foersteregistrering": {
           "type": "string",
           "title": "Første registrering",
