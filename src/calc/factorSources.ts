@@ -29,7 +29,7 @@ export const apiProviders: readonly ApiProvider[] = [
     id: 'energinet-eds',
     name: 'Energinet – Energi Data Service (API)',
     unavailable: 'Energinet leverer timeværdier. Et årstal skal beregnes forbrugsvægtet og kontrolleres mod Energinets officielle deklaration, før det kan bruges.',
-    supports: (f) => f.family === 'el-dk-location',
+    supports: (f) => f.family === 'el-dk-location' || f.family === 'el-dk1-location' || f.family === 'el-dk2-location',
   },
   {
     id: 'climatiq',

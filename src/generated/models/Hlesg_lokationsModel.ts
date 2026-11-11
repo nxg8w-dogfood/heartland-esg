@@ -22,6 +22,7 @@ export type Hlesg_lokationsstatuscode = keyof typeof Hlesg_lokationsstatuscode;
 export interface Hlesg_lokationsBase {
   hlesg_elnetfamilie?: string;
   hlesg_fjernvarmefaktor?: string;
+  hlesg_kommunekode?: string;
   hlesg_lokationid: string;
   hlesg_markedsinstrument: Hlesg_lokationshlesg_markedsinstrument;
   hlesg_navn: string;

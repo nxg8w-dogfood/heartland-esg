@@ -98,6 +98,14 @@
           "x-ms-schema-name": "hlesg_Fjernvarmefaktor",
           "maxLength": 100
         },
+        "hlesg_kommunekode": {
+          "type": "string",
+          "title": "Kommunekode",
+          "x-ms-dataverse-attribute": "hlesg_kommunekode",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "hlesg_Kommunekode",
+          "maxLength": 3
+        },
         "hlesg_lokationid": {
           "type": "string",
           "title": "Lokation",
