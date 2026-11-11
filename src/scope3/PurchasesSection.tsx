@@ -8,13 +8,12 @@ import { formatDate, formatFactor, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
+import { scope3Href } from './subpages'
 
 type Props = {
   cat1: Category1
   lines: SpendLine[]
   setLines: Dispatch<SetStateAction<SpendLine[]>>
-  deflation: Deflation
-  setDeflation: Dispatch<SetStateAction<Deflation>>
   factors: readonly Factor[]
   defaultDate: string
 }
@@ -28,11 +27,10 @@ const examples = (year: string): Omit<SpendLine, 'id'>[] => [
   { group: 'k1-bank', date: `${year}-12-31`, amount: 42_000, currency: 'DKK', description: 'Bankgebyrer' },
 ]
 
-export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflation, factors, defaultDate }: Props) {
+export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }: Props) {
   const id = useId()
   const hiddenCount = lines.length - cat1.lines.filter((r) => r.source === 'manual').length
   const fromLedger = cat1.lines.filter((r) => r.source === 'ledger').length
-  const usedFactors = [...new Map(cat1.lines.filter((r) => r.factor?.method === 'spend').map((r) => [r.factor!.id, r.factor!])).values()]
   const blankGroups = category1Groups.filter((g) => !g.excluded && factors.find((f) => f.id === g.factorId)?.value == null)
 
   return (
@@ -41,7 +39,8 @@ export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflatio
       <p className="muted">
         Spendbaseret: beløbet omregnes til DKK og videre til faktorens valuta (EUR for EXIOBASE), og
         ganges med faktoren i kg CO2e pr. EUR for indkøbstypens EXIOBASE-sektor. Priserne kan
-        indeksreguleres til faktorens prisår (se nedenfor). Posteringer, der er tagget på{' '}
+        indeksreguleres til faktorens prisår under{' '}
+        <a href={scope3Href('indstillinger')}>Indstillinger</a>. Posteringer, der er tagget på{' '}
         <a href="#/kontoplan">Kontoplan</a>, kommer med her automatisk
         {fromLedger > 0 && <> ({fromLedger} i perioden)</>}.
       </p>
@@ -147,7 +146,6 @@ export function PurchasesSection({ cat1, lines, setLines, deflation, setDeflatio
 
       <AddSpendForm defaultDate={defaultDate} onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])} />
 
-      <DeflationPanel deflation={deflation} setDeflation={setDeflation} usedFactors={usedFactors} />
     </section>
   )
 }
@@ -231,7 +229,7 @@ export function AddSpendForm({ defaultDate, onAdd, groups = category1Groups, lab
   )
 }
 
-function DeflationPanel({ deflation, setDeflation, usedFactors }: { deflation: Deflation; setDeflation: Dispatch<SetStateAction<Deflation>>; usedFactors: Factor[] }) {
+export function DeflationPanel({ deflation, setDeflation, usedFactors }: { deflation: Deflation; setDeflation: Dispatch<SetStateAction<Deflation>>; usedFactors: Factor[] }) {
   const id = useId()
   const series = deflation.series.find((s) => s.id === deflation.seriesId) ?? null
   const [newYear, setNewYear] = useState('')

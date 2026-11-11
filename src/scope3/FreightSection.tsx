@@ -18,8 +18,6 @@ type Props = {
   setSpendLines: Dispatch<SetStateAction<SpendLine[]>>
   factors: readonly Factor[]
   defaultDate: string
-  /** Shown when category 4 is marked not relevant */
-  excludedNote?: string
 }
 
 const examples = (year: string): Omit<ActivityLine, 'id'>[] => [
@@ -29,7 +27,7 @@ const examples = (year: string): Omit<ActivityLine, 'id'>[] => [
 ]
 
 /** Category 4: inbound freight by tonne-km, and courier and parcels by spend. */
-export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLines, factors, defaultDate, excludedNote }: Props) {
+export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLines, factors, defaultDate }: Props) {
   const id = useId()
   const hidden = spendLines.length - cat4.courier.length
   return (
@@ -46,7 +44,6 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
         emptyText="Ingen fragt i perioden."
         examples={examples(defaultDate.slice(0, 4))}
       />
-      {excludedNote && <p className="muted">{excludedNote}</p>}
 
       <section aria-labelledby={`${id}-courier`}>
         <h3 id={`${id}-courier`}>Kurér og pakkelevering</h3>
