@@ -1,6 +1,6 @@
 // The group: several companies, each with its own climate account and factor sources, and the
 // group's ownership share in each by year. The group total consolidates by equity share
-// (docs/adr/0006). This is what the store saves and a backup file contains.
+// (docs/adr/0006). This is what the store saves.
 
 import { periodOrLatest, type FiscalPeriod } from '../calc/periods'
 import { newId } from '../newId'

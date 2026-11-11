@@ -168,11 +168,6 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
           central={store.central}
           status={status}
           message={initialMessage}
-          group={group}
-          onReplace={async (next, message) => {
-            await store.save(next).catch(() => undefined)
-            onReplace(next, message)
-          }}
           onClear={store.clear && (async () => {
             await store.clear?.()
             onReplace(emptyGroup(), 'Alle data er ryddet.')

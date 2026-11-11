@@ -47,7 +47,7 @@ export function GroupPage({ group, setGroup, period }: Props) {
   }
 
   function removeCompany(c: Company) {
-    if (!window.confirm(`Slet ${c.name || 'virksomheden'} og hele dens klimaregnskab? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.`)) return
+    if (!window.confirm(`Slet ${c.name || 'virksomheden'} og hele dens klimaregnskab? Det kan ikke fortrydes.`)) return
     setGroup((g) => {
       const companies = g.companies.filter((x) => x.id !== c.id)
       const next = { ...g, companies }

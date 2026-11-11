@@ -1,5 +1,5 @@
 // The whole climate account as one versioned, serialisable object: what the storage layer
-// saves and loads, and what a backup file contains. Loading validates the structure and drops
+// saves and loads. Loading validates the structure and drops
 // records the app couldn't use (an unknown line type, a record without an id), and reports how
 // many, rather than failing or crashing later.
 
