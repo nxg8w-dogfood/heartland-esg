@@ -144,6 +144,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
         <div className="brand">
           <Logotype title="Heartland" />
           <span className="brand-name">Klimaregnskab</span>
+          {store.central && <span className="connection">Forbundet til {store.label}</span>}
         </div>
         <div className="company-picker">
           <label htmlFor={companyId}>Virksomhed</label>
@@ -176,7 +177,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
         {page === 'koncern' ? (
           <GroupPage group={group} setGroup={setGroup} period={period} />
         ) : (
-          <Workspace key={active.id} page={page} period={range} scope3Subpage={scope3SubpageFromHash(hash)} companyName={active.name} initial={active.account} onChange={onAccountChange} />
+          <Workspace key={active.id} page={page} period={range} scope3Subpage={scope3SubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
         )}
       </main>
     </>
@@ -184,7 +185,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 }
 
 /** One company's pages. Reports every change to its account upwards. */
-function Workspace({ page, period, scope3Subpage, companyName, initial, onChange }: { page: CompanyPageId; period: Period; scope3Subpage: Scope3SubpageId; companyName: string; initial: AccountData; onChange: (account: AccountData) => void }) {
+function Workspace({ page, period, scope3Subpage, initial, onChange }: { page: CompanyPageId; period: Period; scope3Subpage: Scope3SubpageId; initial: AccountData; onChange: (account: AccountData) => void }) {
   // Periods are edited on the Koncern page, which this isn't shown with, so they pass through.
   const [periods] = useState(initial.periods)
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
@@ -227,7 +228,6 @@ function Workspace({ page, period, scope3Subpage, companyName, initial, onChange
 
   return (
     <>
-      <p className="company-context">Viser <strong>{companyName || 'Uden navn'}</strong></p>
       {page === 'bilpark' && <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} scope1Lines={scope1Lines} lookup={plateLookup} />}
       {page === 'scope1' && <Scope1Page period={period} factors={factors} lines={scope1Lines} setLines={setScope1Lines} vehicles={vehicles} />}
       {page === 'scope2' && (

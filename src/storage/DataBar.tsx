@@ -21,17 +21,18 @@ export function DataBar({ storeLabel, central, status, message, onClear }: Props
         : status.state === 'failed' ? `Kunne ikke gemme${status.reason ? `: ${status.reason}` : ''}`
           : ''
 
+  // In Dataverse the header says where data lives, so the bar only shows saving and messages.
+  if (central && !statusText && !message && !onClear) return null
+
   return (
     <div className={central ? 'databar' : 'databar notice'} role="region" aria-label="Data og lagring">
       <p>
-        {central ? (
-          <>Data gemmes i {storeLabel}.</>
-        ) : (
+        {!central && (
           <>
             <strong>Kladde:</strong> data gemmes kun i {storeLabel}, ikke centralt, og deles ikke med
-            andre. Inde i Power Apps gemmes data i Dataverse.
+            andre. Inde i Power Apps gemmes data i Dataverse.{' '}
           </>
-        )}{' '}
+        )}
         <span className={status.state === 'failed' ? 'error' : 'muted'} role="status">{statusText}</span>
       </p>
       {message && <p className="muted" role="status">{message}</p>}

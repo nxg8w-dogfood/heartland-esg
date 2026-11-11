@@ -523,6 +523,16 @@ footer {
   color: var(--hl-text-muted);
 }
 
+/* Where the data lives, shown only when it's central (Dataverse). */
+.connection {
+  align-self: center;
+  padding: 2px var(--hl-sp-2);
+  border-radius: 999px;
+  font-size: var(--hl-fs-xs);
+  color: var(--hl-success);
+  background: var(--hl-success-bg);
+}
+
 .logotype {
   display: inline-block;
   height: 14px;
@@ -715,17 +725,6 @@ ul.plain {
   display: flex;
   align-items: center;
   gap: var(--hl-sp-3);
-}
-
-.company-context {
-  margin: var(--hl-sp-5) 0 var(--hl-sp-3);
-  color: var(--hl-text-muted);
-  font-style: italic;
-}
-
-.company-context strong {
-  color: var(--hl-text-strong);
-  font-style: normal;
 }
 
 .company-editor {
