@@ -1,7 +1,6 @@
 /** The app's top-level pages, in the order of the header navigation. */
 export const pages = [
   { id: 'koncern', label: 'Koncern' },
-  { id: 'bilpark', label: 'Bilpark' },
   { id: 'scope1', label: 'Scope 1' },
   { id: 'scope2', label: 'Scope 2' },
   { id: 'scope3', label: 'Scope 3' },
@@ -15,4 +14,13 @@ export type CompanyPageId = Exclude<PageId, 'koncern'>
 export const pageFromHash = (hash: string): PageId => {
   const [id] = hash.replace(/^#\/?/, '').split('/')
   return pages.some((p) => p.id === id) ? (id as PageId) : 'scope1'
+}
+
+/** Addresses that moved, by their old first part: Bilpark became a page under Scope 1. */
+const moved = new Map([['bilpark', '#/scope1/bilpark']])
+
+/** The current address for an old one, such as `#/bilpark`, or null when the address hasn't moved. */
+export const movedHash = (hash: string): string | null => {
+  const [id] = hash.replace(/^#\/?/, '').split('/')
+  return moved.get(id) ?? null
 }
