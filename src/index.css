@@ -766,6 +766,17 @@ ul.plain {
   min-height: var(--hl-row-h);
 }
 
+.unit-choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.unit-choice legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
 .fatal {
   max-width: 40rem;
   margin: 3rem auto;

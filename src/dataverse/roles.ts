@@ -42,8 +42,8 @@ function build(...grants: readonly Grant[]): Role['privileges'] {
 
 const read = (names: readonly string[], reach: Reach): Grant[] => names.map((n) => [n, ['Read'], reach])
 
-/** Lines, surveys, investments and imports: entered by contributors (ADR 0005). */
-const entered = [t('linje'), t('pendling'), t('investering')]
+/** Lines, surveys, investments and cars: entered by contributors (ADR 0005; cars ADR 0009). */
+const entered = [t('linje'), t('pendling'), t('investering'), t('koeretoej')]
 
 const laeser: Grant[] = [
   ...read(companyTables, 'unit'),
@@ -61,6 +61,7 @@ const bidragyder: Grant[] = [
   // Lookups: a record can only point to records the user may append to.
   [t('virksomhed'), ['AppendTo'], 'unit'],
   [t('lokation'), ['AppendTo'], 'unit'],
+  [t('koeretoej'), ['AppendTo'], 'unit'],
 ]
 
 const ansvarlig: Grant[] = [
@@ -86,7 +87,7 @@ const koncernAnsvarlig: Grant[] = [
 
 export const roles: readonly Role[] = [
   { name: 'Klimaregnskab – Læser', description: 'Læser sin virksomheds klimaregnskab.', privileges: build(...laeser) },
-  { name: 'Klimaregnskab – Bidragyder', description: 'Opretter, retter og sletter linjer, pendlerundersøgelser og investeringer, og indlæser posteringer, i sin virksomhed.', privileges: build(...bidragyder) },
+  { name: 'Klimaregnskab – Bidragyder', description: 'Opretter, retter og sletter linjer, pendlerundersøgelser, investeringer og biler, og indlæser posteringer, i sin virksomhed.', privileges: build(...bidragyder) },
   { name: 'Klimaregnskab – Ansvarlig', description: 'Har også ansvaret for virksomhedens indstillinger, lokationer, faktorkilder, relevans, prisindeks og kontoregler, og kan slette importer.', privileges: build(...ansvarlig) },
   { name: 'Koncern – Læser', description: 'Læser alle virksomheders klimaregnskaber, til koncernoversigten.', privileges: build(...koncernLaeser) },
   { name: 'Koncern – Ansvarlig', description: 'Opretter virksomheder og fastsætter koncernens ejerandele, som afgør koncerntotalen.', privileges: build(...koncernAnsvarlig) },

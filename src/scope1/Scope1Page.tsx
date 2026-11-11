@@ -3,6 +3,7 @@ import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { parseNumber } from '../calc/parseNumber'
 import { scope1Groups, scope1Summary, type Scope1GroupId, type Scope1Line } from '../calc/scope1'
+import { scope1GroupFor, vehicleName, type Vehicle } from '../calc/vehicles'
 import { formatDate, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
@@ -22,10 +23,15 @@ type Props = {
   factors: readonly Factor[]
   lines: Scope1Line[]
   setLines: Dispatch<SetStateAction<Scope1Line[]>>
+  vehicles: readonly Vehicle[]
 }
 
-export function Scope1Page({ period, factors, lines, setLines }: Props) {
-  const summary = useMemo(() => scope1Summary(lines, factors, period), [lines, factors, period])
+export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props) {
+  const summary = useMemo(() => scope1Summary(lines, factors, period, vehicles), [lines, factors, period, vehicles])
+  const carName = (id: string | null | undefined) => {
+    const v = vehicles.find((x) => x.id === id)
+    return v ? vehicleName(v) : null
+  }
   const hiddenCount = lines.length - summary.lines.length
 
   return (
@@ -51,9 +57,15 @@ export function Scope1Page({ period, factors, lines, setLines }: Props) {
               : `${summary.pendingCount} linjer afventer data og tæller ikke med endnu.`}
           </p>
         )}
+        {summary.estimateCount > 0 && (
+          <p className="notice">
+            {summary.estimateCount === 1 ? '1 linje er' : `${summary.estimateCount} linjer er`} anslået
+            ud fra kørte km og bilens typegodkendte brændstofforbrug, ikke fra tankkort.
+          </p>
+        )}
       </section>
 
-      <AddLineForm defaultDate={period.start} onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])} />
+      <AddLineForm defaultDate={period.start} vehicles={vehicles} onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])} />
 
       <section aria-labelledby="lines-heading">
         <h2 id="lines-heading">Aktivitetsdata</h2>
@@ -89,7 +101,18 @@ export function Scope1Page({ period, factors, lines, setLines }: Props) {
                       {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
                     </td>
                     <td>{r.group.label}</td>
-                    <td>{r.line.description}</td>
+                    <td>
+                      {r.line.description}
+                      {r.line.vehicleId && <span className="sub">{carName(r.line.vehicleId) ?? 'Slettet bil'}</span>}
+                      {r.line.estimate && r.line.estimate.km !== null && (
+                        <span className="sub">
+                          Anslået: {formatNumber(r.line.estimate.km, 0)} km
+                          {r.line.estimate.fuelShare !== null && r.line.estimate.fuelShare < 1 ? ` × ${formatNumber(r.line.estimate.fuelShare * 100, 0)} % på brændstof` : ''}
+                          {r.line.estimate.kmPerLitre ? ` ÷ ${formatNumber(r.line.estimate.kmPerLitre, 1)} km/l` : ''}
+                          {r.line.estimate.electricKwh !== null && `. På el: ca. ${formatNumber(r.line.estimate.electricKwh, 0)} kWh (ikke Scope 1)`}
+                        </span>
+                      )}
+                    </td>
                     <td className="num">
                       {r.quantityInPeriod === null ? '—' : `${formatNumber(r.quantityInPeriod, 2)} ${r.group.unit}`}
                       {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
@@ -145,9 +168,11 @@ export function Scope1Page({ period, factors, lines, setLines }: Props) {
   )
 }
 
-function AddLineForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (line: Omit<Scope1Line, 'id'>) => void }) {
+function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; vehicles: readonly Vehicle[]; onAdd: (line: Omit<Scope1Line, 'id'>) => void }) {
   const id = useId()
   const [group, setGroup] = useState<Scope1GroupId>('s1-diesel')
+  const [vehicleId, setVehicleId] = useState('')
+  const [inKm, setInKm] = useState(false)
   const [date, setDate] = useState(defaultDate)
   const [dateTo, setDateTo] = useState('')
   const [quantity, setQuantity] = useState('')
@@ -155,7 +180,21 @@ function AddLineForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (line
   const [description, setDescription] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const unit = scope1Groups.find((g) => g.id === group)!.unit
+  const groupDef = scope1Groups.find((g) => g.id === group)!
+  const cars = groupDef.kind === 'mobile' ? vehicles.filter((v) => scope1GroupFor(v.fuel) === group) : []
+  const car = cars.find((v) => v.id === vehicleId) ?? null
+  const canUseKm = car !== null && car.kmPerLitre !== null
+  const byKm = inKm && canUseKm
+  const unit = byKm ? 'km' : groupDef.unit
+
+  function chooseGroup(next: Scope1GroupId) {
+    setGroup(next)
+    // A car runs on one fuel, so a car chosen for the other fuel no longer fits.
+    if (!vehicles.some((v) => v.id === vehicleId && scope1GroupFor(v.fuel) === next)) {
+      setVehicleId('')
+      setInKm(false)
+    }
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -169,7 +208,17 @@ function AddLineForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (line
     setErrors(next)
     if (Object.keys(next).length > 0) return
 
-    onAdd({ group, date, dateTo: dateTo || null, quantity: q, customFactor: f, description: description.trim() })
+    onAdd({
+      group,
+      date,
+      dateTo: dateTo || null,
+      // A line in km gets its litres from the car when it's calculated (resolveScope1Lines).
+      quantity: byKm ? null : q,
+      distanceKm: byKm ? q : null,
+      vehicleId: car?.id ?? null,
+      customFactor: f,
+      description: description.trim(),
+    })
     setQuantity('')
     setCustomFactor('')
     setDescription('')
@@ -183,12 +232,32 @@ function AddLineForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (line
       <form className="add-line" onSubmit={submit} noValidate>
         <div className="field">
           <label htmlFor={`${id}-group`}>Kilde</label>
-          <select id={`${id}-group`} value={group} onChange={(e) => setGroup(e.target.value as Scope1GroupId)}>
+          <select id={`${id}-group`} value={group} onChange={(e) => chooseGroup(e.target.value as Scope1GroupId)}>
             {scope1Groups.map((g) => (
               <option key={g.id} value={g.id}>{g.label}</option>
             ))}
           </select>
         </div>
+        {groupDef.kind === 'mobile' && (
+          <div className="field">
+            <label htmlFor={`${id}-car`}>Bil <span className="optional">(valgfri)</span></label>
+            <select id={`${id}-car`} value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} aria-describedby={cars.length === 0 ? `${id}-car-hint` : undefined}>
+              <option value="">Ingen bestemt bil</option>
+              {cars.map((v) => <option key={v.id} value={v.id}>{vehicleName(v)}</option>)}
+            </select>
+            {cars.length === 0 && <p id={`${id}-car-hint`} className="sub">Registrér biler under Bilpark.</p>}
+          </div>
+        )}
+        {car && (
+          <fieldset className="field unit-choice">
+            <legend>Angivet i</legend>
+            <label className="check"><input type="radio" name={`${id}-unit`} checked={!byKm} onChange={() => setInKm(false)} /> Liter (tankkort)</label>
+            <label className="check">
+              <input type="radio" name={`${id}-unit`} checked={byKm} disabled={!canUseKm} onChange={() => setInKm(true)} aria-describedby={canUseKm ? undefined : `${id}-km-hint`} /> Kørte km
+            </label>
+            {!canUseKm && <p id={`${id}-km-hint`} className="sub">Bilen har intet brændstofforbrug (km/l). Angiv det under Bilpark.</p>}
+          </fieldset>
+        )}
         <div className="field">
           <label htmlFor={`${id}-date`}>Dato</label>
           <input id={`${id}-date`} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={!!errors.date} aria-describedby={describedBy('date')} />
@@ -204,7 +273,7 @@ function AddLineForm({ defaultDate, onAdd }: { defaultDate: string; onAdd: (line
           {errors.quantity && <p id={`${id}-quantity-err`} className="error">{errors.quantity}</p>}
         </div>
         <div className="field">
-          <label htmlFor={`${id}-factor`}>Egen faktor <span className="optional">(kg CO2e/{unit}, valgfri)</span></label>
+          <label htmlFor={`${id}-factor`}>Egen faktor <span className="optional">(kg CO2e/{groupDef.unit}, valgfri)</span></label>
           <input id={`${id}-factor`} inputMode="decimal" autoComplete="off" value={customFactor} onChange={(e) => setCustomFactor(e.target.value)} aria-invalid={!!errors.customFactor} aria-describedby={describedBy('customFactor')} />
           {errors.customFactor && <p id={`${id}-customFactor-err`} className="error">{errors.customFactor}</p>}
         </div>

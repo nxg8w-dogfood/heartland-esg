@@ -14,8 +14,14 @@ function richAccount(): AccountData {
     period: { start: '2025-01-01', end: '2025-12-31' },
     category3Params: { gridLoss: 0.07, wttRatio: 0.2419 },
     locations: [loc],
+    vehicles: [
+      { id: 'car-1', plate: 'AB12345', make: 'Skoda', model: 'Octavia', variant: '2.0 TDI', fuel: 'diesel', firstRegistration: '2022-03-14', kmPerLitre: 22.7, co2GPerKm: 117, testNorm: 'WLTP', source: 'lookup', fetchedAt: '2026-11-10T09:00:00.000Z' },
+      { id: 'car-2', plate: 'CD23456', make: 'Toyota', model: 'Yaris', fuel: 'benzin', kmPerLitre: null, rangeKm: 650, source: 'manual' },
+      { id: 'car-3', plate: 'GH45678', make: 'Kia', model: 'Niro', fuel: 'benzin', kmPerLitre: 17, pluginHybrid: true, fuelSharePercent: 40, whPerKm: 180, source: 'manual' },
+    ],
     scope1Lines: [
-      { id: 's1-a', group: 's1-diesel', date: '2025-02-01', quantity: 100 },
+      { id: 's1-a', group: 's1-diesel', date: '2025-02-01', quantity: 100, vehicleId: 'car-1' },
+      { id: 's1-km', group: 's1-diesel', date: '2025-02-15', quantity: null, vehicleId: 'car-1', distanceKm: 12_000 },
       { id: 's1-b', group: 's1-naturgas', date: '2025-03-01', dateTo: '2025-03-31', quantity: 50, customFactor: 2.1, description: 'Kedel' },
     ],
     scope2Lines: [{ id: 's2-a', locationId: 'loc-1', kind: 'electricity', date: '2025-01-01', dateTo: '2025-12-31', kWh: 120_000, description: 'Årsforbrug' }],
@@ -134,8 +140,19 @@ describe('diff', () => {
 
   it('clears a column that was emptied, and only that one', () => {
     const after = g()
-    after.companies[0].account.scope1Lines[1] = { ...after.companies[0].account.scope1Lines[1], customFactor: null }
+    const lines = after.companies[0].account.scope1Lines
+    const i = lines.findIndex((l) => l.id === 's1-b')
+    lines[i] = { ...lines[i], customFactor: null }
     expect(diff(toRows(g()), toRows(after))).toEqual([{ kind: 'update', table: 'hlesg_linje', key: 's1-b', changes: { hlesg_egenfaktor: null } }])
+  })
+
+  it('creates a car before the km line that points to it, and deletes them the other way round', () => {
+    const without = g()
+    without.companies[0].account.vehicles = []
+    without.companies[0].account.scope1Lines = without.companies[0].account.scope1Lines.filter((l) => !l.vehicleId)
+    const keys = (from: GroupData, to: GroupData) => diff(toRows(from), toRows(to)).map((o) => `${o.kind} ${o.table} ${o.key}`)
+    expect(keys(without, g())).toEqual(['create hlesg_koeretoej car-1', 'create hlesg_koeretoej car-2', 'create hlesg_koeretoej car-3', 'create hlesg_linje s1-a', 'create hlesg_linje s1-km'])
+    expect(keys(g(), without)).toEqual(['delete hlesg_linje s1-km', 'delete hlesg_linje s1-a', 'delete hlesg_koeretoej car-3', 'delete hlesg_koeretoej car-2', 'delete hlesg_koeretoej car-1'])
   })
 
   it('deletes a removed line, and children before the location they point to', () => {
@@ -186,7 +203,8 @@ function richAccount2(): AccountData {
   return {
     ...a,
     locations: re(a.locations),
-    scope1Lines: re(a.scope1Lines),
+    vehicles: re(a.vehicles),
+    scope1Lines: re(a.scope1Lines).map((l) => (l.vehicleId ? { ...l, vehicleId: `${l.vehicleId}-2` } : l)),
     scope2Lines: re(a.scope2Lines).map((l) => ({ ...l, locationId: 'loc-1-2' })),
     cat1Lines: re(a.cat1Lines), cat4Lines: re(a.cat4Lines), cat4SpendLines: re(a.cat4SpendLines), cat5Lines: re(a.cat5Lines), cat6Lines: re(a.cat6Lines),
     surveys: re(a.surveys), investments: re(a.investments),

@@ -2,7 +2,7 @@
 // mapping is tested without an environment; the store (store.ts) only moves rows.
 //
 // Every row has a key the app can compute from its own data:
-//  - records the app gives an id (companies, lines, locations, surveys, investments, imports,
+//  - records the app gives an id (companies, cars, lines, locations, surveys, investments, imports,
 //    postings, rules) use that id, which is also the row's Dataverse primary key;
 //  - the rest use a natural key, e.g. company + year for an ownership share, and the store maps
 //    it to the Dataverse id it was given.
@@ -15,6 +15,7 @@ import type { FactorSourceChoice } from '../../calc/factorSources'
 import type { Investment } from '../../calc/investments'
 import type { ImportBatch, ManualAction, Posting, Rule } from '../../calc/ledger'
 import type { Scope1Line } from '../../calc/scope1'
+import type { TestNorm, Vehicle, VehicleFuel } from '../../calc/vehicles'
 import type { Location, Scope2Line } from '../../calc/scope2'
 import { defaultPriceIndexSeries, noDeflation, type SpendLine } from '../../calc/spend'
 import { factors } from '../../data/factors'
@@ -82,6 +83,7 @@ export function toRows(group: GroupData): Rows {
         [c('fjernvarmefaktor')]: l.heatingFactorId,
       })
     }
+    for (const v of a.vehicles) put(c('koeretoej'), v.id, vehicleRow(id, v))
     for (const list of lineLists) {
       for (const line of a[list.appValue as keyof AccountData] as unknown as AnyLine[]) put(c('linje'), line.id, lineRow(id, list.value, line))
     }
@@ -131,6 +133,29 @@ function lineRow(company: string, list: number, l: AnyLine): Row {
     [c('beskrivelse')]: s(l.description),
     [c('lokationid')]: scope2 ? scope2.locationId : null,
     [c('energiart')]: scope2 ? toChoice(c('linje'), c('energiart'), scope2.kind) : null,
+    [c('koeretoejid')]: 'vehicleId' in l ? s(l.vehicleId) : null,
+    [c('km')]: 'distanceKm' in l ? n(l.distanceKm) : null,
+  }
+}
+
+function vehicleRow(company: string, v: Vehicle): Row {
+  return {
+    [COMPANY]: company,
+    [c('nummerplade')]: v.plate,
+    [c('maerke')]: s(v.make),
+    [c('model')]: s(v.model),
+    [c('variant')]: s(v.variant),
+    [c('braendstof')]: toChoice(c('koeretoej'), c('braendstof'), v.fuel),
+    [c('foersteregistrering')]: s(v.firstRegistration),
+    [c('kmperliter')]: n(v.kmPerLitre),
+    [c('pluginhybrid')]: v.pluginHybrid === true,
+    [c('braendstofandel')]: n(v.fuelSharePercent),
+    [c('elforbrug')]: n(v.whPerKm),
+    [c('co2gperkm')]: n(v.co2GPerKm),
+    [c('maalenorm')]: toChoice(c('koeretoej'), c('maalenorm'), v.testNorm),
+    [c('raekkevidde')]: n(v.rangeKm),
+    [c('datakilde')]: toChoice(c('koeretoej'), c('datakilde'), v.source),
+    [c('hentet')]: s(v.fetchedAt),
   }
 }
 
@@ -214,6 +239,7 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPe
           marketInstrument: fromChoice(c('lokation'), c('markedsinstrument'), r[c('markedsinstrument')]) as Location['marketInstrument'],
           heatingFactorId: str(r[c('fjernvarmefaktor')]) as Location['heatingFactorId'],
         })).sort((x, y) => x.name.localeCompare(y.name) || x.id.localeCompare(y.id)),
+        vehicles: of(c('koeretoej'), id).map(([key, r]) => vehicleFrom(key, r)).sort((x, y) => x.plate.localeCompare(y.plate) || x.id.localeCompare(y.id)),
         scope1Lines: lines('scope1Lines') as Scope1Line[],
         scope2Lines: lines('scope2Lines') as Scope2Line[],
         cat1Lines: lines('cat1Lines') as SpendLine[],
@@ -282,7 +308,34 @@ function lineFrom(list: string, id: string, r: Row): AnyLine {
   if (list === 'cat1Lines' || list === 'cat4SpendLines') {
     return { ...common, ...factorId, group: str(r[c('gruppe')]), amount: num(r[c('beloeb')]), currency: str(r[c('valuta')]) } as SpendLine
   }
+  if (list === 'scope1Lines') {
+    const car = optStr(r[c('koeretoejid')]) ? { vehicleId: str(r[c('koeretoejid')]) } : {}
+    const km = num(r[c('km')]) !== null ? { distanceKm: num(r[c('km')]) } : {}
+    return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]), ...car, ...km } as Scope1Line
+  }
   return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]) } as ActivityLine
+}
+
+function vehicleFrom(id: string, r: Row): Vehicle {
+  const optional = (key: keyof Vehicle, v: Value) => (v === null || v === '' ? {} : { [key]: v })
+  const t = (col: string) => fromChoice(c('koeretoej'), c(col), r[c(col)])
+  return {
+    id,
+    plate: str(r[c('nummerplade')]),
+    make: str(r[c('maerke')]),
+    model: str(r[c('model')]),
+    ...optional('variant', r[c('variant')]),
+    // A car with an unknown fuel is dropped when the account is validated, not guessed.
+    fuel: t('braendstof') as VehicleFuel,
+    ...optional('firstRegistration', r[c('foersteregistrering')]),
+    kmPerLitre: num(r[c('kmperliter')]),
+    ...(r[c('pluginhybrid')] === true ? { pluginHybrid: true, fuelSharePercent: num(r[c('braendstofandel')]), whPerKm: num(r[c('elforbrug')]) } : {}),
+    ...optional('co2GPerKm', r[c('co2gperkm')]),
+    ...optional('testNorm', t('maalenorm') as TestNorm | null),
+    ...optional('rangeKm', r[c('raekkevidde')]),
+    source: t('datakilde') === 'lookup' ? 'lookup' : 'manual',
+    ...optional('fetchedAt', r[c('hentet')]),
+  } as Vehicle
 }
 
 function investmentFrom(id: string, r: Row): Investment {
@@ -311,7 +364,7 @@ export type Operation =
   | { kind: 'delete'; table: string; key: string }
 
 /** Parents before children when creating, children before parents when deleting. */
-const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('lokation'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
+const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('lokation'), c('koeretoej'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
 
 const same = (x: Value | undefined, y: Value | undefined) => (x ?? null) === (y ?? null)
 

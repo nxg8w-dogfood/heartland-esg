@@ -1,6 +1,7 @@
 /** The app's top-level pages, in the order of the header navigation. */
 export const pages = [
   { id: 'koncern', label: 'Koncern' },
+  { id: 'bilpark', label: 'Bilpark' },
   { id: 'scope1', label: 'Scope 1' },
   { id: 'scope2', label: 'Scope 2' },
   { id: 'scope3', label: 'Scope 3' },

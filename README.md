@@ -23,6 +23,11 @@ npm run dev
 Vite prints a local URL. Until Dataverse is in place (ADR 0005), data is kept as a draft in your browser, and the app offers backup export and import. This runs the UI on its own, outside Power Platform, which is
 enough for UI work and for the calculation engine in `src/calc/`.
 
+Plate lookups on the Bilpark page answer with example data in `npm run dev`, because the real
+lookup goes through a connector that only exists inside Power Platform (ADR 0009). The page says
+which plates it knows. Inside Power Apps, until the connector is set up
+(`connectors/motorapi/README.md`), cars are entered by hand.
+
 ### Check your change
 
 These are the same steps CI runs on every pull request:
@@ -100,6 +105,9 @@ You need the System Administrator role in the environment.
 | `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
 | `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
+| `src/vehicles/` | The Bilpark screen: the company's diesel and petrol cars, looked up by plate through MotorAPI (ADR 0009). The km-to-litres calculation is in `src/calc/vehicles.ts`. |
+| `connectors/motorapi/` | The MotorAPI custom connector and the API Management policy that adds the key from Key Vault, with setup steps (ADR 0009). |
+| `infra/motorapi/` | Bicep for the plate-lookup proxy: API Management, the Entra app registrations, Key Vault access and a budget (ADR 0009). |
 | `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
 | `src/dataverse/`, `scripts/dataverse-*.ts` | The Dataverse tables and security roles as code, and the scripts that set them up in an environment (ADR 0007). |
 | `src/storage/` | Saving and loading the group and each company's account (`GroupStore`): Dataverse inside Power Apps (`dataverse/`), a browser draft locally, and backup export and import. |

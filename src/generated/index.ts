@@ -11,6 +11,7 @@ export * as Hlesg_importsModel from './models/Hlesg_importsModel';
 export * as Hlesg_indekspunktsModel from './models/Hlesg_indekspunktsModel';
 export * as Hlesg_investeringsModel from './models/Hlesg_investeringsModel';
 export * as Hlesg_klimaregnskabsModel from './models/Hlesg_klimaregnskabsModel';
+export * as Hlesg_koeretoejsModel from './models/Hlesg_koeretoejsModel';
 export * as Hlesg_koncernsModel from './models/Hlesg_koncernsModel';
 export * as Hlesg_linjesModel from './models/Hlesg_linjesModel';
 export * as Hlesg_lokationsModel from './models/Hlesg_lokationsModel';
@@ -20,6 +21,7 @@ export * as Hlesg_prisaarsModel from './models/Hlesg_prisaarsModel';
 export * as Hlesg_regelsModel from './models/Hlesg_regelsModel';
 export * as Hlesg_relevansesModel from './models/Hlesg_relevansesModel';
 export * as Hlesg_virksomhedsModel from './models/Hlesg_virksomhedsModel';
+export * as MotorAPIModel from './models/MotorAPIModel';
 
 // Services
 export * from './services/Hlesg_ejerandelsService';
@@ -28,6 +30,7 @@ export * from './services/Hlesg_importsService';
 export * from './services/Hlesg_indekspunktsService';
 export * from './services/Hlesg_investeringsService';
 export * from './services/Hlesg_klimaregnskabsService';
+export * from './services/Hlesg_koeretoejsService';
 export * from './services/Hlesg_koncernsService';
 export * from './services/Hlesg_linjesService';
 export * from './services/Hlesg_lokationsService';
@@ -37,3 +40,4 @@ export * from './services/Hlesg_prisaarsService';
 export * from './services/Hlesg_regelsService';
 export * from './services/Hlesg_relevansesService';
 export * from './services/Hlesg_virksomhedsService';
+export * from './services/MotorAPIService';

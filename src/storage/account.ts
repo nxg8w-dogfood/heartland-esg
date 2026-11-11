@@ -8,6 +8,7 @@ import type { Survey } from '../calc/commuting'
 import type { Period } from '../calc/dates'
 import type { Investment } from '../calc/investments'
 import { scope1Groups, type Scope1Line } from '../calc/scope1'
+import type { Vehicle } from '../calc/vehicles'
 import type { Location, Scope2Line } from '../calc/scope2'
 import { category1Groups, category4Groups, category4SpendGroups, category5Groups, category6Groups, defaultCategory3Params, type Category3Params } from '../calc/scope3'
 import { noDeflation, type Deflation, type SpendLine } from '../calc/spend'
@@ -24,6 +25,8 @@ export const ACCOUNT_VERSION = 2
 export type AccountData = {
   version: typeof ACCOUNT_VERSION
   period: Period
+  /** The company's diesel and petrol cars, which Scope 1 lines can refer to (ADR 0009) */
+  vehicles: Vehicle[]
   scope1Lines: Scope1Line[]
   locations: Location[]
   scope2Lines: Scope2Line[]
@@ -48,6 +51,7 @@ export function emptyAccount(): AccountData {
   return {
     version: ACCOUNT_VERSION,
     period: { start: '2025-01-01', end: '2025-12-31' },
+    vehicles: [],
     scope1Lines: [],
     locations: [defaultLocation()],
     scope2Lines: [],
@@ -130,10 +134,23 @@ export function parseAccount(input: unknown): LoadResult {
     }
   }
 
+  const vehicles = list<Vehicle>(input.vehicles, (v) =>
+    typeof v.plate === 'string' && (v.fuel === 'diesel' || v.fuel === 'benzin') &&
+    (v.kmPerLitre === null || (typeof v.kmPerLitre === 'number' && Number.isFinite(v.kmPerLitre) && v.kmPerLitre > 0)) &&
+    (v.pluginHybrid === undefined || typeof v.pluginHybrid === 'boolean') &&
+    (v.whPerKm == null || (typeof v.whPerKm === 'number' && Number.isFinite(v.whPerKm) && v.whPerKm > 0)) &&
+    (v.fuelSharePercent == null || (typeof v.fuelSharePercent === 'number' && v.fuelSharePercent >= 0 && v.fuelSharePercent <= 100)))
+  const vehicleIds = new Set(vehicles.map((v) => v.id))
+  const scope1Known = groupIn(scope1Groups)
+
   const account: AccountData = {
     version: ACCOUNT_VERSION,
     period,
-    scope1Lines: list(input.scope1Lines, groupIn(scope1Groups)),
+    vehicles,
+    // A line in km without its car can't be calculated, so it's dropped; a line in litres
+    // just loses the reference.
+    scope1Lines: list<Scope1Line>(input.scope1Lines, (l) => scope1Known(l) && (l.distanceKm == null || (typeof l.vehicleId === 'string' && vehicleIds.has(l.vehicleId))))
+      .map((l) => (l.vehicleId && !vehicleIds.has(l.vehicleId) ? { ...l, vehicleId: null } : l)),
     locations,
     scope2Lines: list(input.scope2Lines, (l) => typeof l.locationId === 'string' && locationIds.has(l.locationId)),
     factorSources,

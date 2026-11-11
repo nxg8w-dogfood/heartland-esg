@@ -7,6 +7,7 @@ import { Hlesg_importsService } from '../../generated/services/Hlesg_importsServ
 import { Hlesg_indekspunktsService } from '../../generated/services/Hlesg_indekspunktsService'
 import { Hlesg_investeringsService } from '../../generated/services/Hlesg_investeringsService'
 import { Hlesg_klimaregnskabsService } from '../../generated/services/Hlesg_klimaregnskabsService'
+import { Hlesg_koeretoejsService } from '../../generated/services/Hlesg_koeretoejsService'
 import { Hlesg_koncernsService } from '../../generated/services/Hlesg_koncernsService'
 import { Hlesg_linjesService } from '../../generated/services/Hlesg_linjesService'
 import { Hlesg_lokationsService } from '../../generated/services/Hlesg_lokationsService'
@@ -35,6 +36,7 @@ const services = {
   hlesg_ejerandel: Hlesg_ejerandelsService,
   hlesg_klimaregnskab: Hlesg_klimaregnskabsService,
   hlesg_lokation: Hlesg_lokationsService,
+  hlesg_koeretoej: Hlesg_koeretoejsService,
   hlesg_linje: Hlesg_linjesService,
   hlesg_pendling: Hlesg_pendlingsService,
   hlesg_investering: Hlesg_investeringsService,

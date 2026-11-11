@@ -1,0 +1,47 @@
+<!--
+  API-level policy for the MotorAPI proxy in Azure API Management (docs/adr/0009).
+  Named values, all configured in APIM, none in this repository:
+    tenant-id                 Entra tenant ID (heartcorp)
+    motorapi-connector-app-id Client ID of the custom connector's Entra app registration
+    motorapi-audience         Application ID URI of the proxy's Entra app registration
+    motorapi-proxy-app-id     Client ID of the proxy's app registration (the audience of v2 tokens)
+    motorapi-user-role        App role a user must hold to look up plates, e.g. Vehicle.Lookup
+    motorapi-key              Key Vault reference to the MotorAPI token (Type: Key vault)
+  All set by infra/motorapi/main.bicep. The API defines only the two GET operations; anything
+  else gets 404 from APIM.
+-->
+<policies>
+  <inbound>
+    <base />
+    <!-- Only signed-in Heartland users with the lookup role, through our connector. -->
+    <validate-azure-ad-token tenant-id="{{tenant-id}}" header-name="Authorization" failed-validation-httpcode="401">
+      <client-application-ids>
+        <application-id>{{motorapi-connector-app-id}}</application-id>
+      </client-application-ids>
+      <audiences>
+        <audience>{{motorapi-audience}}</audience>
+        <audience>{{motorapi-proxy-app-id}}</audience>
+      </audiences>
+      <required-claims>
+        <claim name="roles" match="any">
+          <value>{{motorapi-user-role}}</value>
+        </claim>
+      </required-claims>
+    </validate-azure-ad-token>
+    <!-- The user's token never reaches MotorAPI; the key is added here, from Key Vault. -->
+    <set-header name="Authorization" exists-action="delete" />
+    <set-header name="X-AUTH-TOKEN" exists-action="override">
+      <value>{{motorapi-key}}</value>
+    </set-header>
+    <set-backend-service base-url="https://v1.motorapi.dk" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
