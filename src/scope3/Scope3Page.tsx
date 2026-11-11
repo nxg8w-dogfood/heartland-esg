@@ -16,10 +16,11 @@ import { ActivityLinesSection } from '../activity/ActivityLinesSection'
 import { FreightSection } from './FreightSection'
 import { CommutingSection } from './CommutingSection'
 import { InvestmentsSection } from './InvestmentsSection'
-import { PurchasesSection } from './PurchasesSection'
+import { DeflationPanel, PurchasesSection } from './PurchasesSection'
 import { formatFactor, formatNumber } from '../format'
 import { Tile } from '../ui'
 import type { Relevance } from './relevance'
+import { categorySubpage, scope3Href, scope3Subpages, type Scope3SubpageId } from './subpages'
 
 const cat6Examples: Omit<ActivityLine, 'id'>[] = [
   { group: 'k6-fly-kort', date: '2025-03-12', quantity: 2 * 1250, description: 'København–Frankfurt t/r, 2 personer' },
@@ -37,6 +38,8 @@ const cat5Examples: Omit<ActivityLine, 'id'>[] = [
 ]
 
 type Props = {
+  /** Which of Scope 3's pages to show */
+  subpage: Scope3SubpageId
   period: Period
   factors: readonly Factor[]
   scope1Lines: readonly Scope1Line[]
@@ -66,10 +69,14 @@ type Props = {
   ledgerLines: readonly LedgerSpendLine[]
 }
 
+/** The spend factors category 1 uses in the period: the ones a base year can be set for. */
+const spendFactorsUsed = (cat1: ReturnType<typeof category1>): Factor[] =>
+  [...new Map(cat1.lines.filter((r) => r.factor?.method === 'spend').map((r) => [r.factor!.id, r.factor!])).values()]
+
 const pendingNote = (n: number) => (n === 0 ? undefined : n === 1 ? '1 linje afventer faktor' : `${n} linjer afventer faktor`)
 
 export function Scope3Page(props: Props) {
-  const { period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledgerLines } = props
+  const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledgerLines } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
   const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, currencyRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
@@ -89,135 +96,227 @@ export function Scope3Page(props: Props) {
   const update = (nr: number, patch: Partial<Relevance[number]>) =>
     setRelevance((r) => ({ ...r, [nr]: { ...r[nr], ...patch } }))
 
+  const current = scope3Subpages.find((p) => p.id === subpage)!
+  const nr = 'nr' in current ? current.nr : null
+
   return (
     <>
       <h1>Scope 3 — værdikæden</h1>
       <p className="lead">
-        Indirekte udledninger i værdikæden, fordelt på GHG-protokollens 15 kategorier. Marker
-        hvilke kategorier der er relevante, og begrund valget.
+        Indirekte udledninger i værdikæden, fordelt på GHG-protokollens 15 kategorier. Hver
+        kategori, appen beregner, har sin egen side; relevans og parametre sættes under
+        Indstillinger.
       </p>
 
-      <section aria-labelledby="s3-totals">
-        <h2 id="s3-totals" className="visually-hidden">Totaler</h2>
-        <dl className="tiles" aria-live="polite">
-          <Tile label="Scope 3, beregnet indtil videre" value={total} accent />
-          <Tile label="1 — indkøb" value={cat1.total} note={excludedNote(1) ?? pendingNote(cat1.pendingCount)} />
-          <Tile label="3 — brændstof og energi" value={cat3.total} note={excludedNote(3)} />
-          <Tile label="4 — transport" value={cat4.total} note={excludedNote(4) ?? pendingNote(cat4.pendingCount)} />
-          <Tile label="5 — affald" value={cat5.total} note={excludedNote(5)} />
-          <Tile label="6 — forretningsrejser" value={cat6.total} note={excludedNote(6)} />
-          <Tile label="7 — pendling" value={cat7.total} note={excludedNote(7)} />
-          <Tile label="15 — investeringer" value={cat15.total} note={excludedNote(15)} />
-        </dl>
-        {pendingRelevant.length > 0 && (
-          <p className="warning">
-            <strong>Scope 3 er ikke komplet.</strong> Kategori {Object.keys(calculated).join(', ')} beregnes.{' '}
-            {pendingRelevant.length === 1 ? 'Kategori' : 'Kategorierne'}{' '}
-            {pendingRelevant.map((c) => c.nr).join(', ')} er markeret relevante, men
-            mangler stadig i appen.
-          </p>
-        )}
-      </section>
+      <nav aria-label="Scope 3" className="subnav">
+        <ul>
+          {scope3Subpages.map((p) => (
+            <li key={p.id}>
+              <a href={scope3Href(p.id)} aria-current={p.id === subpage ? 'page' : undefined}>{p.label}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-      <PurchasesSection cat1={cat1} lines={cat1Lines} setLines={setCat1Lines} deflation={deflation} setDeflation={setDeflation} factors={factors} defaultDate={period.start} />
+      {nr !== null && !isIncluded(nr) && (
+        <p className="warning">
+          Kategori {nr} er markeret ikke relevant under <a href={scope3Href('indstillinger')}>Indstillinger</a>,
+          så linjerne her tæller ikke med i Scope 3.
+        </p>
+      )}
 
-      <Category3Section cat3={cat3} params={params} setParams={setParams} />
+      {subpage === 'oversigt' && (
+        <>
+          <section aria-labelledby="s3-totals">
+            <h2 id="s3-totals" className="visually-hidden">Totaler</h2>
+            <dl className="tiles" aria-live="polite">
+              <Tile label="Scope 3, beregnet indtil videre" value={total} accent />
+              <Tile label="1 — indkøb" value={cat1.total} note={excludedNote(1) ?? pendingNote(cat1.pendingCount)} />
+              <Tile label="3 — brændstof og energi" value={cat3.total} note={excludedNote(3)} />
+              <Tile label="4 — transport" value={cat4.total} note={excludedNote(4) ?? pendingNote(cat4.pendingCount)} />
+              <Tile label="5 — affald" value={cat5.total} note={excludedNote(5)} />
+              <Tile label="6 — forretningsrejser" value={cat6.total} note={excludedNote(6)} />
+              <Tile label="7 — pendling" value={cat7.total} note={excludedNote(7)} />
+              <Tile label="15 — investeringer" value={cat15.total} note={excludedNote(15)} />
+            </dl>
+            {pendingRelevant.length > 0 && (
+              <p className="warning">
+                <strong>Scope 3 er ikke komplet.</strong> Kategori {Object.keys(calculated).join(', ')} beregnes.{' '}
+                {pendingRelevant.length === 1 ? 'Kategori' : 'Kategorierne'}{' '}
+                {pendingRelevant.map((c) => c.nr).join(', ')} er markeret relevante, men
+                mangler stadig i appen.
+              </p>
+            )}
+          </section>
+          <CategoriesOverview relevance={relevance} calculated={calculated} />
+        </>
+      )}
 
-      <FreightSection
-        cat4={cat4}
-        lines={cat4Lines}
-        setLines={setCat4Lines}
-        spendLines={cat4SpendLines}
-        setSpendLines={setCat4SpendLines}
-        factors={factors}
-        defaultDate={period.start}
-        excludedNote={isIncluded(4) ? undefined : 'Kategori 4 er markeret ikke relevant nedenfor, så linjerne her tæller ikke med i Scope 3.'}
-      />
+      {subpage === 'kategori-1' && (
+        <PurchasesSection cat1={cat1} lines={cat1Lines} setLines={setCat1Lines} factors={factors} defaultDate={period.start} />
+      )}
 
-      <ActivityLinesSection
-        title="Kategori 6 — forretningsrejser"
-        intro="Rejser i firmaets ærinde med fly, tog, bus, taxi, færge og firmabil, samt hotelovernatninger. Flyrejser angives i passagerkm (afstand × antal rejsende). Hotelnætter bruger BEIS' faktor for landet; Danmark findes ikke hos BEIS, så vælg et proxy-land eller angiv en verificeret egen faktor."
-        groups={category6Groups}
-        factors={factors}
-        summary={cat6}
-        lines={cat6Lines}
-        setLines={setCat6Lines}
-        defaultDate={period.start}
-        emptyText="Ingen forretningsrejser i perioden."
-        examples={cat6Examples}
-      />
+      {subpage === 'kategori-3' && <Category3Section cat3={cat3} params={params} />}
 
-      <CommutingSection cat7={cat7} surveys={surveys} setSurveys={setSurveys} factors={factors} period={period} />
+      {subpage === 'kategori-4' && (
+        <FreightSection
+          cat4={cat4}
+          lines={cat4Lines}
+          setLines={setCat4Lines}
+          spendLines={cat4SpendLines}
+          setSpendLines={setCat4SpendLines}
+          factors={factors}
+          defaultDate={period.start}
+        />
+      )}
 
-      <InvestmentsSection cat15={cat15} investments={investments} setInvestments={setInvestments} period={period} />
+      {subpage === 'kategori-5' && (
+        <ActivityLinesSection
+          title="Kategori 5 — affald genereret i driften"
+          intro="Affald fra egen drift pr. fraktion og behandlingsform, i tons."
+          groups={category5Groups}
+          factors={factors}
+          summary={cat5}
+          lines={cat5Lines}
+          setLines={setCat5Lines}
+          defaultDate={period.start}
+          emptyText="Intet affald registreret i perioden."
+          examples={cat5Examples}
+        />
+      )}
 
-      <ActivityLinesSection
-        title="Kategori 5 — affald genereret i driften"
-        intro="Affald fra egen drift pr. fraktion og behandlingsform, i tons."
-        groups={category5Groups}
-        factors={factors}
-        summary={cat5}
-        lines={cat5Lines}
-        setLines={setCat5Lines}
-        defaultDate={period.start}
-        emptyText="Intet affald registreret i perioden."
-        examples={cat5Examples}
-      />
+      {subpage === 'kategori-6' && (
+        <ActivityLinesSection
+          title="Kategori 6 — forretningsrejser"
+          intro="Rejser i firmaets ærinde med fly, tog, bus, taxi, færge og firmabil, samt hotelovernatninger. Flyrejser angives i passagerkm (afstand × antal rejsende). Hotelnætter bruger BEIS' faktor for landet; Danmark findes ikke hos BEIS, så vælg et proxy-land eller angiv en verificeret egen faktor."
+          groups={category6Groups}
+          factors={factors}
+          summary={cat6}
+          lines={cat6Lines}
+          setLines={setCat6Lines}
+          defaultDate={period.start}
+          emptyText="Ingen forretningsrejser i perioden."
+          examples={cat6Examples}
+        />
+      )}
 
-      <section aria-labelledby="s3-categories">
-        <h2 id="s3-categories">Kategorier og relevans</h2>
-        <div className="table-wrap">
-          <table>
-            <caption className="visually-hidden">Scope 3-kategorier</caption>
-            <thead>
-              <tr>
-                <th scope="col">Kategori</th>
-                <th scope="col">Relevant</th>
-                <th scope="col">Begrundelse</th>
-                <th scope="col" className="num">tCO2e</th>
-              </tr>
-            </thead>
-            <tbody>
-              {scope3Categories.map((c) => {
-                const r = relevance[c.nr]
-                return (
-                  <tr key={c.nr}>
-                    <th scope="row">
-                      {c.nr}. {c.name}
-                      <span className="sub">{c.english}</span>
-                    </th>
-                    <td>
-                      <label className="check">
-                        <input type="checkbox" checked={r.relevant} onChange={(e) => update(c.nr, { relevant: e.target.checked })} />
-                        <span className="visually-hidden">Kategori {c.nr} er relevant</span>
-                        <span aria-hidden="true">{r.relevant ? 'Ja' : 'Nej'}</span>
-                      </label>
-                    </td>
-                    <td>
-                      <label className="visually-hidden" htmlFor={`reason-${c.nr}`}>Begrundelse for kategori {c.nr}</label>
-                      <input id={`reason-${c.nr}`} className="reason" value={r.reason} onChange={(e) => update(c.nr, { reason: e.target.value })} />
-                    </td>
-                    <td className="num">
-                      {!r.relevant ? (
-                        <span className="muted">Ikke relevant</span>
-                      ) : c.nr in calculated ? (
-                        formatNumber(calculated[c.nr], 3)
-                      ) : (
-                        <span className="pending">Kommer senere</span>
-                      )}
-                    </td>
+      {subpage === 'kategori-7' && <CommutingSection cat7={cat7} surveys={surveys} setSurveys={setSurveys} factors={factors} period={period} />}
+
+      {subpage === 'kategori-15' && <InvestmentsSection cat15={cat15} investments={investments} setInvestments={setInvestments} period={period} />}
+
+      {subpage === 'indstillinger' && (
+        <>
+          <section aria-labelledby="s3-categories">
+            <h2 id="s3-categories">Kategorier og relevans</h2>
+            <p className="muted">
+              Kun kategorier, der er markeret relevante, tæller med i Scope 3. Begrund valget for
+              hver kategori.
+            </p>
+            <div className="table-wrap">
+              <table>
+                <caption className="visually-hidden">Scope 3-kategorier</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Kategori</th>
+                    <th scope="col">Relevant</th>
+                    <th scope="col">Begrundelse</th>
+                    <th scope="col" className="num">tCO2e</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                </thead>
+                <tbody>
+                  {scope3Categories.map((c) => {
+                    const r = relevance[c.nr]
+                    return (
+                      <tr key={c.nr}>
+                        <th scope="row">
+                          {c.nr}. {c.name}
+                          <span className="sub">{c.english}</span>
+                        </th>
+                        <td>
+                          <label className="check">
+                            <input type="checkbox" checked={r.relevant} onChange={(e) => update(c.nr, { relevant: e.target.checked })} />
+                            <span className="visually-hidden">Kategori {c.nr} er relevant</span>
+                            <span aria-hidden="true">{r.relevant ? 'Ja' : 'Nej'}</span>
+                          </label>
+                        </td>
+                        <td>
+                          <label className="visually-hidden" htmlFor={`reason-${c.nr}`}>Begrundelse for kategori {c.nr}</label>
+                          <input id={`reason-${c.nr}`} className="reason" value={r.reason} onChange={(e) => update(c.nr, { reason: e.target.value })} />
+                        </td>
+                        <td className="num"><CategoryValue relevant={r.relevant} nr={c.nr} calculated={calculated} /></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section aria-labelledby="s3-cat3-params">
+            <h2 id="s3-cat3-params">Kategori 3 — parametre for el</h2>
+            <ElectricityParams params={params} setParams={setParams} />
+          </section>
+
+          <section aria-labelledby="s3-deflation">
+            <h2 id="s3-deflation">Indeksregulering af spendfaktorer</h2>
+            <p className="muted">Gælder de spendbaserede linjer i kategori 1 og kurér og pakker i kategori 4.</p>
+            <DeflationPanel deflation={deflation} setDeflation={setDeflation} usedFactors={spendFactorsUsed(cat1)} />
+          </section>
+        </>
+      )}
     </>
   )
 }
 
-function Category3Section({ cat3, params, setParams }: { cat3: ReturnType<typeof category3>; params: Category3Params; setParams: Dispatch<SetStateAction<Category3Params>> }) {
+function CategoryValue({ relevant, nr, calculated }: { relevant: boolean; nr: number; calculated: Record<number, number> }) {
+  if (!relevant) return <span className="muted">Ikke relevant</span>
+  if (nr in calculated) return <>{formatNumber(calculated[nr], 3)}</>
+  return <span className="pending">Kommer senere</span>
+}
+
+/** All 15 categories at a glance, each linking to its page where it has one. Read-only: relevance is set under Indstillinger. */
+function CategoriesOverview({ relevance, calculated }: { relevance: Relevance; calculated: Record<number, number> }) {
+  return (
+    <section aria-labelledby="s3-overview">
+      <h2 id="s3-overview">Kategorier</h2>
+      <p className="muted">
+        Relevans og begrundelser rettes under <a href={scope3Href('indstillinger')}>Indstillinger</a>.
+      </p>
+      <div className="table-wrap">
+        <table>
+          <caption className="visually-hidden">Scope 3-kategorier</caption>
+          <thead>
+            <tr>
+              <th scope="col">Kategori</th>
+              <th scope="col">Relevant</th>
+              <th scope="col">Begrundelse</th>
+              <th scope="col" className="num">tCO2e</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scope3Categories.map((c) => {
+              const r = relevance[c.nr]
+              const page = categorySubpage(c.nr)
+              return (
+                <tr key={c.nr}>
+                  <th scope="row">
+                    {page ? <a href={scope3Href(page.id)}>{c.nr}. {c.name}</a> : <>{c.nr}. {c.name}</>}
+                    <span className="sub">{c.english}</span>
+                  </th>
+                  <td>{r.relevant ? 'Ja' : 'Nej'}</td>
+                  <td>{r.reason}</td>
+                  <td className="num"><CategoryValue relevant={r.relevant} nr={c.nr} calculated={calculated} /></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
+function Category3Section({ cat3, params }: { cat3: ReturnType<typeof category3>; params: Category3Params }) {
   return (
     <section aria-labelledby="cat3-heading">
       <h2 id="cat3-heading">Kategori 3 — brændstof- og energirelaterede aktiviteter</h2>
@@ -290,24 +389,35 @@ function Category3Section({ cat3, params, setParams }: { cat3: ReturnType<typeof
         </table>
       </div>
 
-      <fieldset className="params">
-        <legend>Parametre for el</legend>
-        <ParamInput
-          label="Nettab i elnettet"
-          hint="Andel, fx 0,07 (Energinet)"
-          value={params.gridLoss}
-          validate={(v) => (v < 0 || v >= 1 ? 'Skal være mindst 0 og under 1.' : null)}
-          onChange={(gridLoss) => setParams((p) => ({ ...p, gridLoss }))}
-        />
-        <ParamInput
-          label="WTT-ratio for el"
-          hint="Fx 0,2419 (BEIS 2025)"
-          value={params.wttRatio}
-          validate={(v) => (v < 0 ? 'Kan ikke være negativ.' : null)}
-          onChange={(wttRatio) => setParams((p) => ({ ...p, wttRatio }))}
-        />
-      </fieldset>
+      <p className="muted">
+        Nettab i elnettet er {formatFactor(params.gridLoss)} og WTT-ratioen for el{' '}
+        {formatFactor(params.wttRatio)}. Begge rettes under{' '}
+        <a href={scope3Href('indstillinger')}>Indstillinger</a>.
+      </p>
     </section>
+  )
+}
+
+/** The two electricity parameters category 3 uses. */
+function ElectricityParams({ params, setParams }: { params: Category3Params; setParams: Dispatch<SetStateAction<Category3Params>> }) {
+  return (
+  <fieldset className="params">
+    <legend>Parametre for el</legend>
+    <ParamInput
+      label="Nettab i elnettet"
+      hint="Andel, fx 0,07 (Energinet)"
+      value={params.gridLoss}
+      validate={(v) => (v < 0 || v >= 1 ? 'Skal være mindst 0 og under 1.' : null)}
+      onChange={(gridLoss) => setParams((p) => ({ ...p, gridLoss }))}
+    />
+    <ParamInput
+      label="WTT-ratio for el"
+      hint="Fx 0,2419 (BEIS 2025)"
+      value={params.wttRatio}
+      validate={(v) => (v < 0 ? 'Kan ikke være negativ.' : null)}
+      onChange={(wttRatio) => setParams((p) => ({ ...p, wttRatio }))}
+    />
+  </fieldset>
   )
 }
 
