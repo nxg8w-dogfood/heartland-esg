@@ -100,18 +100,30 @@ export type ResolvedScope1Line = Scope1Line & {
 }
 
 /**
- * Fills in the litres of every line entered in km. A line whose car is missing, has no fuel
- * economy, or runs on the other fuel gets no quantity, so it waits for data instead of
- * counting as zero or under the wrong fuel. Lines entered in litres are returned unchanged.
+ * The Scope 1 group a car's lines count under: its fuel's. Null for a fuel Scope 1 has no group
+ * for, which the stored data can't hold today (only diesel and petrol cars are registered).
+ */
+function groupOf(vehicle: Vehicle): Scope1GroupId | null {
+  return Object.hasOwn(groupForFuel, vehicle.fuel) ? groupForFuel[vehicle.fuel] : null
+}
+
+/**
+ * Puts every line for a registered car under the car's fuel, and fills in the litres of every
+ * line entered in km. The fuel comes from the car, so a line follows when the car's fuel is
+ * corrected in Bilpark; a line whose car is gone keeps the fuel it was entered with. A line in
+ * km whose car is missing or has no fuel economy gets no quantity, so it waits for data instead
+ * of counting as zero. Lines without a car are returned unchanged.
  */
 export function resolveScope1Lines(lines: readonly Scope1Line[], vehicles: readonly Vehicle[]): ResolvedScope1Line[] {
-  return lines.map((line) => {
+  return lines.map((stored) => {
+    const vehicle = stored.vehicleId ? vehicles.find((v) => v.id === stored.vehicleId) ?? null : null
+    const group = vehicle ? groupOf(vehicle) : null
+    const line = group && group !== stored.group ? { ...stored, group } : stored
     if (line.distanceKm == null) return line
     const km = Number.isFinite(line.distanceKm) ? line.distanceKm : null
-    const vehicle = vehicles.find((v) => v.id === line.vehicleId) ?? null
     let problem: string | null = null
     if (!vehicle) problem = 'Bilen findes ikke længere i bilparken.'
-    else if (scope1GroupFor(vehicle.fuel) !== line.group) problem = `Bilen kører på ${fuelLabel[vehicle.fuel].toLowerCase()}, ikke på linjens brændstof.`
+    else if (!group) problem = 'Bilens brændstof er ukendt.'
     else if (litresFromKm(1, vehicle.kmPerLitre) === null) problem = 'Bilen har ikke noget brændstofforbrug (km/l).'
     else if (fuelShare(vehicle) === null) problem = 'Bilen er en plugin-hybrid uden et skøn over, hvor stor en del af kørslen der er på brændstof.'
     const share = vehicle ? fuelShare(vehicle) : null

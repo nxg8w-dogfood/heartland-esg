@@ -96,10 +96,33 @@ describe('resolveScope1Lines', () => {
     expect(r.estimate?.problem).toMatch(/km\/l/)
   })
 
-  it('refuses to count a petrol car under diesel', () => {
-    const [r] = resolveScope1Lines([line()], [car({ fuel: 'benzin' })])
+  it('takes the fuel from the car, also when the car’s fuel was corrected after the line was entered', () => {
+    const [km] = resolveScope1Lines([line()], [car({ fuel: 'benzin' })])
+    expect(km.group).toBe('s1-benzin')
+    expect(km.quantity).toBe(500)
+    expect(km.estimate?.problem).toBeNull()
+    const [litres] = resolveScope1Lines([line({ quantity: 300, distanceKm: null })], [car({ fuel: 'benzin' })])
+    expect(litres).toMatchObject({ group: 's1-benzin', quantity: 300 })
+  })
+
+  it('keeps the fuel a line was entered with when its car is gone, and still counts a line in litres', () => {
+    const l = line({ group: 's1-benzin', quantity: 300, distanceKm: null })
+    expect(resolveScope1Lines([l], [])[0]).toBe(l)
+    expect(resolveScope1Lines([line({ group: 's1-benzin' })], [])[0]).toMatchObject({ group: 's1-benzin', quantity: null })
+  })
+
+  it('leaves lines without a car alone', () => {
+    const l = line({ group: 's1-benzin', vehicleId: null, quantity: 300, distanceKm: null })
+    expect(resolveScope1Lines([l], [car()])[0]).toBe(l)
+  })
+
+  it('waits for data, under the fuel it was entered with, when the car’s fuel is one Scope 1 has no group for', () => {
+    const [r] = resolveScope1Lines([line()], [car({ fuel: 'el' as never })])
+    expect(r.group).toBe('s1-diesel')
     expect(r.quantity).toBeNull()
-    expect(r.estimate?.problem).toMatch(/benzin/)
+    expect(r.estimate?.problem).toMatch(/brændstof er ukendt/)
+    const l = line({ quantity: 300, distanceKm: null })
+    expect(resolveScope1Lines([l], [car({ fuel: 'el' as never })])[0]).toBe(l)
   })
 
   it('follows a change of the car’s fuel economy', () => {
@@ -139,6 +162,11 @@ describe('resolveScope1Lines', () => {
 })
 
 describe('Scope 1 with cars', () => {
+  it('counts a car line under the car’s fuel in the summary', () => {
+    const s = scope1Summary([line({ quantity: 100, distanceKm: null })], factors, year2025, [car({ fuel: 'benzin' })])
+    expect(s.lines[0].group.id).toBe('s1-benzin')
+  })
+
   it('turns km into tCO2e through litres and the diesel factor', () => {
     // 10,000 km ÷ 20 km/l = 500 l × 2.57082 kg/l ÷ 1,000 = 1.28541 t
     const s = scope1Summary([line()], factors, year2025, [car()])
