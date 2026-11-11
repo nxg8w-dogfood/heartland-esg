@@ -9,6 +9,7 @@ import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
 import { Tile } from '../ui'
+import { scope1Href } from './subpages'
 
 const exampleLines: Omit<Scope1Line, 'id'>[] = [
   { group: 's1-diesel', date: '2025-01-01', dateTo: '2025-03-31', quantity: 1850, description: 'Brændstofkort, Q1' },
@@ -36,7 +37,6 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
 
   return (
     <>
-      <h1>Scope 1 — direkte udledninger</h1>
       <p className="lead">
         Direkte udledninger fra egne eller kontrollerede kilder. Formel: aktivitetsdata ×
         emissionsfaktor ÷ 1.000 = tCO2e. Faktoren vælges efter linjens dato.
@@ -245,7 +245,7 @@ function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; ve
               <option value="">Ingen bestemt bil</option>
               {cars.map((v) => <option key={v.id} value={v.id}>{vehicleName(v)}</option>)}
             </select>
-            {cars.length === 0 && <p id={`${id}-car-hint`} className="sub">Registrér biler under Bilpark.</p>}
+            {cars.length === 0 && <p id={`${id}-car-hint`} className="sub">Registrér biler under <a href={scope1Href('bilpark')}>Bilpark</a>.</p>}
           </div>
         )}
         {car && (
@@ -255,7 +255,7 @@ function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; ve
             <label className="check">
               <input type="radio" name={`${id}-unit`} checked={byKm} disabled={!canUseKm} onChange={() => setInKm(true)} aria-describedby={canUseKm ? undefined : `${id}-km-hint`} /> Kørte km
             </label>
-            {!canUseKm && <p id={`${id}-km-hint`} className="sub">Bilen har intet brændstofforbrug (km/l). Angiv det under Bilpark.</p>}
+            {!canUseKm && <p id={`${id}-km-hint`} className="sub">Bilen har intet brændstofforbrug (km/l). Angiv det under <a href={scope1Href('bilpark')}>Bilpark</a>.</p>}
           </fieldset>
         )}
         <div className="field">
