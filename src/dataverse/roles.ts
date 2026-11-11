@@ -68,7 +68,8 @@ const ansvarlig: Grant[] = [
   ...bidragyder,
   // Everything that changes how the account is calculated: settings, locations (decided
   // 2026-10-06), factor sources, relevance, price indices and ledger rules.
-  ...[t('klimaregnskab'), t('lokation'), t('faktorkilde'), t('relevans'), t('indekspunkt'), t('prisaar'), t('regel')]
+  // Fiscal periods are settings too (ADR 0013).
+  ...[t('klimaregnskab'), t('regnskabsperiode'), t('lokation'), t('faktorkilde'), t('relevans'), t('indekspunkt'), t('prisaar'), t('regel')]
     .map((n): Grant => [n, ['Create', 'Write', 'Delete', 'Append'], 'unit']),
   [t('import'), ['Delete'], 'unit'],
   [t('postering'), ['Delete'], 'unit'],

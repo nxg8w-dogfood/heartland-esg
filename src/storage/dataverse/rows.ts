@@ -20,6 +20,7 @@ import type { Location, Scope2Line } from '../../calc/scope2'
 import { defaultPriceIndexSeries, noDeflation, type SpendLine } from '../../calc/spend'
 import { factors } from '../../data/factors'
 import { lineLists, tables, type Choice, type Column } from '../../dataverse/schema'
+import { defaultPeriod, periodError, periodFromRange, periodOrLatest, sortPeriods, type FiscalPeriod } from '../../calc/periods'
 import { defaultRelevance } from '../../scope3/relevance'
 import { ACCOUNT_VERSION, emptyAccount, type AccountData } from '../account'
 import { GROUP_VERSION, type Company, type GroupData } from '../group'
@@ -56,7 +57,7 @@ export function emptyRows(): Rows {
   return Object.fromEntries([c('koncern'), ...tables.filter((t) => t.name !== c('koncern')).map((t) => t.name)].map((t) => [t, new Map<string, Row>()]))
 }
 
-/** The group as rows. The active company and summary period are the user's view, not stored. */
+/** The group as rows. The active company and period are the user's view, not stored. */
 export function toRows(group: GroupData): Rows {
   const rows = emptyRows()
   const put = (table: string, key: string, row: Row) => rows[table].set(key, row)
@@ -69,13 +70,12 @@ export function toRows(group: GroupData): Rows {
     for (const o of company.ownership) put(c('ejerandel'), naturalKey(id, o.fromYear), { [COMPANY]: id, [c('fraaar')]: o.fromYear, [c('procent')]: o.pct })
     put(c('klimaregnskab'), id, {
       [COMPANY]: id,
-      [c('periodestart')]: a.period.start,
-      [c('periodeslut')]: a.period.end,
       [c('nettab')]: a.category3Params.gridLoss,
       [c('wttratio')]: a.category3Params.wttRatio,
       [c('indeksreguler')]: a.deflation.active,
       [c('indeksserie')]: a.deflation.seriesId,
     })
+    for (const p of a.periods) put(c('regnskabsperiode'), p.id, { [COMPANY]: id, [c('navn')]: p.name, [c('startdato')]: p.start, [c('slutdato')]: p.end })
     for (const l of a.locations) {
       put(c('lokation'), l.id, {
         [COMPANY]: id, [c('navn')]: l.name, [c('elnetfamilie')]: l.gridFamily,
@@ -205,9 +205,9 @@ function ruleRow(company: string, r: Rule, order: number): Row {
 /**
  * Rows back into a group. Records are ordered deterministically (Dataverse returns them in no
  * particular order): companies by name, lines and surveys by date, rules by their order column.
- * The view (active company, summary period) is passed in, since it isn't stored.
+ * The view (active company and period) is passed in, since it isn't stored.
  */
-export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPeriod?: GroupData['summaryPeriod'] } = {}): GroupData {
+export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePeriodId?: string } = {}): GroupData {
   const all = (table: string) => [...(rows[table] ?? new Map<string, Row>()).entries()]
   const of = (table: string, company: string) => all(table).filter(([, r]) => r[COMPANY] === company)
   const byDate = <T extends { date: string; id: string }>(xs: T[]) => xs.sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id))
@@ -229,7 +229,7 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPe
       const account: AccountData = {
         ...base,
         version: ACCOUNT_VERSION,
-        period: settings ? { start: str(settings[c('periodestart')]), end: str(settings[c('periodeslut')]) } : base.period,
+        periods: sortPeriods(of(c('regnskabsperiode'), id).map(([key, r]): FiscalPeriod => ({ id: key, name: str(r[c('navn')]), start: str(r[c('startdato')]), end: str(r[c('slutdato')]) }))),
         category3Params: {
           gridLoss: num(settings?.[c('nettab')] ?? null) ?? defaultCategory3Params(factors).gridLoss,
           wttRatio: num(settings?.[c('wttratio')] ?? null) ?? defaultCategory3Params(factors).wttRatio,
@@ -287,14 +287,43 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPe
     })
     .sort((x, y) => x.name.localeCompare(y.name, 'da') || x.id.localeCompare(y.id))
 
-  const first = companies[0]?.id ?? ''
+  const active = companies.find((x) => x.id === view.activeCompanyId) ?? companies[0]
   return {
     version: GROUP_VERSION,
     name: str(rows[c('koncern')]?.get(GROUP_KEY)?.[c('navn')] ?? null) || 'Koncernen',
     companies,
-    activeCompanyId: companies.some((x) => x.id === view.activeCompanyId) ? view.activeCompanyId! : first,
-    summaryPeriod: view.summaryPeriod ?? companies[0]?.account.period ?? emptyAccount().period,
+    activeCompanyId: active?.id ?? '',
+    activePeriodId: (active && periodOrLatest(active.account.periods, view.activePeriodId)?.id) ?? '',
   }
+}
+
+/**
+ * Before periods (ADR 0013), a company's one date range was two columns on hlesg_klimaregnskab.
+ * A company without period rows gets one, keyed by the company's own id, from those columns if
+ * they hold a valid range, otherwise last year. The old columns are taken out of the rows, so
+ * the app neither shows nor writes them again.
+ *
+ * Returns the keys of the periods made here. They aren't in Dataverse yet: the store creates one
+ * only when it's changed, so a user who may not write periods can still save their lines.
+ */
+export function migrateLegacyPeriods(rows: Rows, today = new Date()): Set<string> {
+  const made = new Set<string>()
+  const periods = rows[c('regnskabsperiode')]
+  const withPeriods = new Set([...periods.values()].map((r) => r[COMPANY]))
+  for (const companyId of rows[c('virksomhed')].keys()) {
+    if (withPeriods.has(companyId)) continue
+    const settings = rows[c('klimaregnskab')].get(companyId)
+    const start = str(settings?.[c('periodestart')] ?? null)
+    const end = str(settings?.[c('periodeslut')] ?? null)
+    const p = start && end && periodError({ name: 'x', start, end }, []) === null ? periodFromRange(companyId, { start, end }) : defaultPeriod(companyId, today)
+    periods.set(p.id, { [COMPANY]: companyId, [c('navn')]: p.name, [c('startdato')]: p.start, [c('slutdato')]: p.end })
+    made.add(p.id)
+  }
+  for (const r of rows[c('klimaregnskab')].values()) {
+    delete r[c('periodestart')]
+    delete r[c('periodeslut')]
+  }
+  return made
 }
 
 const fromListValue = (v: Value) => lineLists.find((l) => l.value === v)?.appValue ?? null
@@ -364,7 +393,7 @@ export type Operation =
   | { kind: 'delete'; table: string; key: string }
 
 /** Parents before children when creating, children before parents when deleting. */
-const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('lokation'), c('koeretoej'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
+const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('regnskabsperiode'), c('lokation'), c('koeretoej'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
 
 const same = (x: Value | undefined, y: Value | undefined) => (x ?? null) === (y ?? null)
 

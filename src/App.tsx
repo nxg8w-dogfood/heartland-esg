@@ -24,11 +24,11 @@ import type { Relevance } from './scope3/relevance'
 import { scope3SubpageFromHash, type Scope3SubpageId } from './scope3/subpages'
 import { ACCOUNT_VERSION, type AccountData } from './storage/account'
 import { DataBar, type SaveStatus } from './storage/DataBar'
-import { emptyGroup, type GroupData } from './storage/group'
+import { activeCompany, emptyGroup, selectedPeriod, withActiveCompany, type GroupData } from './storage/group'
 import { chooseStore } from './storage/choose'
 import type { GroupStore } from './storage/store'
 import { pageFromHash, pages, type CompanyPageId } from './pages'
-import { PeriodPicker } from './ui'
+import { PeriodSelect } from './ui'
 import { exampleLookup } from './vehicles/exampleLookup'
 import { connectorLookup } from './vehicles/connectorLookup'
 import { MotorAPIService } from './generated'
@@ -104,8 +104,11 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
   const [hash, setHash] = useState(() => window.location.hash)
   const page = pageFromHash(hash)
   const companyId = useId()
-  const active = group.companies.find((c) => c.id === group.activeCompanyId) ?? group.companies[0]
+  const active = activeCompany(group)
   const activeId = active.id
+  const period = selectedPeriod(group)
+  // A new object only when the dates change, so the pages' calculations don't rerun needlessly.
+  const range = useMemo(() => ({ start: period.start, end: period.end }), [period.start, period.end])
 
   // Autosave half a second after the last change. The group as loaded isn't saved again, so
   // unreadable saved data is only replaced once someone actually changes something.
@@ -144,10 +147,11 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
         </div>
         <div className="company-picker">
           <label htmlFor={companyId}>Virksomhed</label>
-          <select id={companyId} value={active.id} onChange={(e) => setGroup((g) => ({ ...g, activeCompanyId: e.target.value }))}>
+          <select id={companyId} value={active.id} onChange={(e) => setGroup((g) => withActiveCompany(g, e.target.value))}>
             {group.companies.map((c) => <option key={c.id} value={c.id}>{c.name || 'Uden navn'}</option>)}
           </select>
         </div>
+        <PeriodSelect periods={active.account.periods} value={period.id} onChange={(activePeriodId) => setGroup((g) => ({ ...g, activePeriodId }))} />
         <nav aria-label="Sider">
           <ul>
             {pages.map((p) => (
@@ -175,9 +179,9 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
           })}
         />
         {page === 'koncern' ? (
-          <GroupPage group={group} setGroup={setGroup} />
+          <GroupPage group={group} setGroup={setGroup} period={period} />
         ) : (
-          <Workspace key={active.id} page={page} scope3Subpage={scope3SubpageFromHash(hash)} companyName={active.name} initial={active.account} onChange={onAccountChange} />
+          <Workspace key={active.id} page={page} period={range} scope3Subpage={scope3SubpageFromHash(hash)} companyName={active.name} initial={active.account} onChange={onAccountChange} />
         )}
       </main>
     </>
@@ -185,8 +189,9 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 }
 
 /** One company's pages. Reports every change to its account upwards. */
-function Workspace({ page, scope3Subpage, companyName, initial, onChange }: { page: CompanyPageId; scope3Subpage: Scope3SubpageId; companyName: string; initial: AccountData; onChange: (account: AccountData) => void }) {
-  const [period, setPeriod] = useState<Period>(initial.period)
+function Workspace({ page, period, scope3Subpage, companyName, initial, onChange }: { page: CompanyPageId; period: Period; scope3Subpage: Scope3SubpageId; companyName: string; initial: AccountData; onChange: (account: AccountData) => void }) {
+  // Periods are edited on the Koncern page, which this isn't shown with, so they pass through.
+  const [periods] = useState(initial.periods)
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
   const [vehicles, setVehicles] = useState<Vehicle[]>(initial.vehicles)
   // Scope 3 category 3 needs litres, also for the lines entered in km.
@@ -211,9 +216,9 @@ function Workspace({ page, scope3Subpage, companyName, initial, onChange }: { pa
   const factors = useMemo(() => applyFactorSources(baseFactors, factorSources, factorPublications), [factorSources])
 
   const account: AccountData = useMemo(() => ({
-    version: ACCOUNT_VERSION, period, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
+    version: ACCOUNT_VERSION, periods, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
     cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger,
-  }), [period, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
+  }), [periods, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
 
   // Each part keeps its reference until changed, so comparing parts with what was last reported
   // is exact and cheap, and it holds even when React runs the effect twice in development.
@@ -228,7 +233,6 @@ function Workspace({ page, scope3Subpage, companyName, initial, onChange }: { pa
   return (
     <>
       <p className="company-context">Viser <strong>{companyName || 'Uden navn'}</strong></p>
-      {page !== 'faktorer' && page !== 'kontoplan' && page !== 'bilpark' && <PeriodPicker period={period} onChange={setPeriod} />}
       {page === 'bilpark' && <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} scope1Lines={scope1Lines} lookup={plateLookup} />}
       {page === 'scope1' && <Scope1Page period={period} factors={factors} lines={scope1Lines} setLines={setScope1Lines} vehicles={vehicles} />}
       {page === 'scope2' && (

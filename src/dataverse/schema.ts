@@ -105,12 +105,27 @@ export const tables: readonly Table[] = [
     primary: { name: n('navn'), label: 'Navn', maxLength: 200, required: false },
     columns: [
       company,
+      // Replaced by hlesg_regnskabsperiode (ADR 0013). Read only to make a company's first period
+      // from them, and never written again. Kept here because the apply script doesn't change
+      // or delete columns, and the store reads every column listed.
       date('periodestart', 'Periode fra'),
       date('periodeslut', 'Periode til'),
       decimal('nettab', 'Nettab for el (kategori 3)'),
       decimal('wttratio', 'WTT/direkte-forhold for el (kategori 3)'),
       { kind: 'boolean', name: n('indeksreguler'), label: 'Indeksregulér spendbeløb', trueLabel: 'Ja', falseLabel: 'Nej', default: false },
       text('indeksserie', 'Indeksserie', 100),
+    ],
+  },
+  {
+    name: n('regnskabsperiode'),
+    label: 'Regnskabsperiode',
+    pluralLabel: 'Regnskabsperioder',
+    description: 'En af virksomhedens regnskabsperioder, fx 2025 eller 2025/26. Perioderne overlapper ikke, og linjerne filtreres på deres datoer (ADR 0013).',
+    primary: { name: n('navn'), label: 'Navn', maxLength: 100, required: true },
+    columns: [
+      company,
+      date('startdato', 'Startdato', true),
+      date('slutdato', 'Slutdato', true),
     ],
   },
   {
@@ -354,7 +369,7 @@ export const tables: readonly Table[] = [
  */
 export const accountStorage: Record<keyof AccountData, { table: string; note?: string } | null> = {
   version: null,
-  period: { table: n('klimaregnskab') },
+  periods: { table: n('regnskabsperiode') },
   vehicles: { table: n('koeretoej') },
   scope1Lines: { table: n('linje') },
   locations: { table: n('lokation') },
