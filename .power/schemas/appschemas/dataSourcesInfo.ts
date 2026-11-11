@@ -169,6 +169,13 @@ export const dataSourcesInfo = {
     "dataSourceType": "Dataverse",
     "apis": {}
   },
+  "hlesg_regnskabsperiodes": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "hlesg_regnskabsperiodeid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
   "hlesg_relevanses": {
     "tableId": "",
     "version": "",

@@ -76,11 +76,12 @@ function sample(): GroupData {
     version: GROUP_VERSION,
     name: 'Heartland',
     activeCompanyId: 'c-1',
-    summaryPeriod: { start: '2025-01-01', end: '2025-12-31' },
+    activePeriodId: 'per-25',
     companies: [{
       id: 'c-1', name: 'Heartland A/S', ownership: [{ fromYear: 2000, pct: 100 }],
       account: {
         ...a,
+        periods: [{ id: 'per-25', name: '2025', start: '2025-01-01', end: '2025-12-31' }],
         locations: [{ ...a.locations[0], id: 'loc-1' }],
         scope1Lines: [{ id: 's1-a', group: 's1-diesel', date: '2025-02-01', quantity: 100 }],
         scope2Lines: [{ id: 's2-a', locationId: 'loc-1', kind: 'electricity', date: '2025-01-01', kWh: 1000 }],
@@ -107,7 +108,7 @@ describe('the Dataverse store', () => {
   it('saves a group and loads it back unchanged, from a fresh store', async () => {
     const { fake } = await saved()
     const prefs = memoryPrefs()
-    prefs.write({ activeCompanyId: 'c-1', summaryPeriod: sample().summaryPeriod })
+    prefs.write({ activeCompanyId: 'c-1', activePeriodId: 'per-25' })
     const loaded = await dataverseStore(fake.api, prefs).load()
     expect(loaded).toEqual({ ok: true, group: sample(), dropped: 0, notes: [] })
   })
@@ -203,13 +204,73 @@ describe('the Dataverse store', () => {
     expect(result).toMatchObject({ ok: true, group: { companies: [] } })
   })
 
-  it('remembers the open company and summary period in the user’s view, not in Dataverse', async () => {
+  it('remembers the open company and period in the user’s view, not in Dataverse', async () => {
     const prefs = memoryPrefs()
     const fake = fakeDataverse()
     const store = dataverseStore(fake.api, prefs)
     await store.load()
-    await store.save({ ...sample(), summaryPeriod: { start: '2026-01-01', end: '2026-12-31' } })
-    expect(prefs.read()).toEqual({ activeCompanyId: 'c-1', summaryPeriod: { start: '2026-01-01', end: '2026-12-31' } })
+    const g = sample()
+    g.companies[0].account.periods.push({ id: 'per-26', name: '2026', start: '2026-01-01', end: '2026-12-31' })
+    await store.save({ ...g, activePeriodId: 'per-26' })
+    expect(prefs.read()).toEqual({ activeCompanyId: 'c-1', activePeriodId: 'per-26' })
+    const loaded = await dataverseStore(fake.api, prefs).load()
+    expect(loaded?.ok && loaded.group.activePeriodId).toBe('per-26')
+  })
+
+  describe('a company saved before periods (ADR 0013)', () => {
+    /** Dataverse as the previous version left it: the range on hlesg_klimaregnskab, no period rows. */
+    async function legacy(opts: Parameters<typeof fakeDataverse>[0] = {}) {
+      const { fake } = await saved()
+      fake.db.get('hlesg_regnskabsperiode')!.clear()
+      Object.assign(fake.db.get('hlesg_klimaregnskab')!.values().next().value!, { hlesg_periodestart: '2024-07-01', hlesg_periodeslut: '2025-06-30' })
+      // The same records, behind an API that refuses some writes, like a user's security role.
+      const refuse = (op: string, t: string) => { if (opts.failOn?.(op, t)) throw new Error(`denied: ${op} ${t}`) }
+      const api: TableApi = {
+        list: fake.api.list,
+        create: async (t, body) => { refuse('create', t); return fake.api.create(t, body) },
+        update: async (t, id, changes) => { refuse('update', t); return fake.api.update(t, id, changes) },
+        delete: async (t, id) => { refuse('delete', t); return fake.api.delete(t, id) },
+      }
+      const s = dataverseStore(api, memoryPrefs())
+      const r = await s.load()
+      fake.calls.length = 0
+      return { fake, store: s, group: r!.ok ? r!.group : sample() }
+    }
+
+    it('opens with the old range as its period', async () => {
+      const { group } = await legacy()
+      expect(group.companies[0].account.periods).toEqual([{ id: 'c-1', name: '2024/25', start: '2024-07-01', end: '2025-06-30' }])
+      expect(group.activePeriodId).toBe('c-1')
+    })
+
+    it('saves lines for a user who may not write periods or settings, without touching either', async () => {
+      const deny = (_: string, t: string) => t === 'hlesg_regnskabsperiode' || t === 'hlesg_klimaregnskab'
+      const { fake, store, group } = await legacy({ failOn: deny })
+      const a = group.companies[0].account
+      await store.save({ ...group, companies: [{ ...group.companies[0], account: { ...a, scope1Lines: [...a.scope1Lines, { id: 's1-b', group: 's1-diesel', date: '2025-03-01', quantity: 5 }] } }] })
+      expect(fake.writes().map((c) => `${c.op} ${c.table}`)).toEqual(['create hlesg_linje'])
+    })
+
+    it('creates the period in Dataverse when it’s changed, and never writes the old columns', async () => {
+      const { fake, store, group } = await legacy()
+      const a = group.companies[0].account
+      await store.save({ ...group, companies: [{ ...group.companies[0], account: { ...a, periods: [{ ...a.periods[0], name: 'Regnskabsår 2024/25' }] } }] })
+      expect(fake.writes()).toEqual([{ op: 'create', table: 'hlesg_regnskabsperiode', body: {
+        hlesg_regnskabsperiodeid: 'c-1', 'hlesg_Virksomhedid@odata.bind': '/hlesg_virksomheds(c-1)',
+        hlesg_navn: 'Regnskabsår 2024/25', hlesg_startdato: '2024-07-01', hlesg_slutdato: '2025-06-30',
+      } }])
+      // Saved once, it's an ordinary row: the next change is an update.
+      await store.save({ ...group, companies: [{ ...group.companies[0], account: { ...a, periods: [{ ...a.periods[0], name: '2024/25 igen' }] } }] })
+      expect(fake.writes().at(-1)).toMatchObject({ op: 'update', table: 'hlesg_regnskabsperiode', id: 'c-1' })
+    })
+
+    it('sends nothing to delete a period that was never saved', async () => {
+      const { fake, store, group } = await legacy()
+      const a = group.companies[0].account
+      const other = { id: 'per-new', name: '2025/26', start: '2025-07-01', end: '2026-06-30' }
+      await store.save({ ...group, companies: [{ ...group.companies[0], account: { ...a, periods: [other] } }] })
+      expect(fake.writes().map((c) => `${c.op} ${c.table} ${c.body?.hlesg_regnskabsperiodeid ?? c.id ?? ''}`.trim())).toEqual(['create hlesg_regnskabsperiode per-new'])
+    })
   })
 
   it('names entity sets the way Dataverse created them', () => {

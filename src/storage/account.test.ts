@@ -32,7 +32,8 @@ describe('parseAccount', () => {
 
   it('fills in missing sections with defaults', () => {
     const r = parseAccount({ version: ACCOUNT_VERSION })
-    expect(r.ok && r.account.period).toEqual({ start: '2025-01-01', end: '2025-12-31' })
+    const lastYear = new Date().getFullYear() - 1
+    expect(r.ok && r.account.periods).toEqual([{ id: expect.any(String), name: String(lastYear), start: `${lastYear}-01-01`, end: `${lastYear}-12-31` }])
     expect(r.ok && r.account.category3Params).toEqual({ gridLoss: 0.07, wttRatio: 0.2419 })
     expect(r.ok && r.account.scope1Lines).toEqual([])
   })
@@ -63,9 +64,52 @@ describe('parseAccount', () => {
     expect(r.ok && r.dropped).toBe(1)
   })
 
-  it('ignores an invalid period', () => {
-    const r = parseAccount({ ...sample(), period: { start: 'soon', end: '2025-12-31' } })
-    expect(r.ok && r.account.period).toEqual({ start: '2025-01-01', end: '2025-12-31' })
+  it('drops invalid and overlapping periods, and counts them', () => {
+    const r = parseAccount({
+      ...sample(),
+      periods: [
+        { id: 'p25', name: '2025', start: '2025-01-01', end: '2025-12-31' },
+        { id: 'bad', name: 'Snart', start: 'soon', end: '2025-12-31' },
+        { id: 'rev', name: 'Baglæns', start: '2026-12-31', end: '2026-01-01' },
+        { id: 'ovl', name: 'Overlap', start: '2025-07-01', end: '2026-06-30' },
+        { id: 'p24', name: '2024', start: '2024-01-01', end: '2024-12-31' },
+        { name: 'Uden id', start: '2023-01-01', end: '2023-12-31' },
+      ],
+    })
+    expect(r.ok && r.account.periods.map((p) => p.id)).toEqual(['p24', 'p25'])
+    expect(r.ok && r.dropped).toBe(4)
+  })
+
+  it('falls back to the default period when none can be used', () => {
+    const r = parseAccount({ ...sample(), periods: [{ id: 'bad', name: '', start: '2025-01-01', end: '2025-12-31' }] })
+    expect(r.ok && r.account.periods).toHaveLength(1)
+    expect(r.ok && r.account.periods[0].id).not.toBe('bad')
+  })
+})
+
+describe('migrating the date range of version 2', () => {
+  const v2 = (period: unknown) => {
+    const old: Partial<AccountData> & Record<string, unknown> = { ...emptyAccount(), version: 2 as never, period }
+    delete old.periods
+    return JSON.parse(JSON.stringify(old))
+  }
+
+  it('makes the range the first period, named after it, and says so', () => {
+    const r = parseAccount(v2({ start: '2025-07-01', end: '2026-06-30' }))
+    expect(r.ok && r.account.version).toBe(ACCOUNT_VERSION)
+    expect(r.ok && r.account.periods).toEqual([{ id: expect.any(String), name: '2025/26', start: '2025-07-01', end: '2026-06-30' }])
+    expect(r.ok && r.notes.join(' ')).toContain('regnskabsperioden 2025/26')
+  })
+
+  it('names a calendar year by its year', () => {
+    const r = parseAccount(v2({ start: '2024-01-01', end: '2024-12-31' }))
+    expect(r.ok && r.account.periods.map((p) => p.name)).toEqual(['2024'])
+  })
+
+  it('uses the default period when the range is invalid', () => {
+    const r = parseAccount(v2({ start: 'soon', end: '2025-12-31' }))
+    expect(r.ok && r.account.periods).toHaveLength(1)
+    expect(r.ok && r.notes.join(' ')).not.toContain('regnskabsperioden')
   })
 })
 

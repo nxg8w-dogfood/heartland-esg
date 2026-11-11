@@ -15,6 +15,7 @@ import { Hlesg_pendlingsService } from '../../generated/services/Hlesg_pendlings
 import { Hlesg_posteringsService } from '../../generated/services/Hlesg_posteringsService'
 import { Hlesg_prisaarsService } from '../../generated/services/Hlesg_prisaarsService'
 import { Hlesg_regelsService } from '../../generated/services/Hlesg_regelsService'
+import { Hlesg_regnskabsperiodesService } from '../../generated/services/Hlesg_regnskabsperiodesService'
 import { Hlesg_relevansesService } from '../../generated/services/Hlesg_relevansesService'
 import { Hlesg_virksomhedsService } from '../../generated/services/Hlesg_virksomhedsService'
 import { tables } from '../../dataverse/schema'
@@ -35,6 +36,7 @@ const services = {
   hlesg_virksomhed: Hlesg_virksomhedsService,
   hlesg_ejerandel: Hlesg_ejerandelsService,
   hlesg_klimaregnskab: Hlesg_klimaregnskabsService,
+  hlesg_regnskabsperiode: Hlesg_regnskabsperiodesService,
   hlesg_lokation: Hlesg_lokationsService,
   hlesg_koeretoej: Hlesg_koeretoejsService,
   hlesg_linje: Hlesg_linjesService,

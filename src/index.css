@@ -829,3 +829,12 @@ ul.plain {
 .subnav a:focus-visible {
   outline-offset: 2px;
 }
+
+/* A company's fiscal periods, in its editor on the Koncern page (ADR 0013). */
+.periods-editor h3 {
+  margin-top: var(--hl-sp-4);
+}
+
+.periods input.period-name {
+  width: 9rem;
+}

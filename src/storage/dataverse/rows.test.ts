@@ -3,7 +3,7 @@ import { defaultPriceIndexSeries, noDeflation } from '../../calc/spend'
 import { tables } from '../../dataverse/schema'
 import { emptyAccount, parseAccount, type AccountData } from '../account'
 import { GROUP_VERSION, type Company, type GroupData } from '../group'
-import { diff, emptyRows, fromRows, GROUP_KEY, naturalKey, toRows, type Rows } from './rows'
+import { diff, emptyRows, fromRows, GROUP_KEY, migrateLegacyPeriods, naturalKey, toRows, type Rows } from './rows'
 
 // A company using every part of the app, in the order fromRows returns things.
 function richAccount(): AccountData {
@@ -11,7 +11,10 @@ function richAccount(): AccountData {
   const loc = { id: 'loc-1', name: 'Hovedkontor', gridFamily: 'el-dk-location', marketInstrument: 'residualmiks' as const, heatingFactorId: 'f-s2-fjernvarme-beis' as const }
   return {
     ...base,
-    period: { start: '2025-01-01', end: '2025-12-31' },
+    periods: [
+      { id: 'per-24', name: '2024', start: '2024-01-01', end: '2024-12-31' },
+      { id: 'per-25', name: '2025', start: '2025-01-01', end: '2025-12-31' },
+    ],
     category3Params: { gridLoss: 0.07, wttRatio: 0.2419 },
     locations: [loc],
     vehicles: [
@@ -61,8 +64,8 @@ function richAccount(): AccountData {
 }
 
 const company = (id: string, name: string, account: AccountData, ownership = [{ fromYear: 2000, pct: 100 }]): Company => ({ id, name, ownership, account })
-const group = (...companies: Company[]): GroupData => ({ version: GROUP_VERSION, name: 'Heartland', companies, activeCompanyId: companies[0].id, summaryPeriod: { start: '2025-01-01', end: '2025-12-31' } })
-const view = (g: GroupData) => ({ activeCompanyId: g.activeCompanyId, summaryPeriod: g.summaryPeriod })
+const group = (...companies: Company[]): GroupData => ({ version: GROUP_VERSION, name: 'Heartland', companies, activeCompanyId: companies[0].id, activePeriodId: companies[0].account.periods[0].id })
+const view = (g: GroupData) => ({ activeCompanyId: g.activeCompanyId, activePeriodId: g.activePeriodId })
 
 describe('rows ⇄ group', () => {
   it('round-trips a company that uses every part of the app', () => {
@@ -109,6 +112,17 @@ describe('rows ⇄ group', () => {
     const back = fromRows(reversed)
     expect(back.companies.map((x) => x.name)).toEqual(['Alfa A/S', 'Zeta ApS'])
     expect(back.companies[0].account.ledger.rules.map((r) => r.id)).toEqual(['r-a', 'r-b'])
+  })
+
+  it('stores each period as a row keyed by its id, and not the old range columns', () => {
+    const rows = toRows(group(company('c-1', 'Heartland A/S', richAccount())))
+    expect(rows.hlesg_regnskabsperiode.get('per-25')).toEqual({ hlesg_virksomhedid: 'c-1', hlesg_navn: '2025', hlesg_startdato: '2025-01-01', hlesg_slutdato: '2025-12-31' })
+    expect(rows.hlesg_klimaregnskab.get('c-1')).not.toHaveProperty('hlesg_periodestart')
+  })
+
+  it('opens the active company at the latest period when the remembered one is gone', () => {
+    const g = group(company('c-1', 'Heartland A/S', richAccount()))
+    expect(fromRows(toRows(g), { activeCompanyId: 'c-1', activePeriodId: 'gone' }).activePeriodId).toBe('per-25')
   })
 
   it('reads an empty environment as a group with no companies', () => {
@@ -202,6 +216,7 @@ function richAccount2(): AccountData {
   const re = <T extends { id: string }>(xs: T[]) => xs.map((x) => ({ ...x, id: `${x.id}-2` }))
   return {
     ...a,
+    periods: re(a.periods),
     locations: re(a.locations),
     vehicles: re(a.vehicles),
     scope1Lines: re(a.scope1Lines).map((l) => (l.vehicleId ? { ...l, vehicleId: `${l.vehicleId}-2` } : l)),
@@ -211,3 +226,44 @@ function richAccount2(): AccountData {
     ledger: { imports: re(a.ledger.imports), postings: re(a.ledger.postings).map((p) => ({ ...p, importId: 'imp-a-2' })), rules: re(a.ledger.rules), manual: {} },
   }
 }
+
+describe('migrateLegacyPeriods', () => {
+  // As loaded from an environment that had the old range columns and no period rows yet.
+  const legacy = (start: string | null, end: string | null) => {
+    const rows = toRows(group(company('c-1', 'Heartland A/S', emptyAccount())))
+    rows.hlesg_regnskabsperiode.clear()
+    Object.assign(rows.hlesg_klimaregnskab.get('c-1')!, { hlesg_periodestart: start, hlesg_periodeslut: end })
+    return rows
+  }
+
+  it('makes a company’s old range its period, keyed by the company, and drops the old columns', () => {
+    const rows = legacy('2024-07-01', '2025-06-30')
+    const made = migrateLegacyPeriods(rows)
+    expect([...made]).toEqual(['c-1'])
+    expect(rows.hlesg_regnskabsperiode.get('c-1')).toEqual({ hlesg_virksomhedid: 'c-1', hlesg_navn: '2024/25', hlesg_startdato: '2024-07-01', hlesg_slutdato: '2025-06-30' })
+    expect(rows.hlesg_klimaregnskab.get('c-1')).not.toHaveProperty('hlesg_periodestart')
+    expect(fromRows(rows).companies[0].account.periods).toEqual([{ id: 'c-1', name: '2024/25', start: '2024-07-01', end: '2025-06-30' }])
+  })
+
+  it('uses last year when the old range is missing or invalid', () => {
+    for (const [start, end] of [[null, null], ['2025-12-31', '2025-01-01']] as const) {
+      const rows = legacy(start, end)
+      migrateLegacyPeriods(rows, new Date('2026-11-11'))
+      expect(rows.hlesg_regnskabsperiode.get('c-1')).toMatchObject({ hlesg_navn: '2025', hlesg_startdato: '2025-01-01', hlesg_slutdato: '2025-12-31' })
+    }
+  })
+
+  it('leaves a company that already has periods alone', () => {
+    const rows = toRows(group(company('c-1', 'Heartland A/S', richAccount())))
+    Object.assign(rows.hlesg_klimaregnskab.get('c-1')!, { hlesg_periodestart: '2020-01-01', hlesg_periodeslut: '2020-12-31' })
+    expect(migrateLegacyPeriods(rows).size).toBe(0)
+    expect([...rows.hlesg_regnskabsperiode.keys()]).toEqual(['per-24', 'per-25'])
+    expect(rows.hlesg_klimaregnskab.get('c-1')).not.toHaveProperty('hlesg_periodestart')
+  })
+
+  it('needs no change to save the group as it was loaded', () => {
+    const rows = legacy('2025-01-01', '2025-12-31')
+    migrateLegacyPeriods(rows)
+    expect(diff(rows, toRows(fromRows(rows)))).toEqual([])
+  })
+})

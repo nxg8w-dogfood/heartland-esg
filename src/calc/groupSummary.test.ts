@@ -14,7 +14,7 @@ const twoYears = { start: '2025-01-01', end: '2026-12-31' }
 const diesel = (id: string, date: string, quantity: number) => ({ id, group: 's1-diesel' as const, date, quantity })
 const withLines = (...lines: ReturnType<typeof diesel>[]): AccountData => ({ ...emptyAccount(), scope1Lines: lines })
 const company = (name: string, account: AccountData, ownership = [{ fromYear: 2000, pct: 100 }]): Company => ({ ...newCompany(name, account), ownership })
-const groupOf = (...companies: Company[]): GroupData => ({ version: GROUP_VERSION, name: 'G', companies, activeCompanyId: companies[0].id, summaryPeriod: year2025 })
+const groupOf = (...companies: Company[]): GroupData => ({ version: GROUP_VERSION, name: 'G', companies, activeCompanyId: companies[0].id, activePeriodId: companies[0].account.periods[0].id })
 const builtin = () => factors
 const holding = (o: Partial<Investment>): Investment => ({
   id: 'i1', date: '2025-06-30', company: 'Datter ApS', ownershipPct: 30, accountingMethod: 'Ass.', climateMethod: '', dataSource: '',
