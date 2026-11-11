@@ -78,6 +78,10 @@ describe('accountTotals, Scope 1 lines for a car', () => {
     expect(t.scope3ByCategory[3]).toBeCloseTo(cat3.total, 12)
     expect(t.issues.some((i) => i.includes('Scope 1'))).toBe(s1.pendingCount > 0)
     expect(koncern(a).scope1).toBeCloseTo(s1.total, 12)
+    // Both lines follow the car's fuel: 300 l plus 10,000 km ÷ 20 km/l of petrol.
+    const asPetrol = accountTotals(account([line({ group: 's1-benzin', quantity: 800, distanceKm: null, vehicleId: null })], []), factors, year2025)
+    expect(t.scope1).toBeCloseTo(asPetrol.scope1, 12)
+    expect(t.scope3ByCategory[3]).toBeCloseTo(asPetrol.scope3ByCategory[3], 12)
   })
 
   it('reports a line in km whose car is gone as pending, like the Scope 1 page', () => {
