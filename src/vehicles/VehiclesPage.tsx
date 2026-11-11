@@ -27,11 +27,10 @@ export function VehiclesPage({ vehicles, setVehicles, scope1Lines, lookup }: Pro
 
   return (
     <>
-      <h1>Bilpark</h1>
       <p className="lead">
         Virksomhedens diesel- og benzinbiler, også plugin-hybrider. Slå bilen op på nummerpladen, så
-        hentes mærke, model og brændstofforbrug (WLTP) fra Motorregistret. Under Scope 1 kan en linje
-        så angives i kørte km for en bil, når der ikke er tankkort; den omregnes til liter med bilens
+        hentes mærke, model og brændstofforbrug (WLTP) fra Motorregistret. Under Udledninger kan en
+        linje så angives i kørte km for en bil, når der ikke er tankkort; den omregnes til liter med bilens
         km/l. For en plugin-hybrid regnes kun den del af kørslen med, der er på brændstof.
       </p>
 

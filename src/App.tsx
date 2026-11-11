@@ -17,7 +17,9 @@ import { FactorsPage } from './factors/FactorsPage'
 import { GroupPage } from './group/GroupPage'
 import { LedgerPage } from './ledger/LedgerPage'
 import type { LedgerState } from './ledger/state'
+import { Scope1Header } from './scope1/Scope1Header'
 import { Scope1Page } from './scope1/Scope1Page'
+import { scope1SubpageFromHash, type Scope1SubpageId } from './scope1/subpages'
 import { Scope2Page } from './scope2/Scope2Page'
 import { Scope3Page } from './scope3/Scope3Page'
 import type { Relevance } from './scope3/relevance'
@@ -27,7 +29,7 @@ import { DataBar, type SaveStatus } from './storage/DataBar'
 import { activeCompany, emptyGroup, selectedPeriod, withActiveCompany, type GroupData } from './storage/group'
 import { chooseStore } from './storage/choose'
 import type { GroupStore } from './storage/store'
-import { pageFromHash, pages, type CompanyPageId } from './pages'
+import { movedHash, pageFromHash, pages, type CompanyPageId } from './pages'
 import { PeriodSelect } from './ui'
 import { exampleLookup } from './vehicles/exampleLookup'
 import { connectorLookup } from './vehicles/connectorLookup'
@@ -37,6 +39,14 @@ import { VehiclesPage } from './vehicles/VehiclesPage'
 // Plate lookups go through the MotorAPI connector inside Power Apps (ADR 0009), which adds the
 // key on the server. `npm run dev` in a plain browser has no connector, so it gets example answers.
 const plateLookup = import.meta.env.DEV && window.self === window.top ? exampleLookup : connectorLookup(MotorAPIService)
+
+/** The address in the browser, after replacing an old one (such as `#/bilpark`) with where it moved. */
+function currentHash() {
+  const moved = movedHash(window.location.hash)
+  // Replaced, not added, so Back doesn't return to the old address and bounce forward again.
+  if (moved) window.history.replaceState(null, '', moved)
+  return window.location.hash
+}
 
 type Loaded = { store: GroupStore; group: GroupData; generation: number; message: string | null }
 
@@ -101,7 +111,7 @@ function App() {
 
 function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupStore; initial: GroupData; initialMessage: string | null; onReplace: (group: GroupData, message: string | null) => void }) {
   const [group, setGroup] = useState(initial)
-  const [hash, setHash] = useState(() => window.location.hash)
+  const [hash, setHash] = useState(currentHash)
   const page = pageFromHash(hash)
   const companyId = useId()
   const active = activeCompany(group)
@@ -126,7 +136,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
   }, [group, initial, store])
 
   useEffect(() => {
-    const onHash = () => setHash(window.location.hash)
+    const onHash = () => setHash(currentHash())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -177,7 +187,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
         {page === 'koncern' ? (
           <GroupPage group={group} setGroup={setGroup} period={period} />
         ) : (
-          <Workspace key={active.id} page={page} period={range} scope3Subpage={scope3SubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
+          <Workspace key={active.id} page={page} period={range} scope1Subpage={scope1SubpageFromHash(hash)} scope3Subpage={scope3SubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
         )}
       </main>
     </>
@@ -185,7 +195,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 }
 
 /** One company's pages. Reports every change to its account upwards. */
-function Workspace({ page, period, scope3Subpage, initial, onChange }: { page: CompanyPageId; period: Period; scope3Subpage: Scope3SubpageId; initial: AccountData; onChange: (account: AccountData) => void }) {
+function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChange }: { page: CompanyPageId; period: Period; scope1Subpage: Scope1SubpageId; scope3Subpage: Scope3SubpageId; initial: AccountData; onChange: (account: AccountData) => void }) {
   // Periods are edited on the Koncern page, which this isn't shown with, so they pass through.
   const [periods] = useState(initial.periods)
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
@@ -228,8 +238,13 @@ function Workspace({ page, period, scope3Subpage, initial, onChange }: { page: C
 
   return (
     <>
-      {page === 'bilpark' && <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} scope1Lines={scope1Lines} lookup={plateLookup} />}
-      {page === 'scope1' && <Scope1Page period={period} factors={factors} lines={scope1Lines} setLines={setScope1Lines} vehicles={vehicles} />}
+      {page === 'scope1' && (
+        <>
+          <Scope1Header subpage={scope1Subpage} />
+          {scope1Subpage === 'udledninger' && <Scope1Page period={period} factors={factors} lines={scope1Lines} setLines={setScope1Lines} vehicles={vehicles} />}
+          {scope1Subpage === 'bilpark' && <VehiclesPage vehicles={vehicles} setVehicles={setVehicles} scope1Lines={scope1Lines} lookup={plateLookup} />}
+        </>
+      )}
       {page === 'scope2' && (
         <Scope2Page
           period={period}

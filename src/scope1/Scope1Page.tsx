@@ -3,12 +3,13 @@ import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { parseNumber } from '../calc/parseNumber'
 import { scope1Groups, scope1Summary, type Scope1GroupId, type Scope1Line } from '../calc/scope1'
-import { scope1GroupFor, vehicleName, type Vehicle } from '../calc/vehicles'
+import { fuelLabel, scope1GroupFor, vehicleName, type Vehicle } from '../calc/vehicles'
 import { formatDate, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
 import { Tile } from '../ui'
+import { scope1Href } from './subpages'
 
 const exampleLines: Omit<Scope1Line, 'id'>[] = [
   { group: 's1-diesel', date: '2025-01-01', dateTo: '2025-03-31', quantity: 1850, description: 'Brændstofkort, Q1' },
@@ -36,7 +37,6 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
 
   return (
     <>
-      <h1>Scope 1 — direkte udledninger</h1>
       <p className="lead">
         Direkte udledninger fra egne eller kontrollerede kilder. Formel: aktivitetsdata ×
         emissionsfaktor ÷ 1.000 = tCO2e. Faktoren vælges efter linjens dato.
@@ -168,9 +168,14 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
   )
 }
 
+/** The source option for a line about one of the company's registered cars */
+const CAR = 'car'
+type Source = Scope1GroupId | typeof CAR
+
 function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; vehicles: readonly Vehicle[]; onAdd: (line: Omit<Scope1Line, 'id'>) => void }) {
   const id = useId()
-  const [group, setGroup] = useState<Scope1GroupId>('s1-diesel')
+  // A registered car is the usual source of a fuel line, so it comes first when there are any.
+  const [source, setSource] = useState<Source>(() => (vehicles.length > 0 ? CAR : 's1-diesel'))
   const [vehicleId, setVehicleId] = useState('')
   const [inKm, setInKm] = useState(false)
   const [date, setDate] = useState(defaultDate)
@@ -180,27 +185,21 @@ function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; ve
   const [description, setDescription] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const byCar = source === CAR
+  const car = byCar ? vehicles.find((v) => v.id === vehicleId) ?? null : null
+  // A car's line counts under the car's fuel; it isn't chosen separately.
+  const group: Scope1GroupId = byCar ? (car ? scope1GroupFor(car.fuel) : 's1-diesel') : source
   const groupDef = scope1Groups.find((g) => g.id === group)!
-  const cars = groupDef.kind === 'mobile' ? vehicles.filter((v) => scope1GroupFor(v.fuel) === group) : []
-  const car = cars.find((v) => v.id === vehicleId) ?? null
   const canUseKm = car !== null && car.kmPerLitre !== null
   const byKm = inKm && canUseKm
   const unit = byKm ? 'km' : groupDef.unit
-
-  function chooseGroup(next: Scope1GroupId) {
-    setGroup(next)
-    // A car runs on one fuel, so a car chosen for the other fuel no longer fits.
-    if (!vehicles.some((v) => v.id === vehicleId && scope1GroupFor(v.fuel) === next)) {
-      setVehicleId('')
-      setInKm(false)
-    }
-  }
 
   function submit(e: FormEvent) {
     e.preventDefault()
     const q = parseNumber(quantity)
     const f = parseNumber(customFactor)
     const next: Record<string, string> = {}
+    if (byCar && !car) next.car = vehicles.length > 0 ? 'Vælg en bil.' : 'Registrér bilen under Bilpark først.'
     if (q === null) next.quantity = 'Angiv en mængde.'
     else if (Number.isNaN(q)) next.quantity = 'Mængden er ikke et gyldigt tal. Brug fx 1.234,5.'
     if (f !== null && Number.isNaN(f)) next.customFactor = 'Faktoren er ikke et gyldigt tal.'
@@ -224,7 +223,8 @@ function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; ve
     setDescription('')
   }
 
-  const describedBy = (field: string) => (errors[field] ? `${id}-${field}-err` : undefined)
+  const describedBy = (field: string, ...more: (string | false | undefined)[]) =>
+    [errors[field] && `${id}-${field}-err`, ...more].filter(Boolean).join(' ') || undefined
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -232,20 +232,29 @@ function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; ve
       <form className="add-line" onSubmit={submit} noValidate>
         <div className="field">
           <label htmlFor={`${id}-group`}>Kilde</label>
-          <select id={`${id}-group`} value={group} onChange={(e) => chooseGroup(e.target.value as Scope1GroupId)}>
+          <select id={`${id}-group`} value={source} onChange={(e) => setSource(e.target.value as Source)}>
+            <option value={CAR}>Firmabil fra Bilpark</option>
             {scope1Groups.map((g) => (
-              <option key={g.id} value={g.id}>{g.label}</option>
+              <option key={g.id} value={g.id}>{g.kind === 'mobile' ? `${g.label}, uden bestemt bil` : g.label}</option>
             ))}
           </select>
         </div>
-        {groupDef.kind === 'mobile' && (
+        {byCar && (
           <div className="field">
-            <label htmlFor={`${id}-car`}>Bil <span className="optional">(valgfri)</span></label>
-            <select id={`${id}-car`} value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} aria-describedby={cars.length === 0 ? `${id}-car-hint` : undefined}>
-              <option value="">Ingen bestemt bil</option>
-              {cars.map((v) => <option key={v.id} value={v.id}>{vehicleName(v)}</option>)}
+            <label htmlFor={`${id}-car`}>Bil</label>
+            <select
+              id={`${id}-car`}
+              value={vehicleId}
+              onChange={(e) => setVehicleId(e.target.value)}
+              aria-invalid={!!errors.car}
+              aria-describedby={describedBy('car', car ? `${id}-fuel` : vehicles.length === 0 && `${id}-car-hint`)}
+            >
+              <option value="">Vælg bil</option>
+              {vehicles.map((v) => <option key={v.id} value={v.id}>{vehicleName(v)}</option>)}
             </select>
-            {cars.length === 0 && <p id={`${id}-car-hint`} className="sub">Registrér biler under Bilpark.</p>}
+            {errors.car && <p id={`${id}-car-err`} className="error">{errors.car}</p>}
+            {car && <p id={`${id}-fuel`} className="sub">Brændstof: {fuelLabel[car.fuel]} (fra bilen)</p>}
+            {vehicles.length === 0 && <p id={`${id}-car-hint`} className="sub">Registrér biler under <a href={scope1Href('bilpark')}>Bilpark</a>.</p>}
           </div>
         )}
         {car && (
@@ -255,7 +264,7 @@ function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; ve
             <label className="check">
               <input type="radio" name={`${id}-unit`} checked={byKm} disabled={!canUseKm} onChange={() => setInKm(true)} aria-describedby={canUseKm ? undefined : `${id}-km-hint`} /> Kørte km
             </label>
-            {!canUseKm && <p id={`${id}-km-hint`} className="sub">Bilen har intet brændstofforbrug (km/l). Angiv det under Bilpark.</p>}
+            {!canUseKm && <p id={`${id}-km-hint`} className="sub">Bilen har intet brændstofforbrug (km/l). Angiv det under <a href={scope1Href('bilpark')}>Bilpark</a>.</p>}
           </fieldset>
         )}
         <div className="field">
