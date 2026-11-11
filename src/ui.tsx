@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import type { Period } from './calc/dates'
+import { formatRange, sortPeriods, type FiscalPeriod } from './calc/periods'
 import { parseNumber } from './calc/parseNumber'
 import { formatFactor, formatNumber } from './format'
 
@@ -29,29 +29,18 @@ export function Tile({
   )
 }
 
-export function PeriodPicker({ period, onChange }: { period: Period; onChange: (p: Period) => void }) {
+/** The header's period picker: the active company's periods, latest first. */
+export function PeriodSelect({ periods, value, onChange }: { periods: readonly FiscalPeriod[]; value: string; onChange: (id: string) => void }) {
   const id = useId()
-  const invalid = period.end < period.start
   return (
-    <fieldset className="period">
-      <legend>Periode</legend>
-      <label htmlFor={`${id}-start`}>Fra</label>
-      <input id={`${id}-start`} type="date" value={period.start} onChange={(e) => onChange({ ...period, start: e.target.value })} />
-      <label htmlFor={`${id}-end`}>Til</label>
-      <input
-        id={`${id}-end`}
-        type="date"
-        value={period.end}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? `${id}-err` : undefined}
-        onChange={(e) => onChange({ ...period, end: e.target.value })}
-      />
-      {invalid && (
-        <p id={`${id}-err`} className="error">
-          Slutdatoen ligger før startdatoen, så ingen linjer tæller med.
-        </p>
-      )}
-    </fieldset>
+    <div className="company-picker">
+      <label htmlFor={id}>Periode</label>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+        {[...sortPeriods(periods)].reverse().map((p) => (
+          <option key={p.id} value={p.id}>{p.name} ({formatRange(p)})</option>
+        ))}
+      </select>
+    </div>
   )
 }
 

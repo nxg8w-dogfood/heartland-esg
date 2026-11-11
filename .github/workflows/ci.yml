@@ -21,6 +21,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm audit --audit-level=high
+      # The Azure setup for plate lookups (ADR 0009); building catches template errors.
+      - run: az bicep build --file infra/motorapi/main.bicep --stdout > /dev/null
 
   secret-scan:
     runs-on: ubuntu-latest

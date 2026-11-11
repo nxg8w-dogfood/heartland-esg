@@ -1,10 +1,10 @@
 # 11. For now, the app fetches electricity and heating consumption itself
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Decided by:** @mortengad (tech lead), 2026-11-10: the app calls Eloverblik and Varmeoverblik
-  directly for now, instead of going through API Management first. How tokens are handled (below)
-  still needs confirming.
+  directly for now, instead of going through API Management first. Accepted 2026-11-11, including
+  pasting the token per session and the answers to the open questions below.
 
 ## Context
 
@@ -94,9 +94,12 @@ Inside Power Apps, the browser therefore blocks both APIs until an environment a
   the browser), but nothing in Azure is set up yet. This ADR doesn't replace ADR 0010. When the
   proxy exists, the import UI can call it instead and the token fields go away.
 
-## Open questions
+## Answered questions
 
-- **Confirm that pasting the token per session is acceptable** under the brief's secrets
-  control. The alternative is to wait for ADR 0010.
-- **Who may fetch?** Anyone who can add Scope 2 lines and holds a token. *Proposed:* fine for now,
-  because the token is the real gate.
+Answered by @mortengad on 2026-11-11, when accepting this ADR.
+
+- **Is pasting the token per session acceptable** under the brief's secrets control? Yes. The
+  token is never stored, so the repository and Dataverse hold no secret. ADR 0010 remains the
+  long-term design.
+- **Who may fetch?** Anyone who can add Scope 2 lines and holds a token, because the token is the
+  real gate.

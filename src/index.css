@@ -523,6 +523,16 @@ footer {
   color: var(--hl-text-muted);
 }
 
+/* Where the data lives, shown only when it's central (Dataverse). */
+.connection {
+  align-self: center;
+  padding: 2px var(--hl-sp-2);
+  border-radius: 999px;
+  font-size: var(--hl-fs-xs);
+  color: var(--hl-success);
+  background: var(--hl-success-bg);
+}
+
 .logotype {
   display: inline-block;
   height: 14px;
@@ -702,38 +712,12 @@ ul.plain {
   flex: 1;
 }
 
-/* The Data menu in the header: save status beside the button, backup and clear in a panel. */
-.data-menu {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--hl-sp-2) var(--hl-sp-3);
-  margin-left: auto;
+.databar {
+  margin-top: var(--hl-sp-5);
 }
 
-.data-menu-status {
-  font-size: var(--hl-fs-xs);
-}
-
-.data-menu-panel {
-  position: absolute;
-  top: calc(100% + var(--hl-sp-2));
-  right: 0;
-  z-index: 20;
-  width: min(28rem, calc(100vw - 2 * var(--hl-sp-4)));
-  padding: var(--hl-sp-4);
-  background: var(--hl-surface-raised);
-  border: var(--hl-rule-w) solid var(--hl-rule-strong);
-  border-radius: var(--hl-radius);
-}
-
-.data-menu-panel[hidden] {
-  display: none;
-}
-
-.data-menu-panel p {
-  margin: 0 0 var(--hl-sp-3);
+.databar p {
+  margin: 0 0 var(--hl-sp-2);
 }
 
 .databar-actions {
@@ -778,17 +762,6 @@ ul.plain {
   gap: var(--hl-sp-3);
 }
 
-.company-context {
-  margin: var(--hl-sp-5) 0 var(--hl-sp-3);
-  color: var(--hl-text-muted);
-  font-style: italic;
-}
-
-.company-context strong {
-  color: var(--hl-text-strong);
-  font-style: normal;
-}
-
 .company-editor {
   padding: var(--hl-sp-3) var(--hl-sp-4) var(--hl-sp-4);
   margin: 0 0 var(--hl-sp-4);
@@ -821,8 +794,81 @@ ul.plain {
 /* The factor dropdown on a line; long factor names wrap the cell rather than widen the table */
 .factor-choice {
   display: block;
-  margin: 0.25rem 0 0 auto;
+  margin: var(--hl-sp-1) 0 0 auto;
   max-width: 16rem;
-  font-size: 0.8rem;
-  min-height: 2rem;
+  font-size: var(--hl-fs-xs);
+  min-height: var(--hl-row-h);
+}
+
+.unit-choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.unit-choice legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+.fatal {
+  max-width: 40rem;
+  margin: 3rem auto;
+}
+
+/* Scope 3's own pages: a row of tabs under the page heading, the current one underlined. */
+.subnav {
+  margin: var(--hl-sp-5) 0 var(--hl-sp-6);
+  border-bottom: var(--hl-rule-w) solid var(--hl-rule);
+}
+
+.subnav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--hl-sp-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.subnav a {
+  position: relative;
+  display: inline-block;
+  padding: var(--hl-sp-2) 0;
+  color: var(--hl-text-muted);
+  font-size: var(--hl-fs-sm);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.subnav a:hover,
+.subnav a[aria-current='page'] {
+  color: var(--hl-text-strong);
+}
+
+.subnav a[aria-current='page'] {
+  font-weight: var(--hl-fw-bold);
+}
+
+.subnav a[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--hl-dash);
+}
+
+.subnav a:focus-visible {
+  outline-offset: 2px;
+}
+
+/* A company's fiscal periods, in its editor on the Koncern page (ADR 0013). */
+.periods-editor h3 {
+  margin-top: var(--hl-sp-4);
+}
+
+.periods input.period-name {
+  width: 9rem;
 }

@@ -7,16 +7,18 @@ import { parseNumber } from '../calc/parseNumber'
 import { factorPublications } from '../data/factorPublications'
 import { factors as baseFactors } from '../data/factors'
 import { formatNumber } from '../format'
-import { newCompany, type Company, type GroupData, type OwnershipShare } from '../storage/group'
-import { PeriodPicker, Tile } from '../ui'
+import { formatRange, type FiscalPeriod } from '../calc/periods'
+import { newCompany, withActiveCompany, type Company, type GroupData, type OwnershipShare } from '../storage/group'
+import { Tile } from '../ui'
+import { PeriodsEditor } from './PeriodsEditor'
 
-type Props = { group: GroupData; setGroup: Dispatch<SetStateAction<GroupData>> }
+type Props = { group: GroupData; setGroup: Dispatch<SetStateAction<GroupData>>; period: FiscalPeriod }
 
 const t = (v: number) => formatNumber(v, 3)
 /** Year-over-year shows at most this many of the latest years with data */
 const MAX_YEARS = 10
 
-export function GroupPage({ group, setGroup }: Props) {
+export function GroupPage({ group, setGroup, period }: Props) {
   const groupNameId = useId()
   const [newName, setNewName] = useState('')
 
@@ -26,7 +28,7 @@ export function GroupPage({ group, setGroup }: Props) {
     [group.companies],
   )
   const factorsFor = useCallback((c: Company) => factorsById.get(c.id) ?? baseFactors, [factorsById])
-  const summary = useMemo(() => groupSummary(group, factorsFor, group.summaryPeriod), [group, factorsFor])
+  const summary = useMemo(() => groupSummary(group, factorsFor, period), [group, factorsFor, period])
   const allYears = useMemo(() => dataYears(group), [group])
   const years = allYears.slice(-MAX_YEARS)
   const yoy = useMemo(() => yearOverYear(group, factorsFor, allYears.slice(-MAX_YEARS)), [group, factorsFor, allYears])
@@ -45,15 +47,16 @@ export function GroupPage({ group, setGroup }: Props) {
   }
 
   function removeCompany(c: Company) {
-    if (!window.confirm(`Slet ${c.name || 'virksomheden'} og hele dens klimaregnskab? Det kan ikke fortrydes — eksportér en backup først, hvis du er i tvivl.`)) return
+    if (!window.confirm(`Slet ${c.name || 'virksomheden'} og hele dens klimaregnskab? Det kan ikke fortrydes.`)) return
     setGroup((g) => {
       const companies = g.companies.filter((x) => x.id !== c.id)
-      return { ...g, companies, activeCompanyId: g.activeCompanyId === c.id ? companies[0].id : g.activeCompanyId }
+      const next = { ...g, companies }
+      return g.activeCompanyId === c.id ? withActiveCompany(next, companies[0].id) : next
     })
   }
 
   // A link to the company's Scope 1 page, which also makes it the active company.
-  const openCompany = (c: Company) => setGroup((g) => ({ ...g, activeCompanyId: c.id }))
+  const openCompany = (c: Company) => setGroup((g) => withActiveCompany(g, c.id))
 
   const issueCount = summary.companies.reduce((n, c) => n + c.issues.length, 0) + differences.length
 
@@ -71,7 +74,10 @@ export function GroupPage({ group, setGroup }: Props) {
         <input id={groupNameId} value={group.name} onChange={(e) => setGroup((g) => ({ ...g, name: e.target.value }))} />
       </div>
 
-      <PeriodPicker period={group.summaryPeriod} onChange={(summaryPeriod) => setGroup((g) => ({ ...g, summaryPeriod }))} />
+      <p className="muted">
+        Opgjort for perioden <strong>{period.name}</strong> ({formatRange(period)}), som er valgt øverst. Alle
+        virksomheder tælles med for de samme datoer.
+      </p>
 
       <section aria-labelledby="group-totals">
         <h2 id="group-totals" className="visually-hidden">Koncernens totaler</h2>
@@ -206,6 +212,7 @@ export function GroupPage({ group, setGroup }: Props) {
             canRemove={group.companies.length > 1}
             onRename={(name) => updateCompany(c.id, { name })}
             onOwnership={(ownership) => updateCompany(c.id, { ownership })}
+            onPeriods={(periods) => setGroup((g) => ({ ...g, companies: g.companies.map((x) => (x.id === c.id ? { ...x, account: { ...x.account, periods } } : x)) }))}
             onRemove={() => removeCompany(c)}
           />
         ))}
@@ -247,11 +254,12 @@ function sourceLabel(key: string): string {
   return 'API'
 }
 
-function CompanyEditor({ company, canRemove, onRename, onOwnership, onRemove }: {
+function CompanyEditor({ company, canRemove, onRename, onOwnership, onPeriods, onRemove }: {
   company: Company
   canRemove: boolean
   onRename: (name: string) => void
   onOwnership: (o: OwnershipShare[]) => void
+  onPeriods: (p: FiscalPeriod[]) => void
   onRemove: () => void
 }) {
   const id = useId()
@@ -289,8 +297,13 @@ function CompanyEditor({ company, canRemove, onRename, onOwnership, onRemove }: 
         >
           Tilføj ændring af ejerandel
         </button>
-        {canRemove && <button type="button" className="link" onClick={onRemove}>Slet virksomheden</button>}
       </div>
+      <PeriodsEditor companyName={company.name} periods={company.account.periods} onChange={onPeriods} />
+      {canRemove && (
+        <div className="databar-actions">
+          <button type="button" className="link" onClick={onRemove}>Slet virksomheden</button>
+        </div>
+      )}
     </fieldset>
   )
 }

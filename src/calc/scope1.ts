@@ -4,6 +4,7 @@
 import type { Factor } from '../data/factors'
 import { activityLine, type ActivityResult } from './activity'
 import type { Period } from './dates'
+import { resolveScope1Lines, type ResolvedScope1Line, type Vehicle } from './vehicles'
 
 export const scope1Groups = [
   { id: 's1-diesel', label: 'Firmabiler – diesel', unit: 'liter', factorId: 'f-s1-diesel', kind: 'mobile' },
@@ -22,16 +23,20 @@ export type Scope1Line = {
   group: Scope1GroupId
   date: string
   dateTo?: string | null
-  /** In the group's unit */
+  /** In the group's unit. For a line entered in km, worked out from the car (see vehicles.ts). */
   quantity: number | null
   /** Overrides the group's factor; one of `factorOptions` */
   factorId?: string | null
   /** kg CO2e per unit, overriding the table factor */
   customFactor?: number | null
   description?: string
+  /** The company car the line is for, if any (ADR 0009) */
+  vehicleId?: string | null
+  /** Set when the line is entered as km driven rather than litres; the car must be set too */
+  distanceKm?: number | null
 }
 
-export type Scope1LineResult = ActivityResult<Scope1Group, Scope1Line>
+export type Scope1LineResult = ActivityResult<Scope1Group, ResolvedScope1Line>
 
 export type Scope1Summary = {
   lines: Scope1LineResult[]
@@ -40,16 +45,22 @@ export type Scope1Summary = {
   stationary: number
   fugitive: number
   pendingCount: number
+  /** Lines worked out from km and the car's fuel economy */
+  estimateCount: number
 }
 
+/** Expects a resolved line: one entered in km already has its litres (resolveScope1Lines). */
 export function scope1Line(
-  line: Scope1Line,
+  line: ResolvedScope1Line,
   factors: readonly Factor[],
   period: Period,
 ): Scope1LineResult {
   const group = scope1Groups.find((g) => g.id === line.group)
   if (!group) throw new Error(`Unknown Scope 1 group: ${line.group}`)
-  return activityLine(line, group, factors, period)
+  const result = activityLine(line, group, factors, period)
+  // A line in km that can't be converted waits for data, rather than counting as 0 litres.
+  const problem = line.estimate?.problem
+  return problem ? { ...result, pending: true, warning: result.warning ?? problem } : result
 }
 
 /** Lines outside the period are left out of the summary, but not deleted. */
@@ -57,8 +68,9 @@ export function scope1Summary(
   lines: readonly Scope1Line[],
   factors: readonly Factor[],
   period: Period,
+  vehicles: readonly Vehicle[] = [],
 ): Scope1Summary {
-  const results = lines
+  const results = resolveScope1Lines(lines, vehicles)
     .map((line) => scope1Line(line, factors, period))
     .filter((r) => r.share > 0)
   const sum = (kind?: Scope1Group['kind']) =>
@@ -70,5 +82,6 @@ export function scope1Summary(
     stationary: sum('stationary'),
     fugitive: sum('fugitive'),
     pendingCount: results.filter((r) => r.pending).length,
+    estimateCount: results.filter((r) => r.line.estimate).length,
   }
 }

@@ -1,10 +1,10 @@
 # 12. The electricity factor follows the location's municipality (DK1/DK2)
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-10
 - **Decided by:** @mortengad (tech lead), 2026-11-10: each location gets a municipality, which
   maps to price area DK1 or DK2 and so picks the location-based electricity factor. Locations can
-  be created from fetched meters. The draft-data bar moves into a header menu.
+  be created from fetched meters. Accepted 2026-11-11.
 
 ## Context
 
@@ -46,9 +46,6 @@ for fetched electricity the municipality is usually already known. Varmeoverblik
    - A heating meter borrows the municipality from an electricity meter at the same address.
    - A later fetch matches meters to the location by its name.
    - The fetch table shows each meter's municipality and price area.
-5. **The draft-data bar becomes a *Data* menu in the header.** The save status stays visible.
-   Backup export and import and *Ryd alt* move into the menu. The menu opens on its own when
-   there is a message and stays open while saving fails.
 
 ## Consequences
 
@@ -71,8 +68,6 @@ for fetched electricity the municipality is usually already known. Varmeoverblik
   municipalities do, and DataHub already gives the municipality.
 - **Let the user pick DK1/DK2 directly.** It's simpler, but people know their municipality, not
   their price area. The municipality is also useful for reporting.
-- **Keep the draft-data bar and only shorten it.** It still took a full row on every screen for
-  actions used rarely.
 
 ## Sources
 

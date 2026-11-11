@@ -13,6 +13,7 @@ import { classify, ledgerSpendLines, type LedgerSpendLine } from './ledger'
 import { scope1Summary } from './scope1'
 import { scope2Summary } from './scope2'
 import { category1, category3, category4, category5, category6, scope3Categories } from './scope3'
+import { resolveScope1Lines } from './vehicles'
 
 /** Ledger postings tagged to category 1, as spend lines */
 export function ledgerLinesFor(ledger: LedgerState): LedgerSpendLine[] {
@@ -43,10 +44,12 @@ export type AccountTotals = {
 }
 
 export function accountTotals(account: AccountData, factors: readonly Factor[], period: Period): AccountTotals {
-  const s1 = scope1Summary(account.scope1Lines, factors, period)
+  // The same lines as on the Scope 1 and Scope 3 pages: a line in km gets its litres from the car.
+  const s1 = scope1Summary(account.scope1Lines, factors, period, account.vehicles)
+  const scope1Litres = resolveScope1Lines(account.scope1Lines, account.vehicles)
   const s2 = scope2Summary(account.locations, account.scope2Lines, factors, period)
   const cat1 = category1(account.cat1Lines, factors, currencyRates, account.deflation, period, ledgerLinesFor(account.ledger))
-  const cat3 = category3(account.scope1Lines, s2, factors, period, account.category3Params)
+  const cat3 = category3(scope1Litres, s2, factors, period, account.category3Params)
   const cat4 = category4(account.cat4Lines, account.cat4SpendLines, factors, currencyRates, account.deflation, period)
   const cat5 = category5(account.cat5Lines, factors, period)
   const cat6 = category6(account.cat6Lines, factors, period)

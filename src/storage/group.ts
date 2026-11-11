@@ -1,8 +1,8 @@
 // The group: several companies, each with its own climate account and factor sources, and the
 // group's ownership share in each by year. The group total consolidates by equity share
-// (docs/adr/0006). This is what the store saves and a backup file contains.
+// (docs/adr/0006). This is what the store saves.
 
-import type { Period } from '../calc/dates'
+import { periodOrLatest, type FiscalPeriod } from '../calc/periods'
 import { newId } from '../newId'
 import { emptyAccount, parseAccount, type AccountData } from './account'
 
@@ -25,8 +25,12 @@ export type GroupData = {
   companies: Company[]
   /** The company the Scope, Kontoplan and Faktorer pages show */
   activeCompanyId: string
-  /** The period the Koncern page sums up */
-  summaryPeriod: Period
+  /**
+   * The selected period of the active company: what every page, the Koncern page included,
+   * reports on (docs/adr/0013). The user's view, like activeCompanyId; an id that isn't one of
+   * the active company's periods means its latest.
+   */
+  activePeriodId: string
 }
 
 export function newCompany(name: string, account: AccountData = emptyAccount()): Company {
@@ -35,7 +39,30 @@ export function newCompany(name: string, account: AccountData = emptyAccount()):
 
 export function emptyGroup(): GroupData {
   const first = newCompany('Virksomhed 1')
-  return { version: GROUP_VERSION, name: 'Koncernen', companies: [first], activeCompanyId: first.id, summaryPeriod: first.account.period }
+  return { version: GROUP_VERSION, name: 'Koncernen', companies: [first], activeCompanyId: first.id, activePeriodId: first.account.periods[0].id }
+}
+
+/** The active company. */
+export const activeCompany = (group: GroupData): Company =>
+  group.companies.find((c) => c.id === group.activeCompanyId) ?? group.companies[0]
+
+/** The period the app reports on: the selected one, or the active company's latest. */
+export const selectedPeriod = (group: GroupData): FiscalPeriod => {
+  const periods = activeCompany(group).account.periods
+  return periodOrLatest(periods, group.activePeriodId) ?? periods[0]
+}
+
+/**
+ * Opens a company. It keeps the period that was selected if the company has one with the same
+ * dates, or else the same name (two companies on the same fiscal year); otherwise its latest.
+ */
+export function withActiveCompany(group: GroupData, companyId: string): GroupData {
+  const company = group.companies.find((c) => c.id === companyId)
+  if (!company) return group
+  const was = group.companies.length ? selectedPeriod(group) : undefined
+  const periods = company.account.periods
+  const same = was && (periods.find((p) => p.start === was.start && p.end === was.end) ?? periods.find((p) => p.name === was.name))
+  return { ...group, activeCompanyId: company.id, activePeriodId: (same ?? periodOrLatest(periods, undefined))?.id ?? '' }
 }
 
 /** The ownership share in percent for a year, or null when no entry covers it. */
@@ -49,7 +76,6 @@ export type GroupLoadResult =
   | { ok: false; error: string }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
-const isIsoDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 const validShare = (v: unknown): v is OwnershipShare =>
   isObject(v) && Number.isInteger(v.fromYear) && typeof v.pct === 'number' && Number.isFinite(v.pct) && v.pct >= 0 && v.pct <= 100
 
@@ -63,7 +89,7 @@ export function parseGroup(input: unknown): GroupLoadResult {
     const company = newCompany('Virksomhed 1', r.account)
     return {
       ok: true,
-      group: { version: GROUP_VERSION, name: 'Koncernen', companies: [company], activeCompanyId: company.id, summaryPeriod: r.account.period },
+      group: withActiveCompany({ version: GROUP_VERSION, name: 'Koncernen', companies: [company], activeCompanyId: company.id, activePeriodId: '' }, company.id),
       dropped: r.dropped,
       notes: [...r.notes, 'Klimaregnskabet er nu den første virksomhed i en koncern. Giv den et navn under Koncern.'],
     }
@@ -89,11 +115,13 @@ export function parseGroup(input: unknown): GroupLoadResult {
   if (companies.length === 0) return { ok: false, error: 'Filen indeholder ingen virksomheder, appen kan bruge.' }
 
   const activeCompanyId = companies.some((c) => c.id === input.activeCompanyId) ? (input.activeCompanyId as string) : companies[0].id
-  const p = input.summaryPeriod
-  const summaryPeriod = isObject(p) && isIsoDate(p.start) && isIsoDate(p.end) ? { start: p.start, end: p.end } : companies[0].account.period
+  // Before periods, the Koncern page had its own date range (summaryPeriod). It's dropped: the
+  // page now reports on the selected period, and the active company opens at its latest.
+  const active = companies.find((c) => c.id === activeCompanyId)!
+  const activePeriodId = periodOrLatest(active.account.periods, typeof input.activePeriodId === 'string' ? input.activePeriodId : undefined)!.id
   return {
     ok: true,
-    group: { version: GROUP_VERSION, name: typeof input.name === 'string' ? input.name : 'Koncernen', companies, activeCompanyId, summaryPeriod },
+    group: { version: GROUP_VERSION, name: typeof input.name === 'string' ? input.name : 'Koncernen', companies, activeCompanyId, activePeriodId },
     dropped,
     notes,
   }
