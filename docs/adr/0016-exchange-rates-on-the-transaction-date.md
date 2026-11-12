@@ -49,7 +49,8 @@ allows them (ADR 0011), and the rates aren't stored in Dataverse.
   move by well under 1 %.
 - The table must be regenerated (at least monthly, and before a period is closed); until then
   recent GBP, USD and NOK lines stay pending. Since 2026-11-12 the `exchange-rates` workflow
-  does it every Monday and opens the update as a pull request, which a person reviews and
-  merges. Pull requests opened with the workflow's own token don't start CI, so it starts CI
-  on the branch itself; the repository has to allow GitHub Actions to create pull requests.
+  does it every Monday: it pushes the update to `chore/exchange-rates` and starts CI there,
+  because pushes made with the workflow's own token don't start CI. GitHub Actions stays unable
+  to create pull requests in this repository (@mortengad, 2026-11-12), so a person opens the
+  pull request from the link in the run summary, reviews it and merges it.
 - The table adds about 50 kB of source (2024 to now, six currencies).

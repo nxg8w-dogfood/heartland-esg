@@ -57,12 +57,12 @@ The script stops on a column or value it doesn't recognise, rather than guessing
 Spend lines are converted at the exchange rate on their date (ADR 0016), from a table of the
 ECB's daily euro reference rates in `src/data/exchangeRates.ts`.
 
-Every Monday the `exchange-rates` workflow regenerates the table and opens, or updates, a pull
-request from `chore/exchange-rates`, with CI run on it. Review and merge it like any other change.
-Before closing a reporting period, run it by hand: **Actions → exchange-rates → Run workflow**.
-For it to open the pull request, the repository must allow GitHub Actions to create pull
-requests (**Settings → Actions → General**). Without that, it pushes the branch and links to it
-in the run summary. To update the table locally instead:
+Every Monday the `exchange-rates` workflow regenerates the table, pushes any change to
+`chore/exchange-rates` and runs CI on it. GitHub Actions isn't allowed to open pull requests in
+this repository, so open it yourself: the run's summary has an *Open the pull request* link. If
+one is already open, the workflow updates it. Review and merge it like any other change. Before
+closing a reporting period, run it by hand: **Actions → exchange-rates → Run workflow**. To
+update the table locally instead:
 
 ```bash
 node scripts/exchange-rates.ts
@@ -160,7 +160,7 @@ You need the System Administrator role in the environment.
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |
 | `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |
 | `.github/workflows/deploy.yml` | Publishes the app to dev, test or prod. |
-| `.github/workflows/exchange-rates.yml` | Weekly: regenerates the exchange-rate table and opens a pull request with it (ADR 0016). |
+| `.github/workflows/exchange-rates.yml` | Weekly: regenerates the exchange-rate table onto `chore/exchange-rates` and runs CI on it, ready for a pull request (ADR 0016). |
 
 ## Working here
 
