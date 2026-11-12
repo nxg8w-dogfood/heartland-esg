@@ -180,4 +180,10 @@ describe('Scope3Page', () => {
     // Moved out of category 2 by the override
     expect(render('#/scope3/kategori-2', withOverride)).not.toContain('Volvo XC60')
   })
+
+  it('shows no empty box or example lines for purchases when there are none', () => {
+    const html = render('#/scope3/kategori-1')
+    expect(html).not.toContain('Ingen indkøb i perioden.')
+    expect(html).not.toContain('<caption class="visually-hidden">Indkøb i perioden</caption>')
+  })
 })
