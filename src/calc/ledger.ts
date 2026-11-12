@@ -1,11 +1,15 @@
 // Importing ledger postings from a chart of accounts, and tagging them to a Scope 3 category
 // and emission factor by rules or by hand. Ported from the original app.
 //
-// Rules are applied in order and the first match wins. A rule matches when all its conditions
-// with a value match. A manual action on a posting overrides the rules. Tagged postings become
-// spend lines in their category.
+// The ESG owner's account and posting rules decide most postings (spendRules.ts, ADR 0009). The
+// user's own rules are exceptions on top: applied in order, the first match wins, and a rule
+// matches when all its conditions with a value match. A manual action on a posting overrides
+// everything. Postings that count become spend lines in their category.
 
+import { registeredFactor } from '../data/spendFactorRegister'
+import { accountRules as seedAccountRules, postingRules as seedPostingRules } from '../data/scope3Rules'
 import type { SpendGroup, SpendLine } from './spend'
+import { firstPostingRule, type AccountRule, type PostingHandling, type PostingRule } from './spendRules'
 
 export type LedgerField = 'date' | 'account' | 'accountName' | 'supplier' | 'text' | 'amount' | 'currency'
 
@@ -198,16 +202,52 @@ export type ManualAction = {
   reason: string
 }
 
-export type PostingStatus = 'tagged' | 'excluded' | 'untagged'
+/**
+ * Included and for review count in the climate account; for review is flagged for someone to
+ * confirm. Pending waits for a decision and doesn't count yet. Untagged has no rule at all.
+ */
+export type PostingStatus = 'included' | 'review' | 'pending' | 'excluded' | 'untagged'
+
+export const postingStatusLabels: Record<PostingStatus, string> = {
+  included: 'Medtaget',
+  review: 'Til review',
+  pending: 'Afventer',
+  excluded: 'Udeladt',
+  untagged: 'Utagget',
+}
+
+/** The rule that decided a posting's status. */
+export type RuleHit =
+  | { kind: 'manual' }
+  | { kind: 'exception'; rule: Rule }
+  | { kind: 'posting'; rule: PostingRule }
+  | { kind: 'account'; rule: AccountRule }
+  | { kind: 'none' }
 
 export type ClassifiedPosting = {
   posting: Posting
   status: PostingStatus
-  source: 'manual' | 'rule' | 'none'
-  rule: Rule | null
+  hit: RuleHit
+  /** The factor in the factor table */
   factorId: string | null
+  /** The Scope 3 category it counts in (or would, if excluded or pending) */
   category: number | null
   reason: string
+}
+
+/** The ESG owner's built-in rules and the factor register they're resolved through. */
+export type RuleBook = {
+  accountRules: readonly AccountRule[]
+  /** In priority order */
+  postingRules: readonly PostingRule[]
+  /** FaktorID → factor table id */
+  factorFor: (code: string | null) => string | null
+}
+
+export const builtinRuleBook: RuleBook = {
+  accountRules: seedAccountRules,
+  postingRules: seedPostingRules,
+  factorFor: (code) => registeredFactor(code)?.factorId ?? null,
 }
 
 const norm = (s: string) => s.trim().toLowerCase()
@@ -228,49 +268,102 @@ export function ruleMatches(rule: Rule, posting: Posting): boolean {
   return filled.length > 0 && filled.every((c) => conditionMatches(c, posting))
 }
 
-export function classify(posting: Posting, rules: readonly Rule[], manual: ReadonlyMap<string, ManualAction>): ClassifiedPosting {
+const statusFor: Record<PostingHandling, PostingStatus> = { exclude: 'excluded', include: 'included', review: 'review', pending: 'pending' }
+
+/**
+ * Decides one posting, in this order (docs/adr/0009):
+ * 1. a manual action on the posting;
+ * 2. the user's own exceptions (`rules`), in order, the first that matches;
+ * 3. the account rule for the posting's account. An account that isn't in the rules is untagged,
+ *    and one that isn't included is excluded;
+ * 4. for an included account, the first posting rule by priority whose search word is in the
+ *    posting's text or supplier, and that applies to the account's category. It can exclude the
+ *    posting, override its factor, move it to another category, or flag it for review or as
+ *    pending;
+ * 5. otherwise the account rule: included, or for review when its basis is an estimate to confirm.
+ */
+export function classify(posting: Posting, rules: readonly Rule[], manual: ReadonlyMap<string, ManualAction>, book: RuleBook = builtinRuleBook): ClassifiedPosting {
+  const accountRule = book.accountRules.find((r) => r.account === posting.account.trim()) ?? null
   const m = manual.get(posting.id)
   if (m) {
+    const exclude = m.type === 'exclude'
     return {
-      posting, status: m.type === 'exclude' ? 'excluded' : 'tagged', source: 'manual', rule: null,
-      factorId: m.factorId, category: m.category, reason: m.reason,
+      posting, status: exclude ? 'excluded' : 'included', hit: { kind: 'manual' },
+      factorId: exclude ? null : m.factorId, category: m.category ?? accountRule?.category ?? null, reason: m.reason,
     }
   }
-  for (const rule of rules) {
-    if (!ruleMatches(rule, posting)) continue
-    const tag = rule.type === 'tag'
+  const exception = rules.find((r) => ruleMatches(r, posting))
+  if (exception) {
+    const tag = exception.type === 'tag'
     return {
-      posting, status: tag ? 'tagged' : 'excluded', source: 'rule', rule,
-      factorId: tag ? rule.factorId : null, category: tag ? rule.category : null, reason: rule.reason,
+      posting, status: tag ? 'included' : 'excluded', hit: { kind: 'exception', rule: exception },
+      factorId: tag ? exception.factorId : null, category: tag ? exception.category : (accountRule?.category ?? null), reason: exception.reason,
     }
   }
-  return { posting, status: 'untagged', source: 'none', rule: null, factorId: null, category: null, reason: '' }
+  if (!accountRule) return { posting, status: 'untagged', hit: { kind: 'none' }, factorId: null, category: null, reason: '' }
+  if (!accountRule.include) {
+    return { posting, status: 'excluded', hit: { kind: 'account', rule: accountRule }, factorId: null, category: accountRule.category, reason: accountRule.reason }
+  }
+  const postingRule = firstPostingRule(book.postingRules, posting, accountRule.category)
+  if (postingRule) {
+    const status = statusFor[postingRule.handling]
+    return {
+      posting, status, hit: { kind: 'posting', rule: postingRule },
+      factorId: status === 'excluded' ? null : book.factorFor(postingRule.factorCode ?? accountRule.factorCode),
+      category: postingRule.moveTo ?? accountRule.category,
+      reason: postingRule.reason,
+    }
+  }
+  return {
+    posting, status: accountRule.basis === 'Skøn – bekræft' ? 'review' : 'included', hit: { kind: 'account', rule: accountRule },
+    factorId: book.factorFor(accountRule.factorCode), category: accountRule.category, reason: accountRule.reason,
+  }
 }
 
-export type LedgerSummary = { total: number; tagged: number; excluded: number; untagged: number; manual: number }
+export function classifyLedger(ledger: { postings: readonly Posting[]; rules: readonly Rule[]; manual: Record<string, ManualAction> }, book: RuleBook = builtinRuleBook): ClassifiedPosting[] {
+  const manual = new Map(Object.entries(ledger.manual))
+  return ledger.postings.map((p) => classify(p, ledger.rules, manual, book))
+}
+
+/** Counts in the climate account */
+export const counts = (c: ClassifiedPosting) => c.status === 'included' || c.status === 'review'
+
+/** The rule that hit, in a few words, e.g. "R10 «DSB »" or "Kontoregel 240003". */
+export function hitLabel(hit: RuleHit): string {
+  switch (hit.kind) {
+    case 'manual': return 'Manuel handling'
+    case 'exception': return `Undtagelse: ${hit.rule.name}`
+    case 'posting': return `${hit.rule.id} «${hit.rule.searchWord}»`
+    case 'account': return `Kontoregel ${hit.rule.account}`
+    case 'none': return 'Ingen regel'
+  }
+}
+
+export type LedgerSummary = Record<PostingStatus, number> & { total: number; manual: number }
 
 export function ledgerSummary(classified: readonly ClassifiedPosting[]): LedgerSummary {
-  const s = { total: classified.length, tagged: 0, excluded: 0, untagged: 0, manual: 0 }
+  const s: LedgerSummary = { total: classified.length, included: 0, review: 0, pending: 0, excluded: 0, untagged: 0, manual: 0 }
   for (const c of classified) {
     s[c.status] += 1
-    if (c.source === 'manual') s.manual += 1
+    if (c.hit.kind === 'manual') s.manual += 1
   }
   return s
 }
 
 /**
- * Spend lines for the postings tagged to a category, as in the original: the account becomes
- * the line's type, the rule's or manual factor its factor.
+ * Spend lines for the postings that count in a category: the account becomes the line's group,
+ * the rule's factor its factor.
  */
 export function ledgerSpendLines(classified: readonly ClassifiedPosting[], category: number): LedgerSpendLine[] {
   return classified
-    .filter((c) => c.status === 'tagged' && c.category === category)
+    .filter((c) => counts(c) && c.category === category)
     .map((c) => {
       const p = c.posting
+      const group = `konto-${p.account || 'ukendt'}`
       return {
         line: {
           id: `kp-${p.id}`,
-          group: `konto-${p.account || 'ukendt'}`,
+          group,
           date: p.date,
           dateTo: null,
           amount: p.amount,
@@ -279,9 +372,9 @@ export function ledgerSpendLines(classified: readonly ClassifiedPosting[], categ
           description: [p.supplier, p.text].filter(Boolean).join(' — ') || `Postering ${p.account}`,
         },
         group: {
-          id: `konto-${p.account || 'ukendt'}`,
+          id: group,
           label: p.accountName || `Konto ${p.account}`,
-          sector: c.source === 'manual' ? 'Manuelt tagget postering' : `Regel: ${c.rule?.name ?? ''}`,
+          sector: `${hitLabel(c.hit)}${c.status === 'review' ? ' · til review' : ''}`,
           factorId: c.factorId ?? '',
         },
       }

@@ -35,6 +35,18 @@ npm run build
 
 Use `npm run test:watch` to rerun tests while you work.
 
+### Update the ESG owner's rules
+
+Spend-based tagging uses the ESG owner's `kontoregler.csv` and `posteringsregler.csv` (ADR 0009).
+They aren't committed; the app reads `src/data/scope3Rules.ts`, which is generated from them.
+When the ESG owner sends new versions, regenerate it on a branch and review the diff:
+
+```bash
+node scripts/scope3-rules-seed.ts <path>/kontoregler.csv <path>/posteringsregler.csv
+```
+
+The script stops on a column or value it doesn't recognise, rather than guessing.
+
 ### Run it inside Power Platform
 
 This needs a Power Platform environment with code apps enabled. The
@@ -99,7 +111,8 @@ You need the System Administrator role in the environment.
 | `src/calc/` | Emission calculations as plain TypeScript, with tests next to them. No UI, no Power Platform dependencies. |
 | `src/data/factors.ts` | The emission factor table, copied value for value from the original app. |
 | `src/scope1/`, `src/scope2/`, `src/scope3/`, `src/factors/` | The Scope 1, 2 and 3 screens, and the factor table. |
-| `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules. |
+| `src/ledger/` | The Kontoplan screen: importing ledger postings (CSV or XLSX, see ADR 0004) and tagging them by rules, and the postings section the Scope 3 category pages show. |
+| `src/data/scope3Rules.ts`, `src/data/spendFactorRegister.ts` | The ESG owner's account and posting rules, and the register mapping each FaktorID to a factor and EXIOBASE sector (ADR 0009). The rules file is generated; see *Update the ESG owner's rules*. |
 | `src/group/` | The Koncern screen: the group's companies, ownership shares and summary (ADR 0006). |
 | `src/dataverse/`, `scripts/dataverse-*.ts` | The Dataverse tables and security roles as code, and the scripts that set them up in an environment (ADR 0007). |
 | `src/storage/` | Saving and loading the group and each company's account (`GroupStore`): Dataverse inside Power Apps (`dataverse/`), a browser draft locally, and backup export and import. |

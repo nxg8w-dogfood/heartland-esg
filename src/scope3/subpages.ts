@@ -5,6 +5,7 @@
 export const scope3Subpages = [
   { id: 'oversigt', label: 'Oversigt' },
   { id: 'kategori-1', label: '1 — Indkøb', nr: 1 },
+  { id: 'kategori-2', label: '2 — Kapitalgoder', nr: 2 },
   { id: 'kategori-3', label: '3 — Brændstof og energi', nr: 3 },
   { id: 'kategori-4', label: '4 — Transport', nr: 4 },
   { id: 'kategori-5', label: '5 — Affald', nr: 5 },

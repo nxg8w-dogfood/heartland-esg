@@ -190,6 +190,20 @@ export const category5Groups: readonly ActivityGroup[] = [
   { id: 'k5-andet-gen', label: 'Andet (elektronik/metal/glas) – genanvendelse', unit: 'tonne', factorId: 'f-w-andet-gen' },
 ]
 
+/** Spend lines from ledger postings that count in a category (categories 2 and 6, ADR 0009). */
+export type LedgerSpend = { lines: SpendResult[]; total: number; pendingCount: number }
+
+export function ledgerSpend(
+  ledger: readonly { line: SpendLine; group: SpendGroup }[],
+  factors: readonly Factor[],
+  rates: readonly CurrencyRate[],
+  deflation: Deflation,
+  period: Period,
+): LedgerSpend {
+  const lines = ledger.map(({ line, group }) => spendLine(line, group, factors, rates, deflation, period)).filter((r) => r.share > 0)
+  return { lines, total: lines.reduce((t, r) => t + r.tCO2e, 0), pendingCount: lines.filter((r) => r.pending).length }
+}
+
 export type Category6 = ActivitySummary & { travelT: number; hotelT: number }
 
 export function category6(lines: readonly ActivityLine[], factors: readonly Factor[], period: Period): Category6 {

@@ -1,6 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Logotype } from './brand/Logotype'
-import { ledgerLinesFor } from './calc/accountTotals'
 import type { ActivityLine } from './calc/activity'
 import type { Survey } from './calc/commuting'
 import type { Investment } from './calc/investments'
@@ -194,7 +193,6 @@ function Workspace({ page, scope3Subpage, companyName, initial, onChange }: { pa
   const [cat1Lines, setCat1Lines] = useState<SpendLine[]>(initial.cat1Lines)
   const [deflation, setDeflation] = useState<Deflation>(initial.deflation)
   const [ledger, setLedger] = useState<LedgerState>(initial.ledger)
-  const ledgerLines = useMemo(() => ledgerLinesFor(ledger), [ledger])
 
   const factors = useMemo(() => applyFactorSources(baseFactors, factorSources, factorPublications), [factorSources])
 
@@ -256,7 +254,8 @@ function Workspace({ page, scope3Subpage, companyName, initial, onChange }: { pa
           setCat1Lines={setCat1Lines}
           deflation={deflation}
           setDeflation={setDeflation}
-          ledgerLines={ledgerLines}
+          ledger={ledger}
+          setLedger={setLedger}
         />
       )}
       {page === 'kontoplan' && <LedgerPage ledger={ledger} setLedger={setLedger} factors={factors} />}
