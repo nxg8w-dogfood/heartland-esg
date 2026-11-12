@@ -26,6 +26,7 @@ export interface Hlesg_lokationsBase {
   hlesg_lokationid: string;
   hlesg_markedsinstrument: Hlesg_lokationshlesg_markedsinstrument;
   hlesg_navn: string;
+  hlesg_varmeandel?: number;
   "hlesg_Virksomhedid@odata.bind": string;
   importsequencenumber?: number;
   overriddencreatedon?: string;

@@ -107,6 +107,43 @@ describe('district heating', () => {
   })
 })
 
+describe('heating share of a building', () => {
+  it("counts only our share of the building's metered heat", () => {
+    const r = scope2Line(line({ kind: 'heating', kWh: 50_000 }), location({ heatingSharePercent: 60 }), factors, year2025)
+    expect(r.buildingShare).toBe(0.6)
+    expect(r.kWh).toBe(30_000)
+    expect(r.locationT).toBeCloseTo(8.7645 * 0.6, 10)
+    expect(r.marketT).toBe(r.locationT)
+  })
+
+  it('combines with the period share', () => {
+    const r = scope2Line(
+      line({ kind: 'heating', kWh: 50_000, date: '2025-07-01', dateTo: '2026-06-30' }),
+      location({ heatingSharePercent: 50 }),
+      factors,
+      year2025,
+    )
+    expect(r.kWh).toBeCloseTo(50_000 * r.share * 0.5, 6)
+  })
+
+  it('does not touch electricity', () => {
+    const r = scope2Line(line(), location({ heatingSharePercent: 60 }), factors, year2025)
+    expect(r.buildingShare).toBe(1)
+    expect(r.locationT).toBeCloseTo(5.892, 10)
+  })
+
+  it.each([undefined, null, -5, 120, Number.NaN])('counts all of it for a share of %s', (pct) => {
+    const r = scope2Line(line({ kind: 'heating', kWh: 50_000 }), location({ heatingSharePercent: pct }), factors, year2025)
+    expect(r.kWh).toBe(50_000)
+  })
+
+  it('carries through to the location and summary totals', () => {
+    const s = scope2Summary([location({ heatingSharePercent: 25 })], [line({ kind: 'heating', kWh: 40_000 })], factors, year2025)
+    expect(s.heatingKWh).toBe(10_000)
+    expect(s.locations[0].heatingKWh).toBe(10_000)
+  })
+})
+
 describe('invalid input', () => {
   it('flags a kWh that is not a number instead of counting it silently', () => {
     const r = scope2Line(line({ kWh: Number.NaN }), location(), factors, year2025)

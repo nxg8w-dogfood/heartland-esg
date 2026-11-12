@@ -8,7 +8,7 @@ import { diff, emptyRows, fromRows, GROUP_KEY, migrateLegacyPeriods, naturalKey,
 // A company using every part of the app, in the order fromRows returns things.
 function richAccount(): AccountData {
   const base = emptyAccount()
-  const loc = { id: 'loc-1', name: 'Hovedkontor', gridFamily: 'el-dk1-location', municipalityCode: '751', marketInstrument: 'residualmiks' as const, heatingFactorId: 'f-s2-fjernvarme-beis' as const }
+  const loc = { id: 'loc-1', name: 'Hovedkontor', gridFamily: 'el-dk1-location', municipalityCode: '751', marketInstrument: 'residualmiks' as const, heatingFactorId: 'f-s2-fjernvarme-beis' as const, heatingSharePercent: 62.5 }
   return {
     ...base,
     periods: [

@@ -143,6 +143,7 @@ export const tables: readonly Table[] = [
         options: [option(1, 'PPA', 'ppa'), option(2, 'Oprindelsesgaranti', 'oprindelsesgaranti'), option(3, 'Residualmiks', 'residualmiks')],
       },
       text('fjernvarmefaktor', 'Fjernvarmefaktor (faktor-id)', 100),
+      { kind: 'decimal', name: n('varmeandel'), label: 'Andel af bygningens varme (%)', precision: 2, min: 0, max: 100, description: 'Vores andel af fjernvarmen, når bygningens måler også dækker lejere uden egen måler; normalt vores m² af bygningens m². Tom betyder 100 %.' },
     ],
   },
   {

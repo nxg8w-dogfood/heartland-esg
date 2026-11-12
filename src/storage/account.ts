@@ -109,8 +109,11 @@ export function parseAccount(input: unknown): LoadResult {
 
   const periods = parsePeriods(input, notes, () => dropped++) ?? base.periods
   // An unknown municipality code is dropped, so the location falls back to the national grid mix.
+  // A heating share outside 0-100 % is dropped too, so the location counts all of its heat.
   const locations = Array.isArray(input.locations)
-    ? list<Location>(input.locations).map((l) => (l.municipalityCode && !municipality(l.municipalityCode) ? { ...l, municipalityCode: null, gridFamily: NATIONAL_GRID } : l))
+    ? list<Location>(input.locations)
+        .map((l) => (l.municipalityCode && !municipality(l.municipalityCode) ? { ...l, municipalityCode: null, gridFamily: NATIONAL_GRID } : l))
+        .map((l) => (l.heatingSharePercent != null && !(typeof l.heatingSharePercent === 'number' && l.heatingSharePercent >= 0 && l.heatingSharePercent <= 100) ? { ...l, heatingSharePercent: null } : l))
     : base.locations
   const locationIds = new Set(locations.map((l) => l.id))
   const ledgerIn = isObject(input.ledger) ? input.ledger : {}
