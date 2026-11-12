@@ -1,7 +1,8 @@
 # 16. Spend is converted at the exchange rate on the transaction date
 
-- **Status:** Proposed (to be accepted by @mortengad in PR #61)
+- **Status:** Accepted
 - **Date:** 2026-11-12
+- **Decided by:** @mortengad (tech lead), 2026-11-12
 - **Asked for by:** the ESG owner, 2026-11-12: amounts are converted at the rate on the day of
   the transaction.
 
