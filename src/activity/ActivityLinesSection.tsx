@@ -116,13 +116,27 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
         </p>
       )}
 
-      <AddLineForm groups={groups} factors={factors} defaultDate={defaultDate} onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])} />
+      <AddLineForm groups={groups} factors={factors} defaultDate={defaultDate} onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])} startOpen={lines.length === 0} />
     </section>
   )
 }
 
-function AddLineForm({ groups, factors, defaultDate, onAdd }: { groups: readonly ActivityGroup[]; factors: readonly Factor[]; defaultDate: string; onAdd: (line: Omit<ActivityLine, 'id'>) => void }) {
+function AddLineForm({
+  groups,
+  factors,
+  defaultDate,
+  onAdd,
+  startOpen,
+}: {
+  groups: readonly ActivityGroup[]
+  factors: readonly Factor[]
+  defaultDate: string
+  onAdd: (line: Omit<ActivityLine, 'id'>) => void
+  /** Open from the start when there are no lines yet; otherwise the form waits behind its toggle. */
+  startOpen: boolean
+}) {
   const id = useId()
+  const [open, setOpen] = useState(startOpen)
   const [groupId, setGroupId] = useState(groups[0].id)
   const [factorId, setFactorId] = useState('')
   const [date, setDate] = useState(defaultDate)
@@ -163,51 +177,59 @@ function AddLineForm({ groups, factors, defaultDate, onAdd }: { groups: readonly
 
   const describedBy = (field: string) => (errors[field] ? `${id}-${field}-err` : undefined)
   return (
-    <form className="add-line" onSubmit={submit} noValidate aria-label="Tilføj linje">
-      <div className="field">
-        <label htmlFor={`${id}-group`}>Type</label>
-        <select id={`${id}-group`} value={groupId} onChange={(e) => { setGroupId(e.target.value); setFactorId('') }}>
-          {groups.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
-        </select>
+    <>
+      <div className="section-head">
+        <h3 id={`${id}-heading`}>Tilføj linje</h3>
+        <button type="button" className="link" aria-expanded={open} aria-controls={`${id}-form`} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Skjul formular' : 'Vis formular'}<span className="visually-hidden">: Tilføj linje</span>
+        </button>
       </div>
-      {options.length > 1 && (
+      <form id={`${id}-form`} className="add-line" onSubmit={submit} noValidate aria-labelledby={`${id}-heading`} hidden={!open}>
         <div className="field">
-          <label htmlFor={`${id}-factor-choice`}>Emissionsfaktor</label>
-          <select id={`${id}-factor-choice`} value={chosen} onChange={(e) => setFactorId(e.target.value)}>
-            {options.map((f) => (
-              <option key={f.id} value={f.id}>
-                {factorLabel(f)}{f.value === null ? ' (afventer)' : ''}
-              </option>
-            ))}
+          <label htmlFor={`${id}-group`}>Type</label>
+          <select id={`${id}-group`} value={groupId} onChange={(e) => { setGroupId(e.target.value); setFactorId('') }}>
+            {groups.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
           </select>
         </div>
-      )}
-      <div className="field">
-        <label htmlFor={`${id}-date`}>Dato</label>
-        <input id={`${id}-date`} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={!!errors.date} aria-describedby={describedBy('date')} />
-        {errors.date && <p id={`${id}-date-err`} className="error">{errors.date}</p>}
-      </div>
-      <div className="field">
-        <label htmlFor={`${id}-dateTo`}>Til dato <span className="optional">(valgfri)</span></label>
-        <input id={`${id}-dateTo`} type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-      </div>
-      <div className="field">
-        <label htmlFor={`${id}-quantity`}>Mængde ({group.unit})</label>
-        <input id={`${id}-quantity`} inputMode="decimal" autoComplete="off" value={quantity} onChange={(e) => setQuantity(e.target.value)} aria-invalid={!!errors.quantity} aria-describedby={describedBy('quantity')} />
-        {errors.quantity && <p id={`${id}-quantity-err`} className="error">{errors.quantity}</p>}
-      </div>
-      <div className="field">
-        <label htmlFor={`${id}-custom`}>Egen faktor <span className="optional">(kg CO2e/{group.unit}, valgfri)</span></label>
-        <input id={`${id}-custom`} inputMode="decimal" autoComplete="off" value={customFactor} onChange={(e) => setCustomFactor(e.target.value)} aria-invalid={!!errors.customFactor} aria-describedby={describedBy('customFactor')} />
-        {errors.customFactor && <p id={`${id}-customFactor-err`} className="error">{errors.customFactor}</p>}
-      </div>
-      <div className="field wide">
-        <label htmlFor={`${id}-desc`}>Beskrivelse <span className="optional">(valgfri)</span></label>
-        <input id={`${id}-desc`} value={description} onChange={(e) => setDescription(e.target.value)} />
-      </div>
-      <div className="actions">
-        <button type="submit">Tilføj linje</button>
-      </div>
-    </form>
+        {options.length > 1 && (
+          <div className="field">
+            <label htmlFor={`${id}-factor-choice`}>Emissionsfaktor</label>
+            <select id={`${id}-factor-choice`} value={chosen} onChange={(e) => setFactorId(e.target.value)}>
+              {options.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {factorLabel(f)}{f.value === null ? ' (afventer)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="field">
+          <label htmlFor={`${id}-date`}>Dato</label>
+          <input id={`${id}-date`} type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-invalid={!!errors.date} aria-describedby={describedBy('date')} />
+          {errors.date && <p id={`${id}-date-err`} className="error">{errors.date}</p>}
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-dateTo`}>Til dato <span className="optional">(valgfri)</span></label>
+          <input id={`${id}-dateTo`} type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-quantity`}>Mængde ({group.unit})</label>
+          <input id={`${id}-quantity`} inputMode="decimal" autoComplete="off" value={quantity} onChange={(e) => setQuantity(e.target.value)} aria-invalid={!!errors.quantity} aria-describedby={describedBy('quantity')} />
+          {errors.quantity && <p id={`${id}-quantity-err`} className="error">{errors.quantity}</p>}
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-custom`}>Egen faktor <span className="optional">(kg CO2e/{group.unit}, valgfri)</span></label>
+          <input id={`${id}-custom`} inputMode="decimal" autoComplete="off" value={customFactor} onChange={(e) => setCustomFactor(e.target.value)} aria-invalid={!!errors.customFactor} aria-describedby={describedBy('customFactor')} />
+          {errors.customFactor && <p id={`${id}-customFactor-err`} className="error">{errors.customFactor}</p>}
+        </div>
+        <div className="field wide">
+          <label htmlFor={`${id}-desc`}>Beskrivelse <span className="optional">(valgfri)</span></label>
+          <input id={`${id}-desc`} value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+        <div className="actions">
+          <button type="submit">Tilføj linje</button>
+        </div>
+      </form>
+    </>
   )
 }

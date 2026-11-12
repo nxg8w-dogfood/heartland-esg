@@ -18,15 +18,6 @@ type Props = {
   defaultDate: string
 }
 
-const examples = (year: string): Omit<SpendLine, 'id'>[] => [
-  { group: 'k1-raadgivning', date: `${year}-03-31`, amount: 425_000, currency: 'DKK', description: 'Revision og juridisk rådgivning' },
-  { group: 'k1-software', date: `${year}-01-15`, amount: 38_000, currency: 'EUR', description: 'Årslicenser' },
-  { group: 'k1-events', date: `${year}-06-12`, amount: 96_000, currency: 'DKK', description: 'Strategiseminar' },
-  { group: 'k1-kantine', date: `${year}-01-01`, dateTo: `${year}-12-31`, amount: 310_000, currency: 'DKK', description: 'Kantineordning' },
-  { group: 'k1-rengoering', date: `${year}-01-01`, dateTo: `${year}-12-31`, amount: 185_000, currency: 'DKK', description: 'Rengøringsaftale' },
-  { group: 'k1-bank', date: `${year}-12-31`, amount: 42_000, currency: 'DKK', description: 'Bankgebyrer' },
-]
-
 export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }: Props) {
   const id = useId()
   const hiddenCount = lines.length - cat1.lines.filter((r) => r.source === 'manual').length
@@ -52,16 +43,7 @@ export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }
         </p>
       )}
 
-      {cat1.lines.length === 0 ? (
-        <div className="empty">
-          <p>Ingen indkøb i perioden.</p>
-          {lines.length === 0 && (
-            <button type="button" className="secondary" onClick={() => setLines(examples(defaultDate.slice(0, 4)).map((l) => ({ ...l, id: newId() })))}>
-              Indsæt eksempellinjer
-            </button>
-          )}
-        </div>
-      ) : (
+      {cat1.lines.length > 0 && (
         <div className="table-wrap">
           <table>
             <caption className="visually-hidden">Indkøb i perioden</caption>
