@@ -194,4 +194,8 @@ describe('Scope3Page', () => {
   it('offers no example data on any category page', () => {
     for (const p of scope3Subpages) expect(render(scope3Href(p.id))).not.toMatch(/Indsæt eksempel/)
   })
+
+  it('has no intro text on the freight page', () => {
+    expect(render('#/scope3/kategori-4')).not.toContain('Transport af indkøbte varer')
+  })
 })
