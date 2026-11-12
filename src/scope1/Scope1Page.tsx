@@ -65,8 +65,6 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
         )}
       </section>
 
-      <AddLineForm defaultDate={period.start} vehicles={vehicles} onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])} />
-
       <section aria-labelledby="lines-heading">
         <h2 id="lines-heading">Aktivitetsdata</h2>
         {summary.lines.length === 0 ? (
@@ -160,6 +158,8 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
         )}
       </section>
 
+      <AddLineForm defaultDate={period.start} vehicles={vehicles} onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])} startOpen={lines.length === 0} />
+
       <footer className="muted">
         Faktorer: BEIS GHG Conversion Factors 2025. “Andet kølemiddel” kræver en verificeret
         GWP-værdi — angiv den under Faktorer, eller som egen faktor på linjen.
@@ -172,8 +172,20 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
 const CAR = 'car'
 type Source = Scope1GroupId | typeof CAR
 
-function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; vehicles: readonly Vehicle[]; onAdd: (line: Omit<Scope1Line, 'id'>) => void }) {
+function AddLineForm({
+  defaultDate,
+  vehicles,
+  onAdd,
+  startOpen,
+}: {
+  defaultDate: string
+  vehicles: readonly Vehicle[]
+  onAdd: (line: Omit<Scope1Line, 'id'>) => void
+  /** Open from the start when there are no lines yet; otherwise the form waits behind its toggle. */
+  startOpen: boolean
+}) {
   const id = useId()
+  const [open, setOpen] = useState(startOpen)
   // A registered car is the usual source of a fuel line, so it comes first when there are any.
   const [source, setSource] = useState<Source>(() => (vehicles.length > 0 ? CAR : 's1-diesel'))
   const [vehicleId, setVehicleId] = useState('')
@@ -228,8 +240,13 @@ function AddLineForm({ defaultDate, vehicles, onAdd }: { defaultDate: string; ve
 
   return (
     <section aria-labelledby={`${id}-heading`}>
-      <h2 id={`${id}-heading`}>Tilføj linje</h2>
-      <form className="add-line" onSubmit={submit} noValidate>
+      <div className="section-head">
+        <h2 id={`${id}-heading`}>Tilføj linje</h2>
+        <button type="button" className="link" aria-expanded={open} aria-controls={`${id}-form`} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Skjul formular' : 'Vis formular'}<span className="visually-hidden">: Tilføj linje</span>
+        </button>
+      </div>
+      <form id={`${id}-form`} className="add-line" onSubmit={submit} noValidate hidden={!open}>
         <div className="field">
           <label htmlFor={`${id}-group`}>Kilde</label>
           <select id={`${id}-group`} value={source} onChange={(e) => setSource(e.target.value as Source)}>

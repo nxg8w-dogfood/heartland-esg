@@ -146,6 +146,7 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
           locations={locations}
           defaultDate={period.start}
           onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])}
+          startOpen={lines.length === 0}
         />
       )}
 
@@ -395,8 +396,20 @@ function Consolidated({ summary, totals }: { summary: LocationSummary[]; totals:
   )
 }
 
-function AddLineForm({ locations, defaultDate, onAdd }: { locations: Location[]; defaultDate: string; onAdd: (line: Omit<Scope2Line, 'id'>) => void }) {
+function AddLineForm({
+  locations,
+  defaultDate,
+  onAdd,
+  startOpen,
+}: {
+  locations: Location[]
+  defaultDate: string
+  onAdd: (line: Omit<Scope2Line, 'id'>) => void
+  /** Open from the start when there are no lines yet; otherwise the form waits behind its toggle. */
+  startOpen: boolean
+}) {
   const id = useId()
+  const [open, setOpen] = useState(startOpen)
   const [locationId, setLocationId] = useState(locations[0].id)
   const [kind, setKind] = useState<Scope2Kind>('electricity')
   const [date, setDate] = useState(defaultDate)
@@ -428,8 +441,13 @@ function AddLineForm({ locations, defaultDate, onAdd }: { locations: Location[];
   const describedBy = (field: string) => (errors[field] ? `${id}-${field}-err` : undefined)
   return (
     <section aria-labelledby={`${id}-heading`}>
-      <h2 id={`${id}-heading`}>Tilføj linje</h2>
-      <form className="add-line" onSubmit={submit} noValidate>
+      <div className="section-head">
+        <h2 id={`${id}-heading`}>Tilføj linje</h2>
+        <button type="button" className="link" aria-expanded={open} aria-controls={`${id}-form`} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Skjul formular' : 'Vis formular'}<span className="visually-hidden">: Tilføj linje</span>
+        </button>
+      </div>
+      <form id={`${id}-form`} className="add-line" onSubmit={submit} noValidate hidden={!open}>
         <div className="field">
           <label htmlFor={`${id}-loc`}>Lokation</label>
           <select id={`${id}-loc`} value={selected} onChange={(e) => setLocationId(e.target.value)}>

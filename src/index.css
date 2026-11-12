@@ -401,6 +401,11 @@ fieldset {
   align-items: start;
 }
 
+/* The grid above would otherwise override the hidden attribute when the form is collapsed. */
+.add-line[hidden] {
+  display: none;
+}
+
 .field {
   display: flex;
   flex-direction: column;

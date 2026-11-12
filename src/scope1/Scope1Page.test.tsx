@@ -52,3 +52,25 @@ describe('Adding a Scope 1 line for a company car', () => {
     expect(html).toContain('AB 12 345 – Peugeot 208')
   })
 })
+
+describe('The Tilføj linje form', () => {
+  const line: Scope1Line = { id: 'l1', group: 's1-diesel', date: '2025-03-01', quantity: 100 }
+
+  it('sits under the lines', () => {
+    const html = render([car], [line])
+    expect(html.indexOf('>Tilføj linje</h2>')).toBeGreaterThan(html.indexOf('</table>'))
+  })
+
+  it('is collapsed behind its toggle once there are lines', () => {
+    const html = render([car], [line])
+    expect(html).toMatch(/<button type="button" class="link" aria-expanded="false" aria-controls="[^"]*-form">Vis formular/)
+    expect(html).toMatch(/<form id="[^"]*-form" class="add-line" noValidate="" hidden="">/)
+  })
+
+  it('is open from the start when there are no lines yet', () => {
+    const html = render([car])
+    expect(html).toContain('aria-expanded="true"')
+    expect(html).toContain('Skjul formular')
+    expect(html).not.toMatch(/<form[^>]*hidden/)
+  })
+})
