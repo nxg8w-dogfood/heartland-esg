@@ -4,7 +4,7 @@
 import type { Factor } from '../data/factors'
 import { activitySummary, type ActivityGroup, type ActivityLine, type ActivitySummary } from './activity'
 import type { Period } from './dates'
-import type { CurrencyRate } from '../data/currencies'
+import type { RateSource } from './exchangeRates'
 import { spendLine, type Deflation, type SpendGroup, type SpendLine, type SpendResult } from './spend'
 import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
@@ -196,7 +196,7 @@ export type LedgerSpend = { lines: SpendResult[]; total: number; pendingCount: n
 export function ledgerSpend(
   ledger: readonly { line: SpendLine; group: SpendGroup }[],
   factors: readonly Factor[],
-  rates: readonly CurrencyRate[],
+  rates: RateSource,
   deflation: Deflation,
   period: Period,
 ): LedgerSpend {
@@ -246,7 +246,7 @@ export function category4(
   lines: readonly ActivityLine[],
   spendLines: readonly SpendLine[],
   factors: readonly Factor[],
-  rates: readonly CurrencyRate[],
+  rates: RateSource,
   deflation: Deflation,
   period: Period,
 ): Category4 {
@@ -311,7 +311,7 @@ export type Category1 = {
 export function category1(
   lines: readonly SpendLine[],
   factors: readonly Factor[],
-  rates: readonly CurrencyRate[],
+  rates: RateSource,
   deflation: Deflation,
   period: Period,
   /** Postings tagged to category 1 (see ledgerSpendLines) */

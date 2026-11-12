@@ -2,6 +2,7 @@
 // one place, plus what's still missing. The group summary is built from this.
 
 import { currencyRates } from '../data/currencies'
+import { appRates } from './exchangeRates'
 import type { Factor } from '../data/factors'
 import type { Relevance } from '../scope3/relevance'
 import type { AccountData } from '../storage/account'
@@ -42,12 +43,12 @@ export function accountTotals(account: AccountData, factors: readonly Factor[], 
   const scope1Litres = resolveScope1Lines(account.scope1Lines, account.vehicles)
   const s2 = scope2Summary(account.locations, account.scope2Lines, factors, period)
   const classified = classifyLedger(account.ledger)
-  const fromLedger = (nr: number) => ledgerSpend(ledgerSpendLines(classified, nr), factors, currencyRates, account.deflation, period)
-  const cat1 = category1(account.cat1Lines, factors, currencyRates, account.deflation, period, ledgerSpendLines(classified, 1))
+  const fromLedger = (nr: number) => ledgerSpend(ledgerSpendLines(classified, nr), factors, appRates, account.deflation, period)
+  const cat1 = category1(account.cat1Lines, factors, appRates, account.deflation, period, ledgerSpendLines(classified, 1))
   const cat2 = fromLedger(2)
   const cat6Spend = fromLedger(6)
   const cat3 = category3(scope1Litres, s2, factors, period, account.category3Params)
-  const cat4 = category4(account.cat4Lines, account.cat4SpendLines, factors, currencyRates, account.deflation, period)
+  const cat4 = category4(account.cat4Lines, account.cat4SpendLines, factors, appRates, account.deflation, period)
   const cat5 = category5(account.cat5Lines, factors, period)
   const cat6 = category6(account.cat6Lines, factors, period)
   const cat7 = category7(account.surveys, factors, period)

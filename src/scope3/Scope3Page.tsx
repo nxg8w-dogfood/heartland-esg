@@ -10,6 +10,7 @@ import { classifyLedger, ledgerSpendLines } from '../calc/ledger'
 import type { LedgerState } from '../ledger/state'
 import { LedgerPostingsSection } from '../ledger/LedgerPostingsSection'
 import { currencyRates } from '../data/currencies'
+import { appRates } from '../calc/exchangeRates'
 import type { Scope1Line } from '../calc/scope1'
 import { includedScope3Total } from '../calc/accountTotals'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
@@ -82,15 +83,15 @@ export function Scope3Page(props: Props) {
   const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledger, setLedger } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
-  const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, currencyRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
+  const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, appRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
   const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
   const cat15 = useMemo(() => category15(investments, currencyRates, period), [investments, period])
   const classified = useMemo(() => classifyLedger(ledger), [ledger])
-  const cat1 = useMemo(() => category1(cat1Lines, factors, currencyRates, deflation, period, ledgerSpendLines(classified, 1)), [cat1Lines, factors, deflation, period, classified])
-  const cat2 = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 2), factors, currencyRates, deflation, period), [classified, factors, deflation, period])
-  const cat6Spend = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 6), factors, currencyRates, deflation, period), [classified, factors, deflation, period])
+  const cat1 = useMemo(() => category1(cat1Lines, factors, appRates, deflation, period, ledgerSpendLines(classified, 1)), [cat1Lines, factors, deflation, period, classified])
+  const cat2 = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 2), factors, appRates, deflation, period), [classified, factors, deflation, period])
+  const cat6Spend = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 6), factors, appRates, deflation, period), [classified, factors, deflation, period])
   const postings = (nr: number, results: Parameters<typeof LedgerPostingsSection>[0]['results']) => (
     <LedgerPostingsSection category={nr} classified={classified} results={results} period={period} factors={factors} setLedger={setLedger} />
   )
