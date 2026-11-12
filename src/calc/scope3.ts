@@ -190,7 +190,7 @@ export const category5Groups: readonly ActivityGroup[] = [
   { id: 'k5-andet-gen', label: 'Andet (elektronik/metal/glas) – genanvendelse', unit: 'tonne', factorId: 'f-w-andet-gen' },
 ]
 
-/** Spend lines from ledger postings that count in a category (categories 2 and 6, ADR 0009). */
+/** Spend lines from ledger postings that count in a category (categories 2 and 6, ADR 0015). */
 export type LedgerSpend = { lines: SpendResult[]; total: number; pendingCount: number }
 
 export function ledgerSpend(

@@ -67,7 +67,7 @@ type Props = {
   setCat1Lines: Dispatch<SetStateAction<SpendLine[]>>
   deflation: Deflation
   setDeflation: Dispatch<SetStateAction<Deflation>>
-  /** The postings imported on the Kontoplan screen, tagged by the rules (ADR 0009) */
+  /** The postings imported on the Kontoplan screen, tagged by the rules (ADR 0015) */
   ledger: LedgerState
   setLedger: Dispatch<SetStateAction<LedgerState>>
 }

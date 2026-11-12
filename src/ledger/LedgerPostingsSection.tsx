@@ -1,4 +1,4 @@
-// The ledger postings a Scope 3 category gets from the rules (docs/adr/0009): each posting's
+// The ledger postings a Scope 3 category gets from the rules (docs/adr/0015): each posting's
 // status, the rule that hit it and its emissions, with a way to add an exception for one.
 
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'

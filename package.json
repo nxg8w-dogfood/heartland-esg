@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "dataverse:apply": "node scripts/dataverse-apply.ts",
-    "dataverse:company": "node scripts/dataverse-company.ts"
+    "dataverse:company": "node scripts/dataverse-company.ts",
+    "motorapi:env-vars": "node scripts/motorapi-env-vars.ts"
   },
   "dependencies": {
     "@fontsource-variable/newsreader": "^5.3.0",

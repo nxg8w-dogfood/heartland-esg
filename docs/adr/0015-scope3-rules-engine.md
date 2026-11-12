@@ -1,4 +1,4 @@
-# 9. Spend-based tagging with the ESG owner's account and posting rules
+# 15. Spend-based tagging with the ESG owner's account and posting rules
 
 - **Status:** Proposed (to be accepted by @mortengad in the pull request; the open points in
   the PR need the ESG owner's confirmation)

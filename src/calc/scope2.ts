@@ -7,6 +7,7 @@
 // District heating uses one factor and counts the same in both totals.
 
 import type { Factor } from '../data/factors'
+import { municipality, type PriceArea } from '../data/municipalities'
 import { periodShare, type Period } from './dates'
 import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
@@ -31,10 +32,17 @@ const BEIS_HEATING = 'f-s2-fjernvarme-beis'
 export type Location = {
   id: string
   name: string
-  /** Factor family for the location-based grid mix */
+  /** Statistics Denmark municipality code; decides the price area (DK1/DK2) and so the grid mix */
+  municipalityCode?: string | null
+  /** Factor family for the location-based grid mix. Follows the municipality when one is set. */
   gridFamily: string
   marketInstrument: MarketInstrumentId
   heatingFactorId: HeatingFactorId
+  /**
+   * Our share of the building's district heating, in percent, when the heat meter also covers
+   * tenants without their own meter (usually our m² over the building's m²). Missing means 100.
+   */
+  heatingSharePercent?: number | null
 }
 
 export type Scope2Kind = 'electricity' | 'heating'
@@ -54,7 +62,9 @@ export type Scope2Line = {
 export type Scope2LineResult = {
   line: Scope2Line
   share: number
-  /** kWh inside the period */
+  /** Fraction of the metered kWh that is ours: the location's heating share; 1 for electricity */
+  buildingShare: number
+  /** kWh inside the period, after the building share */
   kWh: number
   /** For a line split across factor years: the factor covering most of it */
   locationFactor: Factor | null
@@ -114,6 +124,34 @@ const finiteOrZero = (n: number | null | undefined): number =>
 const isInvalid = (n: number | null | undefined): boolean =>
   typeof n === 'number' && !Number.isFinite(n)
 
+/** The location's heating share as a fraction. Missing or out of range (not 0-100) counts as all of it. */
+export function heatingShare(location: Location): number {
+  const pct = location.heatingSharePercent
+  return typeof pct === 'number' && Number.isFinite(pct) && pct >= 0 && pct <= 100 ? pct / 100 : 1
+}
+
+export const NATIONAL_GRID = 'el-dk-location'
+const areaGrid: Record<PriceArea, string> = { DK1: 'el-dk1-location', DK2: 'el-dk2-location' }
+
+/** The grid-mix family for a municipality: its price area's, or the national average without one. */
+export function gridFamilyFor(municipalityCode: string | null | undefined): string {
+  const m = municipality(municipalityCode)
+  return m ? areaGrid[m.priceArea] : NATIONAL_GRID
+}
+
+/**
+ * The grid-mix family to use for a line. A price area's series is used only for dates it covers;
+ * outside them (e.g. years with no DK1/DK2 figure) the national average is used, never another
+ * year's area value.
+ */
+export function gridFamilyOn(location: Location, factors: readonly Factor[], date: string): string {
+  const family = location.municipalityCode !== undefined ? gridFamilyFor(location.municipalityCode) : location.gridFamily
+  if (family === NATIONAL_GRID) return family
+  const day = date.slice(0, 10)
+  const covered = factors.some((f) => f.family === family && (!f.validFrom || f.validFrom <= day) && (!f.validTo || f.validTo >= day))
+  return covered ? family : NATIONAL_GRID
+}
+
 export function marketFactorId(location: Location): string {
   return marketInstruments.find((m) => m.id === location.marketInstrument)!.factorId
 }
@@ -125,7 +163,8 @@ export function scope2Line(
   period: Period,
 ): Scope2LineResult {
   const share = periodShare(line, period)
-  const kWh = finiteOrZero(line.kWh) * share
+  const buildingShare = line.kind === 'heating' ? heatingShare(location) : 1
+  const kWh = finiteOrZero(line.kWh) * share * buildingShare
 
   let locationFactor: Factor | null
   let marketFactor: Factor | null
@@ -136,14 +175,15 @@ export function scope2Line(
   if (line.kind === 'electricity') {
     // The original looks the grid mix up by family; there's no factor with the family's id.
     // A bill spanning two years is split so each part uses its own year's grid mix.
-    const gridId = factors.find((f) => f.family === location.gridFamily)?.id
+    const gridFamily = gridFamilyOn(location, factors, line.date)
+    const gridId = factors.find((f) => f.family === gridFamily)?.id
     const quantity = finiteOrZero(line.kWh)
     locationParts = factorSegments(factors, gridId, line, period).map(({ factor, share: part }) => {
       const partKWh = quantity * part
       return { factor, kWh: partKWh, t: (partKWh * finiteOrZero(line.customFactor ?? factor?.value)) / 1000 }
     })
     const largest = [...locationParts].sort((a, b) => b.kWh - a.kWh)[0]
-    locationFactor = largest?.factor ?? findFamilyMember(factors, location.gridFamily, line.date)
+    locationFactor = largest?.factor ?? findFamilyMember(factors, gridFamily, line.date)
     const partsT = locationParts.reduce((t, p) => t + p.t, 0)
     locationValue =
       line.customFactor ??
@@ -181,6 +221,7 @@ export function scope2Line(
   return {
     line,
     share,
+    buildingShare,
     kWh,
     locationFactor,
     locationValue,

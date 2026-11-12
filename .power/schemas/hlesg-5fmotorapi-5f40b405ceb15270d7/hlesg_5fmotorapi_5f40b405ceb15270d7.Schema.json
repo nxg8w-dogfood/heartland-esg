@@ -1,0 +1,375 @@
+{
+  "name": "shared_hlesg-5fmotorapi-5f40b405ceb15270d7",
+  "id": "/providers/Microsoft.PowerApps/apis/shared_hlesg-5fmotorapi-5f40b405ceb15270d7",
+  "type": "Microsoft.PowerApps/apis",
+  "properties": {
+    "xrmConnectorId": "f392a9d7-90ee-4171-9677-ac82938df79f",
+    "displayName": "MotorAPI",
+    "iconUri": "https://defaulticons.powerapps.com/defaulticons/api-dedicated.png",
+    "iconBrandColor": "#007ee5",
+    "contact": {},
+    "license": {},
+    "apiEnvironment": "Shared",
+    "isCustomApi": true,
+    "blobUrisAreProxied": false,
+    "connectionParameters": {
+      "token": {
+        "type": "oauthSetting",
+        "oAuthSettings": {
+          "identityProvider": "aad",
+          "clientId": "@environmentVariables(\"hlesg_MotorApiConnectorClientId\")",
+          "scopes": [],
+          "redirectMode": "GlobalPerConnector",
+          "redirectUrl": "https://global.consent.azure-apim.net/redirect/hlesg-5fmotorapi-5f40b405ceb15270d7",
+          "properties": {
+            "IsFirstParty": "False",
+            "AzureActiveDirectoryResourceId": "api://6dbfafe6-b369-425d-813e-109e5149fc79/heartland-esg-motorapi-dev",
+            "IsOnbehalfofLoginSupported": true
+          },
+          "customParameters": {
+            "LoginUri": {
+              "value": "https://login.microsoftonline.com"
+            },
+            "TenantId": {
+              "value": "@environmentVariables(\"hlesg_TenantId\")"
+            },
+            "ResourceUri": {
+              "value": "@environmentVariables(\"hlesg_MotorApiAudience\")"
+            },
+            "EnableOnbehalfOfLogin": {
+              "value": false
+            }
+          },
+          "clientSecret": "@environmentVariables(\"hlesg_MotorApiConnectorClientSecret\")"
+        },
+        "uiDefinition": {
+          "displayName": "OAuth Connection",
+          "description": "OAuth Connection",
+          "constraints": {
+            "required": "true",
+            "hidden": "false"
+          }
+        }
+      },
+      "token:TenantId": {
+        "type": "string",
+        "metadata": {
+          "sourceType": "AzureActiveDirectoryTenant"
+        },
+        "uiDefinition": {
+          "constraints": {
+            "required": "false",
+            "hidden": "true"
+          }
+        }
+      }
+    },
+    "swagger": {
+      "swagger": "2.0",
+      "info": {
+        "title": "Heartland MotorAPI",
+        "description": "Looks up Danish licence plates in Motorregistret through MotorAPI (motorapi.dk), via Heartland's API Management proxy, which adds the API key from Key Vault (docs/adr/0009).",
+        "version": "1.0"
+      },
+      "host": "39b8484429cee97e804e95f54c709f.53.environment.api.powerplatform.com",
+      "basePath": "/connectors/runtime/invoke/scalegroups/europe002/shards/15/apis/hlesg-5fmotorapi-5f40b405ceb15270d7/connections/",
+      "schemes": [
+        "https",
+        "http"
+      ],
+      "produces": [
+        "application/json"
+      ],
+      "paths": {
+        "/{connectionId}/vehicles/{plate}": {
+          "get": {
+            "operationId": "GetVehicle",
+            "summary": "Get a vehicle by licence plate",
+            "parameters": [
+              {
+                "name": "connectionId",
+                "in": "path",
+                "required": true,
+                "x-ms-visibility": "internal",
+                "type": "string"
+              },
+              {
+                "name": "plate",
+                "in": "path",
+                "required": true,
+                "type": "string",
+                "x-ms-summary": "Nummerplade",
+                "description": "Licence plate, upper case without spaces, e.g. AB12345"
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "The vehicle",
+                "schema": {
+                  "$ref": "#/definitions/Vehicle"
+                }
+              },
+              "403": {
+                "description": "MotorAPI's daily limit is reached"
+              },
+              "404": {
+                "description": "No vehicle with that plate"
+              }
+            }
+          }
+        },
+        "/{connectionId}/vehicles/{plate}/environment": {
+          "get": {
+            "operationId": "GetVehicleEnvironment",
+            "summary": "Get a vehicle's fuel economy and emissions",
+            "parameters": [
+              {
+                "name": "connectionId",
+                "in": "path",
+                "required": true,
+                "x-ms-visibility": "internal",
+                "type": "string"
+              },
+              {
+                "name": "plate",
+                "in": "path",
+                "required": true,
+                "type": "string",
+                "x-ms-summary": "Nummerplade",
+                "description": "Licence plate, upper case without spaces, e.g. AB12345"
+              }
+            ],
+            "responses": {
+              "200": {
+                "description": "The vehicle's environment data",
+                "schema": {
+                  "$ref": "#/definitions/Environment"
+                }
+              },
+              "403": {
+                "description": "MotorAPI's daily limit is reached"
+              },
+              "404": {
+                "description": "No vehicle with that plate"
+              }
+            }
+          }
+        }
+      },
+      "definitions": {
+        "Vehicle": {
+          "type": "object",
+          "properties": {
+            "registration_number": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "make": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "variant": {
+              "type": "string"
+            },
+            "first_registration": {
+              "type": "string",
+              "description": "Date with UTC offset, e.g. 2019-08-26+02:00"
+            },
+            "fuel_type": {
+              "type": "string",
+              "description": "e.g. Benzin, Diesel, El"
+            },
+            "is_hybrid": {
+              "type": "boolean"
+            },
+            "hybrid_type": {
+              "type": "string",
+              "description": "mild, plugin or null"
+            }
+          }
+        },
+        "Environment": {
+          "type": "object",
+          "properties": {
+            "fuel_type": {
+              "type": "string"
+            },
+            "fuel_usage": {
+              "type": "number",
+              "description": "km/l"
+            },
+            "total_usage": {
+              "type": "number",
+              "description": "km/l"
+            },
+            "co2_emission": {
+              "type": "number",
+              "description": "g/km"
+            },
+            "measurement_norm": {
+              "type": "string",
+              "description": "WLTP or NEDC"
+            }
+          }
+        }
+      },
+      "securityDefinitions": {
+        "oauth2-auth": {
+          "type": "oauth2",
+          "flow": "accessCode",
+          "tokenUrl": "https://login.windows.net/common/oauth2/authorize",
+          "scopes": {},
+          "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/authorize"
+        }
+      },
+      "security": [
+        {
+          "oauth2-auth": []
+        }
+      ]
+    },
+    "runtimeUrls": [
+      "https://39b8484429cee97e804e95f54c709f.53.environment.api.powerplatform.com/connectors/runtime/invoke/scalegroups/europe002/shards/15/apis/hlesg-5fmotorapi-5f40b405ceb15270d7/connections/"
+    ],
+    "primaryRuntimeUrl": "https://39b8484429cee97e804e95f54c709f.53.environment.api.powerplatform.com/connectors/runtime/invoke/scalegroups/europe002/shards/15/apis/hlesg-5fmotorapi-5f40b405ceb15270d7/connections/",
+    "doNotUseApiHubNetRuntimeUrl": "https://39b84844-29ce-e97e-804e-95f54c709f53.15.custom.europe002.azure-apihub.net/apim/hlesg-5fmotorapi-5f40b405ceb15270d7",
+    "metadata": {
+      "source": "powerapps-user-defined",
+      "brandColor": "#007ee5",
+      "contact": {},
+      "license": {},
+      "publisherUrl": null,
+      "serviceUrl": null,
+      "documentationUrl": null,
+      "environmentName": "39b84844-29ce-e97e-804e-95f54c709f53",
+      "xrmConnectorId": "f392a9d7-90ee-4171-9677-ac82938df79f",
+      "almMode": "Solution",
+      "parameters": {
+        "host": "@environmentVariables(\"hlesg_MotorApiHost\")",
+        "backendService": {
+          "serviceUrl": "https://@environmentVariables(\"hlesg_MotorApiHost\")/motorapi"
+        },
+        "connectionParameters": {
+          "token": {
+            "type": "oAuthSetting",
+            "oAuthSettings": {
+              "identityProvider": "aad",
+              "scopes": [],
+              "redirectMode": "GlobalPerConnector",
+              "customParameters": {
+                "LoginUri": {
+                  "value": "https://login.microsoftonline.com"
+                },
+                "TenantId": {
+                  "value": "@environmentVariables(\"hlesg_TenantId\")"
+                },
+                "ResourceUri": {
+                  "value": "@environmentVariables(\"hlesg_MotorApiAudience\")"
+                },
+                "EnableOnbehalfOfLogin": {
+                  "value": false
+                }
+              },
+              "clientId": "@environmentVariables(\"hlesg_MotorApiConnectorClientId\")",
+              "clientSecret": "@environmentVariables(\"hlesg_MotorApiConnectorClientSecret\")"
+            },
+            "uiDefinition": {
+              "displayName": "OAuth Connection",
+              "description": "OAuth Connection",
+              "constraints": {
+                "required": "true",
+                "hidden": "false"
+              }
+            }
+          }
+        }
+      },
+      "useNewApimVersion": "True",
+      "createdBy": "{\"id\":\"2c20b793-99f0-41b4-80df-1fb5d13d9f5d\",\"displayName\":\"powerappsadmin #\",\"type\":\"User\",\"userType\":\"NotSpecified\",\"tenantId\":\"6dbfafe6-b369-425d-813e-109e5149fc79\",\"userPrincipalName\":\"powerappsadmin@heartcorp.onmicrosoft.com\"}",
+      "modifiedBy": "{\"id\":\"2c20b793-99f0-41b4-80df-1fb5d13d9f5d\",\"displayName\":\"powerappsadmin #\",\"type\":\"User\",\"userType\":\"NotSpecified\",\"tenantId\":\"6dbfafe6-b369-425d-813e-109e5149fc79\",\"userPrincipalName\":\"powerappsadmin@heartcorp.onmicrosoft.com\"}",
+      "allowSharing": false,
+      "rateLimit": 0
+    },
+    "capabilities": [],
+    "description": "Looks up Danish licence plates in Motorregistret through MotorAPI (motorapi.dk), via Heartland's API Management proxy, which adds the API key from Key Vault (docs/adr/0009).",
+    "apiDefinitions": {
+      "originalSwaggerUrl": "https://pafeblobprodam.blob.core.windows.net/20261110t000000zffb766300f614e7ca95e51887683f4a3/hlesg-5fmotorapi-5f40b405ceb15270d7.json?skoid=1b4c3c9e-b403-4e0f-9933-e50756645683&sktid=975f013f-7f24-47e8-a7d3-abc4752bf346&skt=2026-11-10T12%3A00%3A00Z&ske=2026-11-17T12%3A00%3A00Z&sks=b&skv=2025-07-05&sv=2025-07-05&spr=https&st=2026-11-10T12%3A27%3A47Z&se=2026-11-10T13%3A28%3A47Z&sr=c&sp=rl&scid=cf1afdb6-7717-4b0c-bbbc-921b859b9655&sig=8nsF%2FG2sQrghvuCoy0AyM150%2BA37wv8jQcstTIu4mDg%3D",
+      "modifiedSwaggerUrl": "https://eur002002neuext.blob.core.windows.net/api-swagger-files/europe-002/hlesg-5fmotorapi-5f40b405ceb15270d7.json?skoid=a18ce847-5bbf-4179-b6dd-1aa1cb321bd0&sktid=33e01921-4d64-4f8c-a055-5bdaffd5e33d&skt=2026-11-09T22%3A26%3A46Z&ske=2026-11-10T22%3A26%3A46Z&sks=b&skv=2025-01-05&sv=2025-01-05&spr=https&se=2026-11-10T13%3A23%3A35Z&sr=b&sp=r&sig=dCz6alpHHKTO4mQvnVchBWCpylaVvSle77P6pKfkNYg%3D"
+    },
+    "policyTemplateInstances": [],
+    "backendService": {
+      "serviceUrl": "https://@environmentVariables(\"hlesg_MotorApiHost\")/motorapi"
+    },
+    "createdBy": {
+      "id": "2c20b793-99f0-41b4-80df-1fb5d13d9f5d",
+      "displayName": "powerappsadmin #",
+      "type": "User",
+      "userType": "NotSpecified",
+      "tenantId": "6dbfafe6-b369-425d-813e-109e5149fc79",
+      "userPrincipalName": "powerappsadmin@heartcorp.onmicrosoft.com"
+    },
+    "modifiedBy": {
+      "id": "2c20b793-99f0-41b4-80df-1fb5d13d9f5d",
+      "displayName": "powerappsadmin #",
+      "type": "User",
+      "userType": "NotSpecified",
+      "tenantId": "6dbfafe6-b369-425d-813e-109e5149fc79",
+      "userPrincipalName": "powerappsadmin@heartcorp.onmicrosoft.com"
+    },
+    "createdTime": "2026-11-10T11:54:36.4867225Z",
+    "changedTime": "2026-11-10T12:23:15.1662214Z",
+    "environment": {
+      "id": "/providers/Microsoft.PowerApps/environments/39b84844-29ce-e97e-804e-95f54c709f53",
+      "name": "39b84844-29ce-e97e-804e-95f54c709f53"
+    },
+    "tier": "Standard",
+    "publisher": "powerappsadmin #",
+    "almMode": "Solution",
+    "parameters": {
+      "host": "@environmentVariables(\"hlesg_MotorApiHost\")",
+      "backendService": {
+        "serviceUrl": "https://@environmentVariables(\"hlesg_MotorApiHost\")/motorapi"
+      },
+      "connectionParameters": {
+        "token": {
+          "type": "oAuthSetting",
+          "oAuthSettings": {
+            "identityProvider": "aad",
+            "scopes": [],
+            "redirectMode": "GlobalPerConnector",
+            "customParameters": {
+              "LoginUri": {
+                "value": "https://login.microsoftonline.com"
+              },
+              "TenantId": {
+                "value": "@environmentVariables(\"hlesg_TenantId\")"
+              },
+              "ResourceUri": {
+                "value": "@environmentVariables(\"hlesg_MotorApiAudience\")"
+              },
+              "EnableOnbehalfOfLogin": {
+                "value": false
+              }
+            },
+            "clientId": "@environmentVariables(\"hlesg_MotorApiConnectorClientId\")",
+            "clientSecret": "@environmentVariables(\"hlesg_MotorApiConnectorClientSecret\")"
+          },
+          "uiDefinition": {
+            "displayName": "OAuth Connection",
+            "description": "OAuth Connection",
+            "constraints": {
+              "required": "true",
+              "hidden": "false"
+            }
+          }
+        }
+      }
+    },
+    "rateLimit": 0,
+    "apiVersion": "None"
+  }
+}

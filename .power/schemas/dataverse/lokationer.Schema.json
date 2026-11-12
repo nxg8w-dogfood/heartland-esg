@@ -98,6 +98,21 @@
           "x-ms-schema-name": "hlesg_Fjernvarmefaktor",
           "maxLength": 100
         },
+        "hlesg_kommunekode": {
+          "type": "string",
+          "title": "Kommunekode",
+          "x-ms-dataverse-attribute": "hlesg_kommunekode",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "hlesg_Kommunekode",
+          "maxLength": 3
+        },
+        "hlesg_varmeandel": {
+          "type": "string",
+          "title": "Andel af bygningens varme (%)",
+          "x-ms-dataverse-attribute": "hlesg_varmeandel",
+          "x-ms-dataverse-type": "DecimalType",
+          "x-ms-schema-name": "hlesg_Varmeandel"
+        },
         "hlesg_lokationid": {
           "type": "string",
           "title": "Lokation",

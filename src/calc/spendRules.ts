@@ -1,4 +1,4 @@
-// The ESG owner's rules for spend-based tagging (docs/adr/0009): account rules give each ledger
+// The ESG owner's rules for spend-based tagging (docs/adr/0015): account rules give each ledger
 // account its default Scope 3 category and EXIOBASE factor, and posting rules refine single
 // postings by a search word. Both are kept in code as seed data (src/data/scope3Rules.ts), so a
 // change to an approved rule goes through a pull request. Users add their own exceptions on top

@@ -1,7 +1,7 @@
 // Importing ledger postings from a chart of accounts, and tagging them to a Scope 3 category
 // and emission factor by rules or by hand. Ported from the original app.
 //
-// The ESG owner's account and posting rules decide most postings (spendRules.ts, ADR 0009). The
+// The ESG owner's account and posting rules decide most postings (spendRules.ts, ADR 0015). The
 // user's own rules are exceptions on top: applied in order, the first match wins, and a rule
 // matches when all its conditions with a value match. A manual action on a posting overrides
 // everything. Postings that count become spend lines in their category.
@@ -271,7 +271,7 @@ export function ruleMatches(rule: Rule, posting: Posting): boolean {
 const statusFor: Record<PostingHandling, PostingStatus> = { exclude: 'excluded', include: 'included', review: 'review', pending: 'pending' }
 
 /**
- * Decides one posting, in this order (docs/adr/0009):
+ * Decides one posting, in this order (docs/adr/0015):
  * 1. a manual action on the posting;
  * 2. the user's own exceptions (`rules`), in order, the first that matches;
  * 3. the account rule for the posting's account. An account that isn't in the rules is untagged,

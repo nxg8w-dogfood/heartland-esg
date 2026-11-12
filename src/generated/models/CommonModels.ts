@@ -6,6 +6,7 @@
 export interface IGetOptions {
   partitionId?: string;
   select?: string[];
+  expand?: string[];
 };
 
 export interface IGetAllOptions {
@@ -24,4 +25,6 @@ export interface IGetAllOptions {
    */
   count?: boolean;
   skipToken?: string;
+  expand?: string[];
+  apply?: string;
 }

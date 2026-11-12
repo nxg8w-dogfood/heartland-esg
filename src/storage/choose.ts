@@ -34,7 +34,7 @@ async function host(): Promise<'standalone' | { environmentId: string }> {
 
 const VIEW_KEY = 'heartland-esg:view'
 
-/** The user's view (open company, summary period), per browser. Failing storage is ignored. */
+/** The user's view (open company and period), per browser. Failing storage is ignored. */
 export const localViewPrefs: ViewPrefs = {
   read() {
     try {

@@ -471,7 +471,7 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
   )
 }
 
-/** The ESG owner's account and posting rules and the factor register, read-only (ADR 0009). */
+/** The ESG owner's account and posting rules and the factor register, read-only (ADR 0015). */
 function BuiltinRulesSection({ classified }: { classified: ClassifiedPosting[] }) {
   const hits = (id: string) => classified.filter((c) => c.hit.kind === 'posting' && c.hit.rule.id === id).length
   const category = (n: number | null) => (n === null ? '' : `3.${n}`)

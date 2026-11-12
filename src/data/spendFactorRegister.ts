@@ -1,5 +1,5 @@
 // The FaktorIDs the ESG owner's rules use (src/data/scope3Rules.ts), each mapped to a factor in
-// the factor table and to the EXIOBASE sector it stands for (docs/adr/0009). Values live in the
+// the factor table and to the EXIOBASE sector it stands for (docs/adr/0015). Values live in the
 // factor table only; a factor without a value leaves its postings pending.
 
 export type RegisteredFactor = {

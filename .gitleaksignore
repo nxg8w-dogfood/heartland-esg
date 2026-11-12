@@ -5,4 +5,5 @@
 # The built-in Azure role id for "Key Vault Secrets User" (4633458b-17de-408a-b874-0445c86b69e6).
 # It's public and the same in every tenant:
 # https://learn.microsoft.com/azure/role-based-access-control/built-in-roles/security#key-vault-secrets-user
+# In infra/motorapi/main.bicep the line has had a gitleaks:allow comment since the next commit.
 132df258c7db3a4a9c9f499c13792d84fbcbadeb:infra/motorapi/main.bicep:generic-api-key:55

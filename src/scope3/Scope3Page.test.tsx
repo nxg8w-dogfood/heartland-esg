@@ -16,7 +16,7 @@ function render(hash: string, edit: (a: ReturnType<typeof emptyAccount>) => void
   return renderToStaticMarkup(
     <Scope3Page
       subpage={scope3SubpageFromHash(hash)}
-      period={a.period}
+      period={a.periods[0]}
       factors={factors}
       scope1Lines={a.scope1Lines}
       locations={a.locations}

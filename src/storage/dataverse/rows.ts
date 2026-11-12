@@ -2,7 +2,7 @@
 // mapping is tested without an environment; the store (store.ts) only moves rows.
 //
 // Every row has a key the app can compute from its own data:
-//  - records the app gives an id (companies, lines, locations, surveys, investments, imports,
+//  - records the app gives an id (companies, cars, lines, locations, surveys, investments, imports,
 //    postings, rules) use that id, which is also the row's Dataverse primary key;
 //  - the rest use a natural key, e.g. company + year for an ownership share, and the store maps
 //    it to the Dataverse id it was given.
@@ -15,10 +15,12 @@ import type { FactorSourceChoice } from '../../calc/factorSources'
 import type { Investment } from '../../calc/investments'
 import type { ImportBatch, ManualAction, Posting, Rule } from '../../calc/ledger'
 import type { Scope1Line } from '../../calc/scope1'
+import type { TestNorm, Vehicle, VehicleFuel } from '../../calc/vehicles'
 import type { Location, Scope2Line } from '../../calc/scope2'
 import { defaultPriceIndexSeries, noDeflation, type SpendLine } from '../../calc/spend'
 import { factors } from '../../data/factors'
 import { lineLists, tables, type Choice, type Column } from '../../dataverse/schema'
+import { defaultPeriod, periodError, periodFromRange, periodOrLatest, sortPeriods, type FiscalPeriod } from '../../calc/periods'
 import { defaultRelevance } from '../../scope3/relevance'
 import { ACCOUNT_VERSION, emptyAccount, type AccountData } from '../account'
 import { GROUP_VERSION, type Company, type GroupData } from '../group'
@@ -55,7 +57,7 @@ export function emptyRows(): Rows {
   return Object.fromEntries([c('koncern'), ...tables.filter((t) => t.name !== c('koncern')).map((t) => t.name)].map((t) => [t, new Map<string, Row>()]))
 }
 
-/** The group as rows. The active company and summary period are the user's view, not stored. */
+/** The group as rows. The active company and period are the user's view, not stored. */
 export function toRows(group: GroupData): Rows {
   const rows = emptyRows()
   const put = (table: string, key: string, row: Row) => rows[table].set(key, row)
@@ -68,20 +70,22 @@ export function toRows(group: GroupData): Rows {
     for (const o of company.ownership) put(c('ejerandel'), naturalKey(id, o.fromYear), { [COMPANY]: id, [c('fraaar')]: o.fromYear, [c('procent')]: o.pct })
     put(c('klimaregnskab'), id, {
       [COMPANY]: id,
-      [c('periodestart')]: a.period.start,
-      [c('periodeslut')]: a.period.end,
       [c('nettab')]: a.category3Params.gridLoss,
       [c('wttratio')]: a.category3Params.wttRatio,
       [c('indeksreguler')]: a.deflation.active,
       [c('indeksserie')]: a.deflation.seriesId,
     })
+    for (const p of a.periods) put(c('regnskabsperiode'), p.id, { [COMPANY]: id, [c('navn')]: p.name, [c('startdato')]: p.start, [c('slutdato')]: p.end })
     for (const l of a.locations) {
       put(c('lokation'), l.id, {
         [COMPANY]: id, [c('navn')]: l.name, [c('elnetfamilie')]: l.gridFamily,
         [c('markedsinstrument')]: toChoice(c('lokation'), c('markedsinstrument'), l.marketInstrument),
         [c('fjernvarmefaktor')]: l.heatingFactorId,
+        [c('kommunekode')]: l.municipalityCode ?? null,
+        [c('varmeandel')]: n(l.heatingSharePercent),
       })
     }
+    for (const v of a.vehicles) put(c('koeretoej'), v.id, vehicleRow(id, v))
     for (const list of lineLists) {
       for (const line of a[list.appValue as keyof AccountData] as unknown as AnyLine[]) put(c('linje'), line.id, lineRow(id, list.value, line))
     }
@@ -131,6 +135,29 @@ function lineRow(company: string, list: number, l: AnyLine): Row {
     [c('beskrivelse')]: s(l.description),
     [c('lokationid')]: scope2 ? scope2.locationId : null,
     [c('energiart')]: scope2 ? toChoice(c('linje'), c('energiart'), scope2.kind) : null,
+    [c('koeretoejid')]: 'vehicleId' in l ? s(l.vehicleId) : null,
+    [c('km')]: 'distanceKm' in l ? n(l.distanceKm) : null,
+  }
+}
+
+function vehicleRow(company: string, v: Vehicle): Row {
+  return {
+    [COMPANY]: company,
+    [c('nummerplade')]: v.plate,
+    [c('maerke')]: s(v.make),
+    [c('model')]: s(v.model),
+    [c('variant')]: s(v.variant),
+    [c('braendstof')]: toChoice(c('koeretoej'), c('braendstof'), v.fuel),
+    [c('foersteregistrering')]: s(v.firstRegistration),
+    [c('kmperliter')]: n(v.kmPerLitre),
+    [c('pluginhybrid')]: v.pluginHybrid === true,
+    [c('braendstofandel')]: n(v.fuelSharePercent),
+    [c('elforbrug')]: n(v.whPerKm),
+    [c('co2gperkm')]: n(v.co2GPerKm),
+    [c('maalenorm')]: toChoice(c('koeretoej'), c('maalenorm'), v.testNorm),
+    [c('raekkevidde')]: n(v.rangeKm),
+    [c('datakilde')]: toChoice(c('koeretoej'), c('datakilde'), v.source),
+    [c('hentet')]: s(v.fetchedAt),
   }
 }
 
@@ -180,9 +207,9 @@ function ruleRow(company: string, r: Rule, order: number): Row {
 /**
  * Rows back into a group. Records are ordered deterministically (Dataverse returns them in no
  * particular order): companies by name, lines and surveys by date, rules by their order column.
- * The view (active company, summary period) is passed in, since it isn't stored.
+ * The view (active company and period) is passed in, since it isn't stored.
  */
-export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPeriod?: GroupData['summaryPeriod'] } = {}): GroupData {
+export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePeriodId?: string } = {}): GroupData {
   const all = (table: string) => [...(rows[table] ?? new Map<string, Row>()).entries()]
   const of = (table: string, company: string) => all(table).filter(([, r]) => r[COMPANY] === company)
   const byDate = <T extends { date: string; id: string }>(xs: T[]) => xs.sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id))
@@ -204,7 +231,7 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPe
       const account: AccountData = {
         ...base,
         version: ACCOUNT_VERSION,
-        period: settings ? { start: str(settings[c('periodestart')]), end: str(settings[c('periodeslut')]) } : base.period,
+        periods: sortPeriods(of(c('regnskabsperiode'), id).map(([key, r]): FiscalPeriod => ({ id: key, name: str(r[c('navn')]), start: str(r[c('startdato')]), end: str(r[c('slutdato')]) }))),
         category3Params: {
           gridLoss: num(settings?.[c('nettab')] ?? null) ?? defaultCategory3Params(factors).gridLoss,
           wttRatio: num(settings?.[c('wttratio')] ?? null) ?? defaultCategory3Params(factors).wttRatio,
@@ -213,7 +240,10 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPe
           id: key, name: str(r[c('navn')]), gridFamily: str(r[c('elnetfamilie')]),
           marketInstrument: fromChoice(c('lokation'), c('markedsinstrument'), r[c('markedsinstrument')]) as Location['marketInstrument'],
           heatingFactorId: str(r[c('fjernvarmefaktor')]) as Location['heatingFactorId'],
+          ...(optStr(r[c('kommunekode')]) ? { municipalityCode: str(r[c('kommunekode')]) } : {}),
+          ...(num(r[c('varmeandel')]) !== null ? { heatingSharePercent: num(r[c('varmeandel')]) } : {}),
         })).sort((x, y) => x.name.localeCompare(y.name) || x.id.localeCompare(y.id)),
+        vehicles: of(c('koeretoej'), id).map(([key, r]) => vehicleFrom(key, r)).sort((x, y) => x.plate.localeCompare(y.plate) || x.id.localeCompare(y.id)),
         scope1Lines: lines('scope1Lines') as Scope1Line[],
         scope2Lines: lines('scope2Lines') as Scope2Line[],
         cat1Lines: lines('cat1Lines') as SpendLine[],
@@ -261,14 +291,43 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; summaryPe
     })
     .sort((x, y) => x.name.localeCompare(y.name, 'da') || x.id.localeCompare(y.id))
 
-  const first = companies[0]?.id ?? ''
+  const active = companies.find((x) => x.id === view.activeCompanyId) ?? companies[0]
   return {
     version: GROUP_VERSION,
     name: str(rows[c('koncern')]?.get(GROUP_KEY)?.[c('navn')] ?? null) || 'Koncernen',
     companies,
-    activeCompanyId: companies.some((x) => x.id === view.activeCompanyId) ? view.activeCompanyId! : first,
-    summaryPeriod: view.summaryPeriod ?? companies[0]?.account.period ?? emptyAccount().period,
+    activeCompanyId: active?.id ?? '',
+    activePeriodId: (active && periodOrLatest(active.account.periods, view.activePeriodId)?.id) ?? '',
   }
+}
+
+/**
+ * Before periods (ADR 0013), a company's one date range was two columns on hlesg_klimaregnskab.
+ * A company without period rows gets one, keyed by the company's own id, from those columns if
+ * they hold a valid range, otherwise last year. The old columns are taken out of the rows, so
+ * the app neither shows nor writes them again.
+ *
+ * Returns the keys of the periods made here. They aren't in Dataverse yet: the store creates one
+ * only when it's changed, so a user who may not write periods can still save their lines.
+ */
+export function migrateLegacyPeriods(rows: Rows, today = new Date()): Set<string> {
+  const made = new Set<string>()
+  const periods = rows[c('regnskabsperiode')]
+  const withPeriods = new Set([...periods.values()].map((r) => r[COMPANY]))
+  for (const companyId of rows[c('virksomhed')].keys()) {
+    if (withPeriods.has(companyId)) continue
+    const settings = rows[c('klimaregnskab')].get(companyId)
+    const start = str(settings?.[c('periodestart')] ?? null)
+    const end = str(settings?.[c('periodeslut')] ?? null)
+    const p = start && end && periodError({ name: 'x', start, end }, []) === null ? periodFromRange(companyId, { start, end }) : defaultPeriod(companyId, today)
+    periods.set(p.id, { [COMPANY]: companyId, [c('navn')]: p.name, [c('startdato')]: p.start, [c('slutdato')]: p.end })
+    made.add(p.id)
+  }
+  for (const r of rows[c('klimaregnskab')].values()) {
+    delete r[c('periodestart')]
+    delete r[c('periodeslut')]
+  }
+  return made
 }
 
 const fromListValue = (v: Value) => lineLists.find((l) => l.value === v)?.appValue ?? null
@@ -282,7 +341,34 @@ function lineFrom(list: string, id: string, r: Row): AnyLine {
   if (list === 'cat1Lines' || list === 'cat4SpendLines') {
     return { ...common, ...factorId, group: str(r[c('gruppe')]), amount: num(r[c('beloeb')]), currency: str(r[c('valuta')]) } as SpendLine
   }
+  if (list === 'scope1Lines') {
+    const car = optStr(r[c('koeretoejid')]) ? { vehicleId: str(r[c('koeretoejid')]) } : {}
+    const km = num(r[c('km')]) !== null ? { distanceKm: num(r[c('km')]) } : {}
+    return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]), ...car, ...km } as Scope1Line
+  }
   return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]) } as ActivityLine
+}
+
+function vehicleFrom(id: string, r: Row): Vehicle {
+  const optional = (key: keyof Vehicle, v: Value) => (v === null || v === '' ? {} : { [key]: v })
+  const t = (col: string) => fromChoice(c('koeretoej'), c(col), r[c(col)])
+  return {
+    id,
+    plate: str(r[c('nummerplade')]),
+    make: str(r[c('maerke')]),
+    model: str(r[c('model')]),
+    ...optional('variant', r[c('variant')]),
+    // A car with an unknown fuel is dropped when the account is validated, not guessed.
+    fuel: t('braendstof') as VehicleFuel,
+    ...optional('firstRegistration', r[c('foersteregistrering')]),
+    kmPerLitre: num(r[c('kmperliter')]),
+    ...(r[c('pluginhybrid')] === true ? { pluginHybrid: true, fuelSharePercent: num(r[c('braendstofandel')]), whPerKm: num(r[c('elforbrug')]) } : {}),
+    ...optional('co2GPerKm', r[c('co2gperkm')]),
+    ...optional('testNorm', t('maalenorm') as TestNorm | null),
+    ...optional('rangeKm', r[c('raekkevidde')]),
+    source: t('datakilde') === 'lookup' ? 'lookup' : 'manual',
+    ...optional('fetchedAt', r[c('hentet')]),
+  } as Vehicle
 }
 
 function investmentFrom(id: string, r: Row): Investment {
@@ -311,7 +397,7 @@ export type Operation =
   | { kind: 'delete'; table: string; key: string }
 
 /** Parents before children when creating, children before parents when deleting. */
-const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('lokation'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
+const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('regnskabsperiode'), c('lokation'), c('koeretoej'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
 
 const same = (x: Value | undefined, y: Value | undefined) => (x ?? null) === (y ?? null)
 

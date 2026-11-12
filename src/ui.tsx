@@ -1,5 +1,5 @@
-import { useId, useState } from 'react'
-import type { Period } from './calc/dates'
+import { useId, useRef, useState } from 'react'
+import { formatRange, sortPeriods, type FiscalPeriod } from './calc/periods'
 import { parseNumber } from './calc/parseNumber'
 import { formatFactor, formatNumber } from './format'
 
@@ -29,29 +29,54 @@ export function Tile({
   )
 }
 
-export function PeriodPicker({ period, onChange }: { period: Period; onChange: (p: Period) => void }) {
+/**
+ * The header's company and period: shown as plain text, changed in a modal dialog so the
+ * selects don't crowd the header. Both selects apply at once; the dialog only hosts them.
+ */
+export function ContextSwitcher({ companies, companyId, onCompany, periods, periodId, onPeriod }: {
+  companies: readonly { id: string; name: string }[]
+  companyId: string
+  onCompany: (id: string) => void
+  periods: readonly FiscalPeriod[]
+  periodId: string
+  onPeriod: (id: string) => void
+}) {
   const id = useId()
-  const invalid = period.end < period.start
+  const dialog = useRef<HTMLDialogElement>(null)
+  const company = companies.find((c) => c.id === companyId)
+  const period = periods.find((p) => p.id === periodId)
   return (
-    <fieldset className="period">
-      <legend>Periode</legend>
-      <label htmlFor={`${id}-start`}>Fra</label>
-      <input id={`${id}-start`} type="date" value={period.start} onChange={(e) => onChange({ ...period, start: e.target.value })} />
-      <label htmlFor={`${id}-end`}>Til</label>
-      <input
-        id={`${id}-end`}
-        type="date"
-        value={period.end}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? `${id}-err` : undefined}
-        onChange={(e) => onChange({ ...period, end: e.target.value })}
-      />
-      {invalid && (
-        <p id={`${id}-err`} className="error">
-          Slutdatoen ligger før startdatoen, så ingen linjer tæller med.
-        </p>
-      )}
-    </fieldset>
+    <div className="context-switcher">
+      <p className="context-summary">
+        <span className="context-company">{company?.name || 'Uden navn'}</span>
+        {period && <span className="context-period">{period.name} <span className="context-range">({formatRange(period)})</span></span>}
+      </p>
+      <button type="button" className="link" aria-haspopup="dialog" onClick={() => dialog.current?.showModal()}>
+        Skift<span className="visually-hidden"> virksomhed eller periode</span>
+      </button>
+      <dialog ref={dialog} className="context-dialog" aria-labelledby={`${id}-title`} onClick={(e) => { if (e.target === dialog.current) dialog.current.close() }}>
+        <form method="dialog">
+          <h2 id={`${id}-title`}>Virksomhed og periode</h2>
+          <div className="field">
+            <label htmlFor={`${id}-company`}>Virksomhed</label>
+            <select id={`${id}-company`} value={companyId} onChange={(e) => onCompany(e.target.value)}>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name || 'Uden navn'}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor={`${id}-period`}>Periode</label>
+            <select id={`${id}-period`} value={periodId} onChange={(e) => onPeriod(e.target.value)}>
+              {[...sortPeriods(periods)].reverse().map((p) => (
+                <option key={p.id} value={p.id}>{p.name} ({formatRange(p)})</option>
+              ))}
+            </select>
+          </div>
+          <div className="dialog-actions">
+            <button type="submit">Luk</button>
+          </div>
+        </form>
+      </dialog>
+    </div>
   )
 }
 

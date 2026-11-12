@@ -2,8 +2,11 @@ import { useId, useMemo, useState, type Dispatch, type FormEvent, type SetStateA
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { parseNumber } from '../calc/parseNumber'
+import { municipalities, municipality, priceAreaLabel } from '../data/municipalities'
 import {
+  gridFamilyFor,
   heatingFactors,
+  heatingShare,
   marketInstruments,
   scope2Summary,
   type HeatingFactorId,
@@ -18,8 +21,10 @@ import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 import { defaultLocation } from './defaultLocation'
+import { UtilityImport } from './UtilityImport'
 
 const kindLabel: Record<Scope2Kind, string> = { electricity: 'El', heating: 'Fjernvarme' }
+const regions = [...new Set(municipalities.map((m) => m.region))]
 
 type Props = {
   period: Period
@@ -141,8 +146,11 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
           locations={locations}
           defaultDate={period.start}
           onAdd={(line) => setLines((ls) => [...ls, { ...line, id: newId() }])}
+          startOpen={lines.length === 0}
         />
       )}
+
+      {locations.length > 0 && <UtilityImport period={period} locations={locations} setLocations={setLocations} lines={lines} setLines={setLines} />}
 
       {summary.locations.length > 1 && <Consolidated summary={summary.locations} totals={summary} />}
     </>
@@ -163,12 +171,63 @@ function LocationCard({
   const id = useId()
   const { location } = summary
   const rows = [...summary.electricity, ...summary.heating].sort((a, b) => a.line.date.localeCompare(b.line.date))
+  // Collapsed to its sums once it has lines; a new, empty location opens so it can be named.
+  const [open, setOpen] = useState(() => rows.length === 0)
+  const place = municipality(location.municipalityCode)
   return (
-    <article className="card" aria-labelledby={`${id}-name-label`}>
+    <article className="card" aria-labelledby={`${id}-title`}>
+      <div className="location-head">
+        <h3 id={`${id}-title`}>
+          {location.name || 'Unavngivet lokation'}
+          <span className="sub">{place ? `${place.name} · ${place.priceArea}` : 'Kommune ikke valgt'}</span>
+        </h3>
+        <button type="button" className="link" aria-expanded={open} aria-controls={`${id}-details`} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Skjul detaljer' : 'Vis detaljer'}<span className="visually-hidden">: {location.name}</span>
+        </button>
+      </div>
+      <dl className="location-sums">
+        <div><dt>El</dt><dd>{formatNumber(summary.electricityKWh, 0)} kWh</dd></div>
+        <div>
+          <dt>Fjernvarme</dt>
+          <dd>
+            {formatNumber(summary.heatingKWh, 0)} kWh
+            {heatingShare(location) < 1 && <span className="sub">{formatPercent(heatingShare(location))} af bygningen</span>}
+          </dd>
+        </div>
+        <div><dt>Location-based</dt><dd>{formatNumber(summary.locationTotal, 3)} tCO2e</dd></div>
+        <div>
+          <dt>Market-based</dt>
+          <dd>
+            {formatNumber(summary.marketTotal, 3)} tCO2e
+            {summary.pendingMarket && <span className="sub warning-text">Ufuldstændig</span>}
+          </dd>
+        </div>
+        <div><dt>Linjer i perioden</dt><dd>{rows.length}</dd></div>
+      </dl>
+      <div id={`${id}-details`} className="location-details" hidden={!open}>
       <div className="location-settings">
         <div className="field">
-          <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Lokation</label>
+          <label htmlFor={`${id}-name`}>Navn</label>
           <input id={`${id}-name`} value={location.name} onChange={(e) => onChange({ name: e.target.value })} />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-municipality`}>Kommune</label>
+          <select
+            id={`${id}-municipality`}
+            value={location.municipalityCode ?? ''}
+            aria-describedby={`${id}-area`}
+            onChange={(e) => onChange({ municipalityCode: e.target.value || null, gridFamily: gridFamilyFor(e.target.value) })}
+          >
+            <option value="">Ikke valgt (landsgennemsnit)</option>
+            {regions.map((region) => (
+              <optgroup key={region} label={region}>
+                {municipalities.filter((m) => m.region === region).map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <p id={`${id}-area`} className="sub">
+            {place ? `Elområde ${priceAreaLabel[place.priceArea]}` : 'Elfaktoren er landsgennemsnittet, til der er valgt en kommune.'}
+          </p>
         </div>
         <div className="field">
           <label htmlFor={`${id}-market`}>Market-based instrument</label>
@@ -182,6 +241,7 @@ function LocationCard({
             {heatingFactors.map((h) => <option key={h.id} value={h.id}>{h.label}</option>)}
           </select>
         </div>
+        <HeatingShareField location={location} onChange={onChange} />
         <div className="field end">
           <button type="button" className="link" onClick={onDelete}>
             Slet lokation<span className="visually-hidden">: {location.name}</span>
@@ -218,6 +278,7 @@ function LocationCard({
                   <td className="num">
                     {formatNumber(r.kWh, 0)}
                     {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
+                    {r.buildingShare < 1 && <span className="sub">{formatPercent(r.buildingShare)} af bygningen</span>}
                   </td>
                   <td className="num">
                     {r.locationParts.length > 1 && r.line.customFactor == null
@@ -252,6 +313,7 @@ function LocationCard({
           </table>
         </div>
       )}
+      </div>
     </article>
   )
 }
@@ -334,8 +396,20 @@ function Consolidated({ summary, totals }: { summary: LocationSummary[]; totals:
   )
 }
 
-function AddLineForm({ locations, defaultDate, onAdd }: { locations: Location[]; defaultDate: string; onAdd: (line: Omit<Scope2Line, 'id'>) => void }) {
+function AddLineForm({
+  locations,
+  defaultDate,
+  onAdd,
+  startOpen,
+}: {
+  locations: Location[]
+  defaultDate: string
+  onAdd: (line: Omit<Scope2Line, 'id'>) => void
+  /** Open from the start when there are no lines yet; otherwise the form waits behind its toggle. */
+  startOpen: boolean
+}) {
   const id = useId()
+  const [open, setOpen] = useState(startOpen)
   const [locationId, setLocationId] = useState(locations[0].id)
   const [kind, setKind] = useState<Scope2Kind>('electricity')
   const [date, setDate] = useState(defaultDate)
@@ -367,8 +441,13 @@ function AddLineForm({ locations, defaultDate, onAdd }: { locations: Location[];
   const describedBy = (field: string) => (errors[field] ? `${id}-${field}-err` : undefined)
   return (
     <section aria-labelledby={`${id}-heading`}>
-      <h2 id={`${id}-heading`}>Tilføj linje</h2>
-      <form className="add-line" onSubmit={submit} noValidate>
+      <div className="section-head">
+        <h2 id={`${id}-heading`}>Tilføj linje</h2>
+        <button type="button" className="link" aria-expanded={open} aria-controls={`${id}-form`} onClick={() => setOpen((o) => !o)}>
+          {open ? 'Skjul formular' : 'Vis formular'}<span className="visually-hidden">: Tilføj linje</span>
+        </button>
+      </div>
+      <form id={`${id}-form`} className="add-line" onSubmit={submit} noValidate hidden={!open}>
         <div className="field">
           <label htmlFor={`${id}-loc`}>Lokation</label>
           <select id={`${id}-loc`} value={selected} onChange={(e) => setLocationId(e.target.value)}>
@@ -413,4 +492,51 @@ function AddLineForm({ locations, defaultDate, onAdd }: { locations: Location[];
       </form>
     </section>
   )
+}
+
+/**
+ * Our share of the building's district heating, typed as a percent. Kept as text while typing so
+ * "62," doesn't jump; only a number from 0 to 100 (or empty, meaning all of it) is saved.
+ */
+function HeatingShareField({ location, onChange }: { location: Location; onChange: (patch: Partial<Location>) => void }) {
+  const id = useId()
+  const saved = location.heatingSharePercent
+  const [text, setText] = useState(saved == null ? '' : formatNumber(saved, Number.isInteger(saved) ? 0 : 2))
+  const [error, setError] = useState<string | null>(null)
+  const update = (value: string) => {
+    setText(value)
+    const pct = parseNumber(value)
+    if (pct === null) {
+      setError(null)
+      onChange({ heatingSharePercent: null })
+    } else if (Number.isFinite(pct) && pct >= 0 && pct <= 100) {
+      setError(null)
+      onChange({ heatingSharePercent: pct })
+    } else {
+      setError('Skriv en procent mellem 0 og 100.')
+    }
+  }
+  return (
+    <div className="field">
+      <label htmlFor={`${id}-share`}>Andel af bygningens varme (%)</label>
+      <input
+        id={`${id}-share`}
+        inputMode="decimal"
+        value={text}
+        placeholder="100"
+        aria-invalid={error !== null}
+        aria-describedby={`${id}-share-hint`}
+        onChange={(e) => update(e.target.value)}
+      />
+      <p id={`${id}-share-hint`} className={error ? 'sub warning-text' : 'sub'} role={error ? 'alert' : undefined}>
+        {error ?? 'Når varmemåleren også dækker lejere uden egen måler: vores m² ÷ bygningens m². Tom = 100 %.'}
+      </p>
+    </div>
+  )
+}
+
+/** A fraction as a percent, with decimals only when it has them: 0.6 → "60 %", 0.625 → "62,50 %". */
+const formatPercent = (fraction: number) => {
+  const pct = Math.round(fraction * 10_000) / 100
+  return `${formatNumber(pct, Number.isInteger(pct) ? 0 : 2)} %`
 }

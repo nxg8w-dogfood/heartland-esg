@@ -10,7 +10,7 @@ import { tables, type Column } from '../../dataverse/schema'
 import { schemaName } from '../../dataverse/metadata'
 import { parseGroup, type GroupData, type GroupLoadResult } from '../group'
 import type { GroupStore } from '../store'
-import { diff, emptyRows, fromRows, GROUP_KEY, naturalKey, toRows, type Operation, type Row, type Rows, type Value } from './rows'
+import { diff, emptyRows, fromRows, GROUP_KEY, migrateLegacyPeriods, naturalKey, toRows, type Operation, type Row, type Rows, type Value } from './rows'
 
 /** A Dataverse record as the Web API returns or accepts it */
 export type DvRecord = Record<string, unknown>
@@ -23,14 +23,14 @@ export type TableApi = {
   delete(table: string, id: string): Promise<void>
 }
 
-/** The user's own view, kept in this browser: which company is open, and the summary period. */
+/** The user's own view, kept in this browser: which company is open, and which of its periods. */
 export type ViewPrefs = {
-  read(): { activeCompanyId?: string; summaryPeriod?: GroupData['summaryPeriod'] }
-  write(view: { activeCompanyId: string; summaryPeriod: GroupData['summaryPeriod'] }): void
+  read(): { activeCompanyId?: string; activePeriodId?: string }
+  write(view: { activeCompanyId: string; activePeriodId: string }): void
 }
 
 /** Tables whose rows carry the app's own id, used as the Dataverse primary key */
-const APP_IDS = new Set(['virksomhed', 'lokation', 'linje', 'pendling', 'investering', 'import', 'postering', 'regel'].map((t) => `hlesg_${t}`))
+const APP_IDS = new Set(['virksomhed', 'regnskabsperiode', 'lokation', 'koeretoej', 'linje', 'pendling', 'investering', 'import', 'postering', 'regel'].map((t) => `hlesg_${t}`))
 
 /** Dataverse's entity set names: the logical name plus "s" ("es" after an s), as created. */
 export const entitySet = (table: string) => (table.endsWith('s') ? `${table}es` : `${table}s`)
@@ -84,10 +84,19 @@ export function recordFromRow(table: string, row: Row, idOf: (table: string, key
 
 export function dataverseStore(api: TableApi, prefs: ViewPrefs): GroupStore {
   let loaded: Rows = emptyRows()
+  // Periods made from the old columns on load (ADR 0013), not in Dataverse until changed.
+  let unsaved = new Set<string>()
+  const PERIODS = 'hlesg_regnskabsperiode'
   const ids = new Map<string, Map<string, string>>()
   const idOf = (table: string, key: string) => ids.get(table)?.get(key) ?? (APP_IDS.has(table) ? key : undefined)
 
   async function apply(op: Operation): Promise<void> {
+    if (op.table === PERIODS && unsaved.has(op.key)) {
+      unsaved.delete(op.key)
+      // Deleting one that was never saved needs nothing sent; changing one creates it.
+      if (op.kind === 'delete') { loaded[op.table].delete(op.key); return }
+      if (op.kind === 'update') op = { kind: 'create', table: op.table, key: op.key, row: { ...loaded[op.table].get(op.key), ...op.changes } }
+    }
     if (op.kind === 'create') {
       const body = recordFromRow(op.table, op.row, idOf)
       for (const [k, v] of Object.entries(body)) if (v === null) delete body[k]
@@ -136,6 +145,7 @@ export function dataverseStore(api: TableApi, prefs: ViewPrefs): GroupStore {
         }
         ids.set(t.name, map)
       }
+      unsaved = migrateLegacyPeriods(rows)
       loaded = rows
       const group = fromRows(rows, prefs.read())
       // Nothing stored yet, or nothing this user may read: an empty group, which the app explains.
@@ -144,7 +154,7 @@ export function dataverseStore(api: TableApi, prefs: ViewPrefs): GroupStore {
       return parseGroup(JSON.parse(JSON.stringify(group)))
     },
     async save(group: GroupData): Promise<void> {
-      prefs.write({ activeCompanyId: group.activeCompanyId, summaryPeriod: group.summaryPeriod })
+      prefs.write({ activeCompanyId: group.activeCompanyId, activePeriodId: group.activePeriodId })
       // One at a time, in order: parents exist before children point to them. If one fails,
       // what was saved stays recorded, so the next save sends only what's left.
       for (const op of diff(loaded, toRows(group))) await apply(op)

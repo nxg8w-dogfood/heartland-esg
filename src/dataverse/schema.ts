@@ -105,12 +105,27 @@ export const tables: readonly Table[] = [
     primary: { name: n('navn'), label: 'Navn', maxLength: 200, required: false },
     columns: [
       company,
+      // Replaced by hlesg_regnskabsperiode (ADR 0013). Read only to make a company's first period
+      // from them, and never written again. Kept here because the apply script doesn't change
+      // or delete columns, and the store reads every column listed.
       date('periodestart', 'Periode fra'),
       date('periodeslut', 'Periode til'),
       decimal('nettab', 'Nettab for el (kategori 3)'),
       decimal('wttratio', 'WTT/direkte-forhold for el (kategori 3)'),
       { kind: 'boolean', name: n('indeksreguler'), label: 'Indeksregulér spendbeløb', trueLabel: 'Ja', falseLabel: 'Nej', default: false },
       text('indeksserie', 'Indeksserie', 100),
+    ],
+  },
+  {
+    name: n('regnskabsperiode'),
+    label: 'Regnskabsperiode',
+    pluralLabel: 'Regnskabsperioder',
+    description: 'En af virksomhedens regnskabsperioder, fx 2025 eller 2025/26. Perioderne overlapper ikke, og linjerne filtreres på deres datoer (ADR 0013).',
+    primary: { name: n('navn'), label: 'Navn', maxLength: 100, required: true },
+    columns: [
+      company,
+      date('startdato', 'Startdato', true),
+      date('slutdato', 'Slutdato', true),
     ],
   },
   {
@@ -121,12 +136,47 @@ export const tables: readonly Table[] = [
     primary: { name: n('navn'), label: 'Navn', maxLength: 200, required: true },
     columns: [
       company,
+      text('kommunekode', 'Kommunekode', 3, 'Danmarks Statistiks kommunekode, fx 751 for Aarhus. Afgør elområdet (DK1/DK2) og dermed elfaktoren (ADR 0012).'),
       text('elnetfamilie', 'Elnet (faktorfamilie)', 100),
       {
         kind: 'choice', name: n('markedsinstrument'), label: 'Market-based instrument', required: true,
         options: [option(1, 'PPA', 'ppa'), option(2, 'Oprindelsesgaranti', 'oprindelsesgaranti'), option(3, 'Residualmiks', 'residualmiks')],
       },
       text('fjernvarmefaktor', 'Fjernvarmefaktor (faktor-id)', 100),
+      { kind: 'decimal', name: n('varmeandel'), label: 'Andel af bygningens varme (%)', precision: 2, min: 0, max: 100, description: 'Vores andel af fjernvarmen, når bygningens måler også dækker lejere uden egen måler; normalt vores m² af bygningens m². Tom betyder 100 %.' },
+    ],
+  },
+  {
+    name: n('koeretoej'),
+    label: 'Køretøj',
+    pluralLabel: 'Køretøjer',
+    description: 'En diesel- eller benzinbil, evt. plugin-hybrid, i virksomhedens bilpark, slået op i Motorregistret via MotorAPI eller indtastet (ADR 0009).',
+    primary: { name: n('nummerplade'), label: 'Nummerplade', maxLength: 10, required: true },
+    columns: [
+      company,
+      text('maerke', 'Mærke', 100),
+      text('model', 'Model', 100),
+      text('variant', 'Variant', 200),
+      {
+        kind: 'choice', name: n('braendstof'), label: 'Brændstof', required: true,
+        options: [option(1, 'Diesel', 'diesel'), option(2, 'Benzin', 'benzin')],
+      },
+      date('foersteregistrering', 'Første registrering'),
+      { kind: 'decimal', name: n('kmperliter'), label: 'Brændstofforbrug (km/l)', precision: 2, min: 0, max: 1000, description: 'Typegodkendelsens tal, for en plugin-hybrid ved kørsel på brændstof; bruges til at omregne km til liter i Scope 1.' },
+      { kind: 'boolean', name: n('pluginhybrid'), label: 'Plugin-hybrid', trueLabel: 'Ja', falseLabel: 'Nej', default: false },
+      { kind: 'decimal', name: n('elforbrug'), label: 'Elforbrug (Wh/km)', precision: 1, min: 0, max: 10_000, description: 'Plugin-hybrider: typegodkendelsens elforbrug ved kørsel på el. Vises kun; strøm hører ikke til Scope 1.' },
+      { kind: 'decimal', name: n('braendstofandel'), label: 'Andel på brændstof (%)', precision: 0, min: 0, max: 100, description: 'Plugin-hybrider: skøn over, hvor stor en del af de kørte km der er på brændstof.' },
+      { kind: 'decimal', name: n('co2gperkm'), label: 'CO2 (g/km)', precision: 2, min: 0, max: 10_000 },
+      {
+        kind: 'choice', name: n('maalenorm'), label: 'Målt efter',
+        options: [option(1, 'WLTP', 'WLTP'), option(2, 'NEDC', 'NEDC')],
+      },
+      { kind: 'decimal', name: n('raekkevidde'), label: 'Rækkevidde (km)', precision: 0, min: 0, max: 100_000, description: 'Indtastet; registret har det ikke for diesel- og benzinbiler.' },
+      {
+        kind: 'choice', name: n('datakilde'), label: 'Datakilde', required: true,
+        options: [option(1, 'Motorregistret (MotorAPI)', 'lookup'), option(2, 'Indtastet', 'manual')],
+      },
+      { kind: 'datetime', name: n('hentet'), label: 'Slået op' },
     ],
   },
   {
@@ -151,6 +201,8 @@ export const tables: readonly Table[] = [
         kind: 'choice', name: n('energiart'), label: 'Energi', description: 'Scope 2-linjer.',
         options: [option(1, 'El', 'electricity'), option(2, 'Fjernvarme', 'heating')],
       },
+      { kind: 'lookup', name: n('koeretoejid'), label: 'Bil', target: n('koeretoej'), required: false, onDelete: 'Restrict', description: 'Scope 1-linjer for en bestemt bil.' },
+      decimal('km', 'Kørte km', 'Scope 1-linjer angivet i km; mængden i liter regnes ud fra bilens km/l.'),
     ],
   },
   {
@@ -319,7 +371,8 @@ export const tables: readonly Table[] = [
  */
 export const accountStorage: Record<keyof AccountData, { table: string; note?: string } | null> = {
   version: null,
-  period: { table: n('klimaregnskab') },
+  periods: { table: n('regnskabsperiode') },
+  vehicles: { table: n('koeretoej') },
   scope1Lines: { table: n('linje') },
   locations: { table: n('lokation') },
   scope2Lines: { table: n('linje') },
