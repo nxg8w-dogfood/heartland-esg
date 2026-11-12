@@ -198,4 +198,8 @@ describe('Scope3Page', () => {
   it('has no intro text on the freight page', () => {
     expect(render('#/scope3/kategori-4')).not.toContain('Transport af indkøbte varer')
   })
+
+  it('has no intro text for courier and parcels', () => {
+    expect(render('#/scope3/kategori-4')).not.toContain('Spendbaseret som kategori 1')
+  })
 })

@@ -39,11 +39,6 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
 
       <section aria-labelledby={`${id}-courier`}>
         <h3 id={`${id}-courier`}>Kurér og pakkelevering</h3>
-        <p className="muted">
-          Spendbaseret som kategori 1: beløbet omregnes til EUR og ganges med EXIOBASE-faktoren for
-          sektoren &quot;Post and Telecommunication&quot;. Den faktor har ingen værdi i den indbyggede
-          tabel, så linjerne afventer, til en kilde er valgt under Faktorer.
-        </p>
         {cat4.courier.length > 0 && (
           <div className="table-wrap">
             <table>
