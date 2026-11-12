@@ -28,7 +28,6 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
     <>
       <ActivityLinesSection
         title="Kategori 4 — upstream transport og distribution"
-        intro="Transport af indkøbte varer til virksomheden i køretøjer, I ikke selv ejer eller driver. Angiv mængden i tonkm: vægt i tons × transporteret afstand i km. Faktorerne er DESNZ' gennemsnit for hver transportform, fordi køretøj, lastgrad og rute ikke registreres; vælg en anden kilde under Faktorer, hvis transportøren oplyser sin egen. Kurér og pakker opgøres efter beløb nedenfor."
         groups={category4Groups}
         factors={factors}
         summary={cat4.freight}
