@@ -82,6 +82,7 @@ export function toRows(group: GroupData): Rows {
         [c('markedsinstrument')]: toChoice(c('lokation'), c('markedsinstrument'), l.marketInstrument),
         [c('fjernvarmefaktor')]: l.heatingFactorId,
         [c('kommunekode')]: l.municipalityCode ?? null,
+        [c('varmeandel')]: n(l.heatingSharePercent),
       })
     }
     for (const v of a.vehicles) put(c('koeretoej'), v.id, vehicleRow(id, v))
@@ -240,6 +241,7 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePer
           marketInstrument: fromChoice(c('lokation'), c('markedsinstrument'), r[c('markedsinstrument')]) as Location['marketInstrument'],
           heatingFactorId: str(r[c('fjernvarmefaktor')]) as Location['heatingFactorId'],
           ...(optStr(r[c('kommunekode')]) ? { municipalityCode: str(r[c('kommunekode')]) } : {}),
+          ...(num(r[c('varmeandel')]) !== null ? { heatingSharePercent: num(r[c('varmeandel')]) } : {}),
         })).sort((x, y) => x.name.localeCompare(y.name) || x.id.localeCompare(y.id)),
         vehicles: of(c('koeretoej'), id).map(([key, r]) => vehicleFrom(key, r)).sort((x, y) => x.plate.localeCompare(y.plate) || x.id.localeCompare(y.id)),
         scope1Lines: lines('scope1Lines') as Scope1Line[],

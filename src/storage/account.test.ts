@@ -24,6 +24,17 @@ describe('parseAccount', () => {
     expect(r).toEqual({ ok: true, account: a, dropped: 0, notes: [] })
   })
 
+  it("keeps a location's heating share, and drops one outside 0-100 %", () => {
+    const a = sample()
+    const loc = a.locations[0]
+    const ok = parseAccount({ ...a, locations: [{ ...loc, heatingSharePercent: 62.5 }] })
+    expect(ok.ok && ok.account.locations[0].heatingSharePercent).toBe(62.5)
+    for (const bad of [120, -1, '50']) {
+      const r = parseAccount({ ...a, locations: [{ ...loc, heatingSharePercent: bad }] })
+      expect(r.ok && r.account.locations[0].heatingSharePercent).toBeNull()
+    }
+  })
+
   it('rejects anything that is not an account, and other versions', () => {
     expect(parseAccount(null)).toMatchObject({ ok: false })
     expect(parseAccount([])).toMatchObject({ ok: false })

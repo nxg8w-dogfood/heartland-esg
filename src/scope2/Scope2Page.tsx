@@ -6,6 +6,7 @@ import { municipalities, municipality, priceAreaLabel } from '../data/municipali
 import {
   gridFamilyFor,
   heatingFactors,
+  heatingShare,
   marketInstruments,
   scope2Summary,
   type HeatingFactorId,
@@ -185,7 +186,13 @@ function LocationCard({
       </div>
       <dl className="location-sums">
         <div><dt>El</dt><dd>{formatNumber(summary.electricityKWh, 0)} kWh</dd></div>
-        <div><dt>Fjernvarme</dt><dd>{formatNumber(summary.heatingKWh, 0)} kWh</dd></div>
+        <div>
+          <dt>Fjernvarme</dt>
+          <dd>
+            {formatNumber(summary.heatingKWh, 0)} kWh
+            {heatingShare(location) < 1 && <span className="sub">{formatPercent(heatingShare(location))} af bygningen</span>}
+          </dd>
+        </div>
         <div><dt>Location-based</dt><dd>{formatNumber(summary.locationTotal, 3)} tCO2e</dd></div>
         <div>
           <dt>Market-based</dt>
@@ -233,6 +240,7 @@ function LocationCard({
             {heatingFactors.map((h) => <option key={h.id} value={h.id}>{h.label}</option>)}
           </select>
         </div>
+        <HeatingShareField location={location} onChange={onChange} />
         <div className="field end">
           <button type="button" className="link" onClick={onDelete}>
             Slet lokation<span className="visually-hidden">: {location.name}</span>
@@ -269,6 +277,7 @@ function LocationCard({
                   <td className="num">
                     {formatNumber(r.kWh, 0)}
                     {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
+                    {r.buildingShare < 1 && <span className="sub">{formatPercent(r.buildingShare)} af bygningen</span>}
                   </td>
                   <td className="num">
                     {r.locationParts.length > 1 && r.line.customFactor == null
@@ -465,4 +474,51 @@ function AddLineForm({ locations, defaultDate, onAdd }: { locations: Location[];
       </form>
     </section>
   )
+}
+
+/**
+ * Our share of the building's district heating, typed as a percent. Kept as text while typing so
+ * "62," doesn't jump; only a number from 0 to 100 (or empty, meaning all of it) is saved.
+ */
+function HeatingShareField({ location, onChange }: { location: Location; onChange: (patch: Partial<Location>) => void }) {
+  const id = useId()
+  const saved = location.heatingSharePercent
+  const [text, setText] = useState(saved == null ? '' : formatNumber(saved, Number.isInteger(saved) ? 0 : 2))
+  const [error, setError] = useState<string | null>(null)
+  const update = (value: string) => {
+    setText(value)
+    const pct = parseNumber(value)
+    if (pct === null) {
+      setError(null)
+      onChange({ heatingSharePercent: null })
+    } else if (Number.isFinite(pct) && pct >= 0 && pct <= 100) {
+      setError(null)
+      onChange({ heatingSharePercent: pct })
+    } else {
+      setError('Skriv en procent mellem 0 og 100.')
+    }
+  }
+  return (
+    <div className="field">
+      <label htmlFor={`${id}-share`}>Andel af bygningens varme (%)</label>
+      <input
+        id={`${id}-share`}
+        inputMode="decimal"
+        value={text}
+        placeholder="100"
+        aria-invalid={error !== null}
+        aria-describedby={`${id}-share-hint`}
+        onChange={(e) => update(e.target.value)}
+      />
+      <p id={`${id}-share-hint`} className={error ? 'sub warning-text' : 'sub'} role={error ? 'alert' : undefined}>
+        {error ?? 'Når varmemåleren også dækker lejere uden egen måler: vores m² ÷ bygningens m². Tom = 100 %.'}
+      </p>
+    </div>
+  )
+}
+
+/** A fraction as a percent, with decimals only when it has them: 0.6 → "60 %", 0.625 → "62,50 %". */
+const formatPercent = (fraction: number) => {
+  const pct = Math.round(fraction * 10_000) / 100
+  return `${formatNumber(pct, Number.isInteger(pct) ? 0 : 2)} %`
 }
