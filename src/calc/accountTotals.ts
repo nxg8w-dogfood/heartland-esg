@@ -2,27 +2,21 @@
 // one place, plus what's still missing. The group summary is built from this.
 
 import { currencyRates } from '../data/currencies'
+import { appRates } from './exchangeRates'
 import type { Factor } from '../data/factors'
-import type { LedgerState } from '../ledger/state'
 import type { Relevance } from '../scope3/relevance'
 import type { AccountData } from '../storage/account'
 import { category7 } from './commuting'
 import type { Period } from './dates'
 import { category15, type Category15 } from './investments'
-import { classify, ledgerSpendLines, type LedgerSpendLine } from './ledger'
+import { classifyLedger, ledgerSpendLines } from './ledger'
 import { scope1Summary } from './scope1'
 import { scope2Summary } from './scope2'
-import { category1, category3, category4, category5, category6, scope3Categories } from './scope3'
+import { category1, category3, category4, category5, category6, ledgerSpend, scope3Categories } from './scope3'
 import { resolveScope1Lines } from './vehicles'
 
-/** Ledger postings tagged to category 1, as spend lines */
-export function ledgerLinesFor(ledger: LedgerState): LedgerSpendLine[] {
-  const manual = new Map(Object.entries(ledger.manual))
-  return ledgerSpendLines(ledger.postings.map((p) => classify(p, ledger.rules, manual)), 1)
-}
-
 /** The categories the app calculates, by number. The others are listed but not calculated. */
-export const calculatedCategories = [1, 3, 4, 5, 6, 7, 15] as const
+export const calculatedCategories = [1, 2, 3, 4, 5, 6, 7, 15] as const
 
 /** Scope 3 counts a category only when it's marked relevant. */
 export function includedScope3Total(byCategory: Record<number, number>, relevance: Relevance): number {
@@ -48,14 +42,18 @@ export function accountTotals(account: AccountData, factors: readonly Factor[], 
   const s1 = scope1Summary(account.scope1Lines, factors, period, account.vehicles)
   const scope1Litres = resolveScope1Lines(account.scope1Lines, account.vehicles)
   const s2 = scope2Summary(account.locations, account.scope2Lines, factors, period)
-  const cat1 = category1(account.cat1Lines, factors, currencyRates, account.deflation, period, ledgerLinesFor(account.ledger))
+  const classified = classifyLedger(account.ledger)
+  const fromLedger = (nr: number) => ledgerSpend(ledgerSpendLines(classified, nr), factors, appRates, account.deflation, period)
+  const cat1 = category1(account.cat1Lines, factors, appRates, account.deflation, period, ledgerSpendLines(classified, 1))
+  const cat2 = fromLedger(2)
+  const cat6Spend = fromLedger(6)
   const cat3 = category3(scope1Litres, s2, factors, period, account.category3Params)
-  const cat4 = category4(account.cat4Lines, account.cat4SpendLines, factors, currencyRates, account.deflation, period)
+  const cat4 = category4(account.cat4Lines, account.cat4SpendLines, factors, appRates, account.deflation, period)
   const cat5 = category5(account.cat5Lines, factors, period)
   const cat6 = category6(account.cat6Lines, factors, period)
   const cat7 = category7(account.surveys, factors, period)
   const cat15 = category15(account.investments, currencyRates, period)
-  const scope3ByCategory: Record<number, number> = { 1: cat1.total, 3: cat3.total, 4: cat4.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
+  const scope3ByCategory: Record<number, number> = { 1: cat1.total, 2: cat2.total, 3: cat3.total, 4: cat4.total, 5: cat5.total, 6: cat6.total + cat6Spend.total, 7: cat7.total, 15: cat15.total }
   const relevant = (nr: number) => account.relevance[nr]?.relevant ?? false
 
   const issues: string[] = []
@@ -65,10 +63,11 @@ export function accountTotals(account: AccountData, factors: readonly Factor[], 
   if (s2.pendingHeating) issues.push('Fjernvarme afventer en lokal leverandørfaktor')
   if (s2.invalidCount) issues.push(`${s2.invalidCount} Scope 2-linjer har en værdi, der ikke er et tal`)
   if (relevant(1) && cat1.pendingCount) lines(cat1.pendingCount, 'kategori 1')
+  if (relevant(2) && cat2.pendingCount) lines(cat2.pendingCount, 'kategori 2')
   if (relevant(3) && cat3.heatingPending) issues.push('Kategori 3 afventer distributionstabet for fjernvarme')
   if (relevant(4) && cat4.pendingCount) lines(cat4.pendingCount, 'kategori 4')
   if (relevant(5) && cat5.pendingCount) lines(cat5.pendingCount, 'kategori 5')
-  if (relevant(6) && cat6.pendingCount) lines(cat6.pendingCount, 'kategori 6')
+  if (relevant(6) && cat6.pendingCount + cat6Spend.pendingCount) lines(cat6.pendingCount + cat6Spend.pendingCount, 'kategori 6')
   if (relevant(7) && cat7.yearsWithoutSurvey.length) issues.push(`Kategori 7 mangler en pendlerundersøgelse for ${cat7.yearsWithoutSurvey.join(', ')}`)
   if (relevant(7) && cat7.duplicateYears.length) issues.push(`Kategori 7 har flere undersøgelser for ${cat7.duplicateYears.join(', ')}`)
   if (relevant(15) && cat15.pendingCount) issues.push(`${cat15.pendingCount} investeringer i kategori 15 mangler data`)

@@ -1,8 +1,12 @@
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
+import { accountRules, postingRules } from '../data/scope3Rules'
+import { spendFactorRegister } from '../data/spendFactorRegister'
+import { handlingLabels } from '../calc/spendRules'
+import { scope3Categories } from '../calc/scope3'
 import {
-  classify, guessMapping, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
-  type ClassifiedPosting, type ColumnMapping, type Condition, type ConditionField, type ConditionOperator,
+  classifyLedger, guessMapping, hitLabel, postingStatusLabels, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
+  type ClassifiedPosting, type ColumnMapping, type PostingStatus, type Condition, type ConditionField, type ConditionOperator,
   type CellValue, type LedgerField, type ManualAction, type Posting, type Rule, type TableRow,
 } from '../calc/ledger'
 import type { LedgerState } from './state'
@@ -35,8 +39,7 @@ const operatorOptions: { value: ConditionOperator; label: string }[] = [
 type Props = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; factors: readonly Factor[] }
 
 export function LedgerPage({ ledger, setLedger, factors }: Props) {
-  const manual = useMemo(() => new Map(Object.entries(ledger.manual)), [ledger.manual])
-  const classified = useMemo(() => ledger.postings.map((p) => classify(p, ledger.rules, manual)), [ledger.postings, ledger.rules, manual])
+  const classified = useMemo(() => classifyLedger(ledger), [ledger])
   const summary = ledgerSummary(classified)
   const spendFactors = factors.filter((f) => f.method === 'spend')
 
@@ -44,10 +47,11 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
     <>
       <h1>Kontoplan</h1>
       <p className="lead">
-        Importer posteringer fra finanssystemet og hent dem til klimaregnskabet med regler: en regel
-        tagger posteringer til kategori 1 med en EXIOBASE-faktor, eller ekskluderer dem. Reglerne
-        bruges i rækkefølge, og den første, der passer, vinder. En manuel handling på en postering går
-        forud for reglerne. Taggede posteringer indgår i Scope 3, kategori 1.
+        Importer posteringer fra finanssystemet. ESG-ansvarliges kontoregler giver hver konto en
+        Scope 3-kategori og en EXIOBASE-faktor, og posteringsreglerne finjusterer enkelte posteringer
+        ud fra et søgeord. Dine egne undtagelser går forud for begge, og en manuel handling på en
+        postering går forud for alt. Medtagne posteringer og posteringer til review indgår i deres
+        kategori i Scope 3.
       </p>
 
       <ImportSection
@@ -94,13 +98,17 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
       {ledger.postings.length > 0 && (
         <dl className="tiles" aria-live="polite">
           <Tile label="Posteringer" value={summary.total} unit="" decimals={0} />
-          <Tile label="Taggede" value={summary.tagged} unit="" decimals={0} accent />
-          <Tile label="Ekskluderede" value={summary.excluded} unit="" decimals={0} />
-          <Tile label="Utaggede" value={summary.untagged} unit="" decimals={0} note={summary.manual ? `${summary.manual} håndteret manuelt` : undefined} />
+          <Tile label="Medtaget" value={summary.included} unit="" decimals={0} accent />
+          <Tile label="Til review" value={summary.review} unit="" decimals={0} />
+          <Tile label="Afventer" value={summary.pending} unit="" decimals={0} />
+          <Tile label="Udeladt" value={summary.excluded} unit="" decimals={0} />
+          <Tile label="Utagget" value={summary.untagged} unit="" decimals={0} note={summary.manual ? `${summary.manual} håndteret manuelt` : undefined} />
         </dl>
       )}
 
       <RulesSection rules={ledger.rules} setLedger={setLedger} classified={classified} spendFactors={spendFactors} />
+
+      <BuiltinRulesSection classified={classified} />
 
       {ledger.postings.length > 0 && <PostingsSection classified={classified} setLedger={setLedger} spendFactors={spendFactors} />}
     </>
@@ -252,22 +260,27 @@ function RulesSection({ rules, setLedger, classified, spendFactors }: { rules: R
       next.splice(to, 0, r)
       return next
     })
-  const matchCount = (ruleId: string) => classified.filter((c) => c.rule?.id === ruleId).length
+  const matchCount = (ruleId: string) => classified.filter((c) => c.hit.kind === 'exception' && c.hit.rule.id === ruleId).length
 
   return (
     <section aria-labelledby="rules-heading">
       <div className="section-head">
-        <h2 id="rules-heading">Regler</h2>
+        <h2 id="rules-heading">Undtagelser</h2>
         <button
           type="button"
           onClick={() =>
-            setRules((rs) => [...rs, { id: newId(), name: `Regel ${rs.length + 1}`, type: 'tag', active: true, conditions: [{ id: newId(), field: 'account', operator: 'is', value: '' }], factorId: null, category: 1, reason: '' }])
+            setRules((rs) => [...rs, { id: newId(), name: `Undtagelse ${rs.length + 1}`, type: 'tag', active: true, conditions: [{ id: newId(), field: 'account', operator: 'is', value: '' }], factorId: null, category: 1, reason: '' }])
           }
         >
           Ny regel
         </button>
       </div>
-      {rules.length === 0 && <p className="muted">Ingen regler endnu. Opret fx en regel, der tagger konto 6100 (Revision) med faktoren for rådgivning.</p>}
+      <p className="muted">
+        Undtagelser går forud for kontoreglerne og posteringsreglerne: den første, der passer, vinder.
+        Betingelserne skelner ikke mellem store og små bogstaver. Undtagelser kan også oprettes fra en
+        postering på kategorisiderne under Scope 3.
+      </p>
+      {rules.length === 0 && <p className="muted">Ingen undtagelser endnu.</p>}
       {rules.map((r, i) => (
         <RuleCard
           key={r.id}
@@ -295,14 +308,20 @@ function RuleCard({ rule, index, count, matches, spendFactors, onChange, onMove,
     <article className="card" aria-labelledby={`${id}-name-label`}>
       <div className="location-settings">
         <div className="field">
-          <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Regel {index + 1}</label>
+          <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Undtagelse {index + 1}</label>
           <input id={`${id}-name`} value={rule.name} onChange={(e) => onChange({ name: e.target.value })} />
         </div>
         <div className="field">
           <label htmlFor={`${id}-type`}>Handling</label>
           <select id={`${id}-type`} value={rule.type} onChange={(e) => onChange({ type: e.target.value as Rule['type'] })}>
-            <option value="tag">Tag til kategori 1</option>
-            <option value="exclude">Ekskluder</option>
+            <option value="tag">Medtag med faktor</option>
+            <option value="exclude">Udelad</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-cat`}>Kategori</label>
+          <select id={`${id}-cat`} value={rule.category} onChange={(e) => onChange({ category: Number(e.target.value) })}>
+            {scope3Categories.map((c) => <option key={c.nr} value={c.nr}>{c.nr}. {c.name}</option>)}
           </select>
         </div>
         {rule.type === 'tag' && (
@@ -370,7 +389,7 @@ const PAGE = 200
 
 function PostingsSection({ classified, setLedger, spendFactors }: { classified: ClassifiedPosting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; spendFactors: Factor[] }) {
   const id = useId()
-  const [filter, setFilter] = useState<'all' | 'tagged' | 'excluded' | 'untagged'>('all')
+  const [filter, setFilter] = useState<PostingStatus | 'all'>('all')
   const shown = classified.filter((c) => filter === 'all' || c.status === filter)
   const setManual = (postingId: string, action: ManualAction | null) =>
     setLedger((l) => {
@@ -388,9 +407,7 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
           <label htmlFor={`${id}-filter`} className="visually-hidden">Vis</label>
           <select id={`${id}-filter`} value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
             <option value="all">Alle</option>
-            <option value="tagged">Taggede</option>
-            <option value="excluded">Ekskluderede</option>
-            <option value="untagged">Utaggede</option>
+            {(Object.keys(postingStatusLabels) as PostingStatus[]).map((s) => <option key={s} value={s}>{postingStatusLabels[s]}</option>)}
           </select>
         </div>
       </div>
@@ -417,11 +434,12 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
                   <td>{p.supplier}<span className="sub">{p.text}</span></td>
                   <td className="num">{p.amount === null ? '—' : `${formatNumber(p.amount, 2)} ${p.currency}`}</td>
                   <td>
-                    {c.status === 'tagged' ? 'Tagget' : c.status === 'excluded' ? 'Ekskluderet' : <span className="pending">Utagget</span>}
+                    <span className={c.status === 'review' ? 'warning-text' : c.status === 'pending' || c.status === 'untagged' ? 'pending' : undefined}>{postingStatusLabels[c.status]}</span>
                     <span className="sub">
                       {[
-                        c.source === 'manual' ? 'Manuelt' : c.source === 'rule' ? `Regel: ${c.rule?.name}` : '',
-                        c.status === 'tagged' ? (spendFactors.find((f) => f.id === c.factorId)?.name ?? 'ingen faktor') : '',
+                        hitLabel(c.hit),
+                        c.category ? `kategori ${c.category}` : '',
+                        c.status !== 'excluded' && c.status !== 'untagged' ? (spendFactors.find((f) => f.id === c.factorId)?.name ?? 'ingen faktor') : '',
                       ].filter(Boolean).join(' · ')}
                     </span>
                   </td>
@@ -429,12 +447,12 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
                     <label className="visually-hidden" htmlFor={`${id}-${p.id}-m`}>Manuel handling for postering {p.account}, {p.date}</label>
                     <select
                       id={`${id}-${p.id}-m`}
-                      value={c.source === 'manual' ? (c.status === 'excluded' ? 'exclude' : c.factorId ?? '') : 'rules'}
+                      value={c.hit.kind === 'manual' ? (c.status === 'excluded' ? 'exclude' : c.factorId ?? '') : 'rules'}
                       onChange={(e) => {
                         const v = e.target.value
                         if (v === 'rules') setManual(p.id, null)
                         else if (v === 'exclude') setManual(p.id, { postingId: p.id, type: 'exclude', factorId: null, category: null, reason: 'Manuelt ekskluderet' })
-                        else setManual(p.id, { postingId: p.id, type: 'tag', factorId: v, category: 1, reason: 'Manuelt tagget' })
+                        else setManual(p.id, { postingId: p.id, type: 'tag', factorId: v, category: c.category ?? 1, reason: 'Manuelt tagget' })
                       }}
                     >
                       <option value="rules">Følg reglerne</option>
@@ -449,6 +467,111 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
         </table>
       </div>
       {shown.length > PAGE && <p className="muted">Viser de første {PAGE} af {shown.length} posteringer. Brug filteret for at indsnævre.</p>}
+    </section>
+  )
+}
+
+/** The ESG owner's account and posting rules and the factor register, read-only (ADR 0015). */
+function BuiltinRulesSection({ classified }: { classified: ClassifiedPosting[] }) {
+  const hits = (id: string) => classified.filter((c) => c.hit.kind === 'posting' && c.hit.rule.id === id).length
+  const category = (n: number | null) => (n === null ? '' : `3.${n}`)
+  return (
+    <section aria-labelledby="builtin-heading">
+      <h2 id="builtin-heading">Standardregler</h2>
+      <p className="muted">
+        ESG-ansvarliges godkendte regler. De ændres i koden, så hver ændring bliver gennemgået; brug en
+        undtagelse ovenfor til enkelte posteringer. Posteringsregler matcher søgeordet præcis som skrevet,
+        med store og små bogstaver og mellemrum, i posteringstekst og leverandør, og gælder kun
+        posteringer på konti, der medtages.
+      </p>
+      <details>
+        <summary>Posteringsregler ({postingRules.length})</summary>
+        <div className="table-wrap">
+          <table>
+            <caption className="visually-hidden">Posteringsregler i prioriteret rækkefølge</caption>
+            <thead>
+              <tr>
+                <th scope="col">Regel</th>
+                <th scope="col">Søgeord</th>
+                <th scope="col">Gælder for</th>
+                <th scope="col">Handling</th>
+                <th scope="col">Faktor</th>
+                <th scope="col">Flyt til</th>
+                <th scope="col">Begrundelse</th>
+                <th scope="col" className="num">Rammer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {postingRules.map((r) => (
+                <tr key={r.id}>
+                  <th scope="row">{r.id}<span className="sub">Prioritet {r.priority}</span></th>
+                  <td><code>{`«${r.searchWord}»`}</code></td>
+                  <td>{category(r.appliesTo) || 'Alle'}</td>
+                  <td>{handlingLabels[r.handling]}</td>
+                  <td>{r.factorCode ?? '—'}</td>
+                  <td>{category(r.moveTo) || '—'}</td>
+                  <td>{r.reason}<span className="sub">Godkendt {r.approvedOn ? formatDate(r.approvedOn) : '—'}</span></td>
+                  <td className="num">{hits(r.id)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <details>
+        <summary>Kontoregler ({accountRules.length})</summary>
+        <div className="table-wrap">
+          <table>
+            <caption className="visually-hidden">Kontoregler</caption>
+            <thead>
+              <tr>
+                <th scope="col">Konto</th>
+                <th scope="col">Medtages</th>
+                <th scope="col">Kategori</th>
+                <th scope="col">Faktor</th>
+                <th scope="col">Grundlag</th>
+                <th scope="col">Begrundelse</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accountRules.map((r) => (
+                <tr key={r.account}>
+                  <th scope="row">{r.account}<span className="sub">{r.name}</span></th>
+                  <td>{r.include ? 'Ja' : 'Nej'}</td>
+                  <td>{category(r.category)}</td>
+                  <td>{r.factorCode ?? ''}</td>
+                  <td>{r.basis}</td>
+                  <td>{r.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <details>
+        <summary>Faktorregister ({spendFactorRegister.length})</summary>
+        <div className="table-wrap">
+          <table>
+            <caption className="visually-hidden">FaktorID og den sektor, de står for</caption>
+            <thead>
+              <tr>
+                <th scope="col">FaktorID</th>
+                <th scope="col">Sektor</th>
+                <th scope="col">Datamanualen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spendFactorRegister.map((r) => (
+                <tr key={r.code}>
+                  <th scope="row">{r.code}</th>
+                  <td>{r.database}: {r.sector}</td>
+                  <td>{r.dataManual || <span className="muted">Ikke nævnt</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </section>
   )
 }
