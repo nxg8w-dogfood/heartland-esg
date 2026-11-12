@@ -29,9 +29,12 @@ category 1 only.
    the account file's irregular quoting and refuses unexpected columns or values rather than
    guessing. The CSV files aren't committed. Changing an approved rule is a pull request, so the
    change is reviewed and stays in the history.
-2. **The users' own rules become exceptions on top.** They keep their existing shape and storage,
-   so the Dataverse schema doesn't change. They can now tag to any category, and can be created
-   from a posting on the 3.1, 3.2 and 3.6 pages as well as on Kontoplan.
+2. **Users add exceptions on top, in two kinds.** From any posting on the 3.1, 3.2 and 3.6
+   pages, an exception can apply to *that posting only* (a manual action: exclude it, or give it a
+   factor and category, overriding the account mapping and every rule) or to *all postings that
+   match* (a rule). Both keep their existing shape and storage (`hlesg_postering`'s manual
+   columns and `hlesg_regel`), so the Dataverse schema doesn't change. Both can also be edited on
+   Kontoplan, and a single-posting override can be undone ("Følg reglerne").
 3. **Order of precedence** (`classify` in `src/calc/ledger.ts`): a manual action on the posting,
    then the first matching exception, then the account rule. An account that isn't in the rules
    is *untagged*; one with Medtages = Nej is *excluded*. For an included account, the first
@@ -83,5 +86,9 @@ category 1 only.
 - Porto og gebyrer (210008) and Kontingenter (210016) are included in 3.1 with the data manual's
   factors (EXIO-POST and EXIO-OBS); the rule file was updated and regenerated.
 - The EXIOBASE values exist and are entered by hand under Faktorer.
-- Still open: the Skøn – bekræft accounts, posting rules R25–R43, and the currency rate for
-  220001 Husleje (the ESG owner wants the rate on the transaction date).
+- The 14 Skøn – bekræft accounts have the right factors. Their basis is now *Bekræftet*, so
+  they count as included rather than for review. That includes 220001 Husleje (3.8) with BEIS UK
+  2022 at 0.1499 kg CO2e/GBP, now entered as the factor's value. 3.8 isn't calculated yet.
+- Posting rules R25–R43 stay pending. The ESG owner decides each posting by overriding it
+  individually, which is why single-posting exceptions override the account mapping.
+- Amounts are converted at the rate on the transaction date (ADR 0016).

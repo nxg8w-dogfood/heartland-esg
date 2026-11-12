@@ -165,4 +165,19 @@ describe('Scope3Page', () => {
     expect(cat2).toContain('R27 «Volvo»')
     expect(cat2).toContain('Afventer')
   })
+
+  it('shows a single-posting override and lets it be undone', () => {
+    const withOverride = (a: ReturnType<typeof emptyAccount>) => {
+      a.ledger = {
+        ...a.ledger,
+        postings: [{ id: 'v', importId: 'i', date: '2025-05-01', account: '630003', accountName: 'Tilgange', supplier: '', text: 'Volvo XC60', amount: 1000, currency: 'DKK' }],
+        manual: { v: { postingId: 'v', type: 'tag', factorId: 'f-exio-vehicle-repair', category: 1, reason: 'Firmabil' } },
+      }
+    }
+    const html = render('#/scope3/kategori-1', withOverride)
+    expect(html).toContain('Manuel handling — Firmabil')
+    expect(html).toContain('Følg reglerne')
+    // Moved out of category 2 by the override
+    expect(render('#/scope3/kategori-2', withOverride)).not.toContain('Volvo XC60')
+  })
 })

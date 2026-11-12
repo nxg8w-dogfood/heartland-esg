@@ -44,7 +44,7 @@ export function parseAccountRules(text: string): AccountRule[] {
     const [account, name, include, category, factorCode, basis] = f.map((x) => x.trim())
     if (!/^\d+$/.test(account)) throw new Error(`Row ${i + 2}: no account number in "${line}"`)
     if (include !== 'Ja' && include !== 'Nej') throw new Error(`Row ${i + 2}: Medtages is "${include}"`)
-    if (!['Datamanual', 'Skøn – bekræft', 'Afklar', ''].includes(basis)) throw new Error(`Row ${i + 2}: Grundlag is "${basis}"`)
+    if (!['Datamanual', 'Bekræftet', 'Skøn – bekræft', 'Afklar', ''].includes(basis)) throw new Error(`Row ${i + 2}: Grundlag is "${basis}"`)
     if (category && parseScope3Category(category) === null) throw new Error(`Row ${i + 2}: Kategori is "${category}"`)
     return {
       account,

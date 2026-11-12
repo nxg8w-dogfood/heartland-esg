@@ -29,6 +29,10 @@ describe('account rules', () => {
     expect(classify(posting(), [], none, book([account()]))).toMatchObject({ status: 'included', category: 6, factorId: 'f-exio-land', hit: { kind: 'account' } })
   })
 
+  it('count a confirmed estimate as included', () => {
+    expect(classify(posting(), [], none, book([account({ basis: 'Bekræftet' })])).status).toBe('included')
+  })
+
   it('flag an estimate to confirm for review, and still count it', () => {
     const c = classify(posting(), [], none, book([account({ basis: 'Skøn – bekræft' })]))
     expect(c.status).toBe('review')
@@ -129,6 +133,32 @@ describe('exceptions and manual actions', () => {
   })
 })
 
+describe('an override on a single posting', () => {
+  it('overrides the account mapping and a pending posting rule: factor, category and status', () => {
+    const r = prule({ id: 'R27', appliesTo: 2, searchWord: 'Volvo', handling: 'pending', factorCode: 'EXIO-VEH' })
+    const b = book([account({ account: '630003', category: 2, factorCode: 'EXIO-CONS' })], [r])
+    const volvo = posting({ id: 'v', account: '630003', text: 'Volvo XC60' })
+    expect(classify(volvo, [], none, b).status).toBe('pending')
+    const manual = new Map([['v', { postingId: 'v', type: 'tag', factorId: 'f-exio-vehicle-repair', category: 1, reason: 'Firmabil' } as ManualAction]])
+    const c = classify(volvo, [], manual, b)
+    expect(c).toMatchObject({ status: 'included', factorId: 'f-exio-vehicle-repair', category: 1, hit: { kind: 'manual' }, reason: 'Firmabil' })
+    expect(ledgerSpendLines([c], 1)).toHaveLength(1)
+    expect(ledgerSpendLines([c], 2)).toHaveLength(0)
+  })
+
+  it('touches only that posting', () => {
+    const b = book([account()])
+    const manual = new Map([['p1', { postingId: 'p1', type: 'exclude', factorId: null, category: 6, reason: 'Privat' } as ManualAction]])
+    expect(classify(posting(), [], manual, b).status).toBe('excluded')
+    expect(classify(posting({ id: 'p2' }), [], manual, b).status).toBe('included')
+  })
+
+  it('wins over an account that is not included', () => {
+    const manual = new Map([['p1', { postingId: 'p1', type: 'tag', factorId: 'f-exio-obs-dk', category: 1, reason: 'Konsulent' } as ManualAction]])
+    expect(classify(posting(), [], manual, book([account({ include: false })])).status).toBe('included')
+  })
+})
+
 describe('summary and labels', () => {
   it('count each status', () => {
     const b = book([account(), account({ account: '1', include: false }), account({ account: '2', basis: 'Skøn – bekræft' })], [prule({ handling: 'pending' })])
@@ -168,6 +198,11 @@ describe('the ESG owner\'s seed rules', () => {
   it('keep search words exactly as written', () => {
     expect(postingRules.find((r) => r.id === 'R10')?.searchWord).toBe('DSB ')
     expect(postingRules.find((r) => r.id === 'R44')?.searchWord).toBe('dsb.')
+  })
+
+  it('have no estimates left to confirm (confirmed by the ESG owner 2026-11-12)', () => {
+    expect(accountRules.filter((r) => r.basis === 'Skøn – bekræft')).toEqual([])
+    expect(accountRules.filter((r) => r.basis === 'Bekræftet')).toHaveLength(14)
   })
 
   it('keep no approver initials', () => {

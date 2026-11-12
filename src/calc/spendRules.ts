@@ -4,8 +4,11 @@
 // change to an approved rule goes through a pull request. Users add their own exceptions on top
 // (the ledger's Rule list, see ledger.ts), and those win.
 
-/** Line's "Grundlag": from the data manual, an estimate to confirm, or still to be clarified. */
-export type RuleBasis = 'Datamanual' | 'Skøn – bekræft' | 'Afklar' | ''
+/**
+ * The ESG owner's "Grundlag": from the data manual, an estimate she has confirmed, an estimate
+ * still to confirm, or still to be clarified.
+ */
+export type RuleBasis = 'Datamanual' | 'Bekræftet' | 'Skøn – bekræft' | 'Afklar' | ''
 
 /** One row of kontoregler.csv. */
 export type AccountRule = {

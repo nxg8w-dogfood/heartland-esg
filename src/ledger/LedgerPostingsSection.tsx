@@ -2,7 +2,7 @@
 // status, the rule that hit it and its emissions, with a way to add an exception for one.
 
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
-import { hitLabel, postingStatusLabels, type ClassifiedPosting, type ConditionField, type PostingStatus, type Rule } from '../calc/ledger'
+import { hitLabel, postingStatusLabels, type ClassifiedPosting, type ConditionField, type ManualAction, type PostingStatus, type Rule } from '../calc/ledger'
 import type { Period } from '../calc/dates'
 import type { SpendResult } from '../calc/spend'
 import { scope3Categories } from '../calc/scope3'
@@ -58,7 +58,8 @@ export function LedgerPostingsSection({ category, classified, results, period, f
       <p className="muted">
         Posteringer importeret på <a href="#/kontoplan">Kontoplan</a> tagges hertil af kontoreglerne
         og posteringsreglerne. Medtaget og til review tæller med; afventer og udeladt gør ikke. En
-        undtagelse, du opretter her, går forud for reglerne og kan ses og rettes på Kontoplan.
+        undtagelse kan gælde én postering, og går så forud for kontoreglen og alle andre regler,
+        eller alle posteringer, der matcher. Begge kan ses og rettes på Kontoplan.
       </p>
       {mine.length === 0 ? (
         <p className="muted">Ingen posteringer i perioden er tagget til kategori {category}.</p>
@@ -112,6 +113,14 @@ export function LedgerPostingsSection({ category, classified, results, period, f
                         <button type="button" className="link" data-posting={p.id} onClick={() => setEditing(c)}>
                           Undtagelse<span className="visually-hidden"> for postering {p.account}, {formatDate(p.date)}, {p.text}</span>
                         </button>
+                        {c.hit.kind === 'manual' && (
+                          <>
+                            {' '}
+                            <button type="button" className="link" onClick={() => setLedger((l) => { const manual = { ...l.manual }; delete manual[p.id]; return { ...l, manual } })}>
+                              Følg reglerne<span className="visually-hidden"> for postering {p.account}, {formatDate(p.date)}, {p.text}</span>
+                            </button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   )
@@ -129,7 +138,10 @@ export function LedgerPostingsSection({ category, classified, results, period, f
           category={category}
           factors={factors}
           onCancel={close}
-          onSave={(rule) => { setLedger((l) => ({ ...l, rules: [...l.rules, rule] })); close() }}
+          onSave={(r) => {
+            setLedger((l) => (r.kind === 'rule' ? { ...l, rules: [...l.rules, r.rule] } : { ...l, manual: { ...l.manual, [r.action.postingId]: r.action } }))
+            close()
+          }}
         />
       )}
     </section>
@@ -138,17 +150,24 @@ export function LedgerPostingsSection({ category, classified, results, period, f
 
 const fieldLabels: Record<Exclude<ConditionField, 'accountName'>, string> = { text: 'Posteringstekst', supplier: 'Leverandør', account: 'Kontonummer' }
 
-/** A new exception: exclude postings that match, or give them a specific factor and category. */
+/** What the form creates: an override for this one posting, or a rule for every posting that matches. */
+export type ExceptionResult = { kind: 'posting'; action: ManualAction } | { kind: 'rule'; rule: Rule }
+
+/**
+ * A new exception, from one posting. It can apply to that posting only (a manual action, which
+ * overrides every rule and the account mapping) or to all postings that match (a rule).
+ */
 export function ExceptionForm({ posting, category, factors, onSave, onCancel }: {
-  posting: ClassifiedPosting; category: number; factors: readonly Factor[]; onSave: (rule: Rule) => void; onCancel: () => void
+  posting: ClassifiedPosting; category: number; factors: readonly Factor[]; onSave: (result: ExceptionResult) => void; onCancel: () => void
 }) {
   const id = useId()
   const heading = useRef<HTMLHeadingElement>(null)
   useEffect(() => heading.current?.focus(), [])
   const p = posting.posting
+  const [scope, setScope] = useState<ExceptionResult['kind']>('posting')
   const [field, setField] = useState<keyof typeof fieldLabels>(p.text ? 'text' : 'supplier')
   const [value, setValue] = useState(p.text || p.supplier)
-  const [type, setType] = useState<Rule['type']>('exclude')
+  const [type, setType] = useState<Rule['type']>('tag')
   const [factorId, setFactorId] = useState(posting.factorId ?? '')
   const [cat, setCat] = useState(category)
   const [reason, setReason] = useState('')
@@ -157,18 +176,25 @@ export function ExceptionForm({ posting, category, factors, onSave, onCancel }: 
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    if (!value.trim()) return setError('Angiv, hvad undtagelsen skal matche.')
+    if (scope === 'rule' && !value.trim()) return setError('Angiv, hvad undtagelsen skal matche.')
     if (type === 'tag' && !factorId) return setError('Vælg en faktor.')
     if (!reason.trim()) return setError('Angiv en begrundelse.')
+    const factor = type === 'tag' ? factorId : null
+    if (scope === 'posting') {
+      return onSave({ kind: 'posting', action: { postingId: p.id, type, factorId: factor, category: cat, reason: reason.trim() } })
+    }
     onSave({
-      id: newId(),
-      name: `${type === 'exclude' ? 'Udelad' : 'Faktor'}: ${value.trim()}`,
-      type,
-      active: true,
-      conditions: [{ id: newId(), field, operator: field === 'account' ? 'is' : 'contains', value: value.trim() }],
-      factorId: type === 'tag' ? factorId : null,
-      category: cat,
-      reason: reason.trim(),
+      kind: 'rule',
+      rule: {
+        id: newId(),
+        name: `${type === 'exclude' ? 'Udelad' : 'Faktor'}: ${value.trim()}`,
+        type,
+        active: true,
+        conditions: [{ id: newId(), field, operator: field === 'account' ? 'is' : 'contains', value: value.trim() }],
+        factorId: factor,
+        category: cat,
+        reason: reason.trim(),
+      },
     })
   }
 
@@ -176,24 +202,39 @@ export function ExceptionForm({ posting, category, factors, onSave, onCancel }: 
     <form className="card" onSubmit={submit} aria-labelledby={`${id}-h`}>
       <h3 id={`${id}-h`} ref={heading} tabIndex={-1}>Ny undtagelse</h3>
       <p className="muted">
-        Ud fra postering {p.account}, {formatDate(p.date)}. Undtagelsen gælder alle posteringer, der matcher (uanset store og små bogstaver).
+        Ud fra postering {p.account}, {formatDate(p.date)}{p.text ? `, ${p.text}` : ''}. Nu: {postingStatusLabels[posting.status].toLowerCase()} ({hitLabel(posting.hit)}).
       </p>
+      <fieldset className="conditions">
+        <legend>Gælder</legend>
+        <label className="check">
+          <input type="radio" name={`${id}-scope`} checked={scope === 'posting'} onChange={() => setScope('posting')} />
+          Kun denne postering — går forud for kontoreglen og alle andre regler
+        </label>
+        <label className="check">
+          <input type="radio" name={`${id}-scope`} checked={scope === 'rule'} onChange={() => setScope('rule')} />
+          Alle posteringer, der matcher (uanset store og små bogstaver)
+        </label>
+      </fieldset>
       <div className="location-settings">
-        <div className="field">
-          <label htmlFor={`${id}-field`}>Match på</label>
-          <select id={`${id}-field`} value={field} onChange={(e) => { const f = e.target.value as typeof field; setField(f); setValue(f === 'account' ? p.account : f === 'supplier' ? p.supplier : p.text) }}>
-            {Object.entries(fieldLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor={`${id}-value`}>{field === 'account' ? 'Er' : 'Indeholder'}</label>
-          <input id={`${id}-value`} value={value} onChange={(e) => setValue(e.target.value)} />
-        </div>
+        {scope === 'rule' && (
+          <>
+            <div className="field">
+              <label htmlFor={`${id}-field`}>Match på</label>
+              <select id={`${id}-field`} value={field} onChange={(e) => { const f = e.target.value as typeof field; setField(f); setValue(f === 'account' ? p.account : f === 'supplier' ? p.supplier : p.text) }}>
+                {Object.entries(fieldLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor={`${id}-value`}>{field === 'account' ? 'Er' : 'Indeholder'}</label>
+              <input id={`${id}-value`} value={value} onChange={(e) => setValue(e.target.value)} />
+            </div>
+          </>
+        )}
         <div className="field">
           <label htmlFor={`${id}-type`}>Handling</label>
           <select id={`${id}-type`} value={type} onChange={(e) => setType(e.target.value as Rule['type'])}>
+            <option value="tag">Medtag med faktor og kategori</option>
             <option value="exclude">Udelad</option>
-            <option value="tag">Medtag med en bestemt faktor</option>
           </select>
         </div>
         {type === 'tag' && (
