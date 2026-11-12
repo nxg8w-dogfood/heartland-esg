@@ -1,8 +1,8 @@
 # 15. Spend-based tagging with the ESG owner's account and posting rules
 
-- **Status:** Proposed (to be accepted by @mortengad in the pull request; the open points in
-  the PR need the ESG owner's confirmation)
+- **Status:** Accepted
 - **Date:** 2026-11-12
+- **Decided by:** @mortengad (tech lead) with the ESG owner, 2026-11-12
 
 ## Context
 
@@ -73,3 +73,15 @@ category 1 only.
 - Postings tagged to a category the app doesn't calculate yet (account 220001 Husleje → 3.8) show
   on Kontoplan but count nowhere.
 - New or changed rule files are applied by rerunning the script and reviewing the diff.
+
+## Confirmed with the ESG owner (2026-11-12)
+
+- The decisions above, including that Skøn – bekræft counts but is flagged for review, Afventer
+  doesn't count, posting rules never pull in an excluded account, the rules apply to every
+  company, and approval stamps keep only their date.
+- The four Afklar accounts (101002, 101116, 210010, 210019) stay excluded.
+- Porto og gebyrer (210008) and Kontingenter (210016) are included in 3.1 with the data manual's
+  factors (EXIO-POST and EXIO-OBS); the rule file was updated and regenerated.
+- The EXIOBASE values exist and are entered by hand under Faktorer.
+- Still open: the Skøn – bekræft accounts, posting rules R25–R43, and the currency rate for
+  220001 Husleje (the ESG owner wants the rate on the transaction date).
