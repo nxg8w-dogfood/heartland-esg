@@ -4,7 +4,7 @@
 import type { Factor } from '../data/factors'
 import { activitySummary, type ActivityGroup, type ActivityLine, type ActivitySummary } from './activity'
 import type { Period } from './dates'
-import type { CurrencyRate } from '../data/currencies'
+import type { RateSource } from './exchangeRates'
 import { spendLine, type Deflation, type SpendGroup, type SpendLine, type SpendResult } from './spend'
 import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
@@ -190,6 +190,20 @@ export const category5Groups: readonly ActivityGroup[] = [
   { id: 'k5-andet-gen', label: 'Andet (elektronik/metal/glas) – genanvendelse', unit: 'tonne', factorId: 'f-w-andet-gen' },
 ]
 
+/** Spend lines from ledger postings that count in a category (categories 2 and 6, ADR 0015). */
+export type LedgerSpend = { lines: SpendResult[]; total: number; pendingCount: number }
+
+export function ledgerSpend(
+  ledger: readonly { line: SpendLine; group: SpendGroup }[],
+  factors: readonly Factor[],
+  rates: RateSource,
+  deflation: Deflation,
+  period: Period,
+): LedgerSpend {
+  const lines = ledger.map(({ line, group }) => spendLine(line, group, factors, rates, deflation, period)).filter((r) => r.share > 0)
+  return { lines, total: lines.reduce((t, r) => t + r.tCO2e, 0), pendingCount: lines.filter((r) => r.pending).length }
+}
+
 export type Category6 = ActivitySummary & { travelT: number; hotelT: number }
 
 export function category6(lines: readonly ActivityLine[], factors: readonly Factor[], period: Period): Category6 {
@@ -232,7 +246,7 @@ export function category4(
   lines: readonly ActivityLine[],
   spendLines: readonly SpendLine[],
   factors: readonly Factor[],
-  rates: readonly CurrencyRate[],
+  rates: RateSource,
   deflation: Deflation,
   period: Period,
 ): Category4 {
@@ -297,7 +311,7 @@ export type Category1 = {
 export function category1(
   lines: readonly SpendLine[],
   factors: readonly Factor[],
-  rates: readonly CurrencyRate[],
+  rates: RateSource,
   deflation: Deflation,
   period: Period,
   /** Postings tagged to category 1 (see ledgerSpendLines) */

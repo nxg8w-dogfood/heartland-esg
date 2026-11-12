@@ -41,7 +41,8 @@ function render(hash: string, edit: (a: ReturnType<typeof emptyAccount>) => void
       setCat1Lines={noop}
       deflation={a.deflation}
       setDeflation={noop}
-      ledgerLines={[]}
+      ledger={a.ledger}
+      setLedger={noop}
     />,
   )
 }
@@ -63,7 +64,7 @@ describe('Scope 3 addresses', () => {
     expect(scope3SubpageFromHash('#/scope3/')).toBe('oversigt')
     expect(scope3SubpageFromHash('#/scope3/kategori-15')).toBe('kategori-15')
     expect(scope3SubpageFromHash('#/scope3/indstillinger')).toBe('indstillinger')
-    expect(scope3SubpageFromHash('#/scope3/kategori-2')).toBe('oversigt')
+    expect(scope3SubpageFromHash('#/scope3/kategori-8')).toBe('oversigt')
   })
 
   it('round-trips every sub-page through its link', () => {
@@ -72,7 +73,7 @@ describe('Scope 3 addresses', () => {
 
   it('starts with the overview, has a page for each calculated category, and ends with the settings', () => {
     expect(scope3Subpages.map((p) => p.id)).toEqual<Scope3SubpageId[]>([
-      'oversigt', 'kategori-1', 'kategori-3', 'kategori-4', 'kategori-5', 'kategori-6', 'kategori-7', 'kategori-15', 'indstillinger',
+      'oversigt', 'kategori-1', 'kategori-2', 'kategori-3', 'kategori-4', 'kategori-5', 'kategori-6', 'kategori-7', 'kategori-15', 'indstillinger',
     ])
   })
 })
@@ -85,7 +86,7 @@ describe('Scope3Page', () => {
     expect(headings(html)).toContain('Kategorier')
     // Links to the categories that have a page, and none to those that don't
     expect(html).toContain('<a href="#/scope3/kategori-7">7. Medarbejderpendling</a>')
-    expect(html).not.toContain('#/scope3/kategori-2"')
+    expect(html).not.toContain('#/scope3/kategori-8"')
     // Relevance is only read here; it is edited under the settings
     expect(html).not.toContain('type="checkbox"')
   })
@@ -106,6 +107,7 @@ describe('Scope3Page', () => {
 
   it.each([
     ['kategori-1', 'Kategori 1 — indkøbte varer og services'],
+    ['kategori-2', 'Kategori 2 — kapitalgoder'],
     ['kategori-3', 'Kategori 3 — brændstof- og energirelaterede aktiviteter'],
     ['kategori-4', 'Kategori 4 — upstream transport og distribution'],
     ['kategori-5', 'Kategori 5 — affald genereret i driften'],
@@ -136,6 +138,47 @@ describe('Scope3Page', () => {
   it('no longer edits settings on the category pages', () => {
     expect(render('#/scope3/kategori-3')).not.toContain('Nettab i elnettet <span')
     expect(render('#/scope3/kategori-1')).not.toContain('Indeksregulering af spendfaktorer')
+  })
+
+  it('shows each ledger posting on its category page with its status and the rule that hit it', () => {
+    const posting = (id: string, account: string, text: string, amount = 1000) => ({ id, importId: 'i', date: '2025-05-01', account, accountName: '', supplier: '', text, amount, currency: 'DKK' })
+    const withPostings = (a: ReturnType<typeof emptyAccount>) => {
+      a.ledger = { ...a.ledger, postings: [
+        posting('a', '240003', 'DSB Billet'),
+        posting('b', '240003', 'Storebælt bro'),
+        posting('c', '240003', 'GBTFEE'),
+        posting('d', '630003', 'Volvo XC60'),
+        posting('e', '210011', 'Revision 2025'),
+      ] }
+    }
+    const cat6 = render('#/scope3/kategori-6', withPostings)
+    expect(headings(cat6)).toContain('Posteringer fra kontoplanen')
+    expect(cat6).toContain('R10 «DSB »')
+    expect(cat6).toContain('R02 «Storebælt»')
+    expect(cat6).toContain('Udeladt')
+    // R23 moves the travel agency fee to category 1
+    expect(cat6).not.toContain('R23 «GBTFEE»')
+    const cat1 = render('#/scope3/kategori-1', withPostings)
+    expect(cat1).toContain('R23 «GBTFEE»')
+    expect(cat1).toContain('Kontoregel 210011')
+    const cat2 = render('#/scope3/kategori-2', withPostings)
+    expect(cat2).toContain('R27 «Volvo»')
+    expect(cat2).toContain('Afventer')
+  })
+
+  it('shows a single-posting override and lets it be undone', () => {
+    const withOverride = (a: ReturnType<typeof emptyAccount>) => {
+      a.ledger = {
+        ...a.ledger,
+        postings: [{ id: 'v', importId: 'i', date: '2025-05-01', account: '630003', accountName: 'Tilgange', supplier: '', text: 'Volvo XC60', amount: 1000, currency: 'DKK' }],
+        manual: { v: { postingId: 'v', type: 'tag', factorId: 'f-exio-vehicle-repair', category: 1, reason: 'Firmabil' } },
+      }
+    }
+    const html = render('#/scope3/kategori-1', withOverride)
+    expect(html).toContain('Manuel handling — Firmabil')
+    expect(html).toContain('Følg reglerne')
+    // Moved out of category 2 by the override
+    expect(render('#/scope3/kategori-2', withOverride)).not.toContain('Volvo XC60')
   })
 
   it('shows no empty box or example lines for purchases when there are none', () => {

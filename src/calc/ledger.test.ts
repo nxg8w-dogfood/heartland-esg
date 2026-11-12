@@ -3,7 +3,7 @@ import { currencyRates } from '../data/currencies'
 import { factors } from '../data/factors'
 import {
   classify, conditionMatches, guessColumn, guessMapping, ledgerSpendLines, ledgerSummary, parseCsv, parseLedgerAmount,
-  parseLedgerDate, rowsToPostings, ruleMatches, type ManualAction, type Posting, type Rule,
+  parseLedgerDate, rowsToPostings, ruleMatches, type ClassifiedPosting, type ManualAction, type Posting, type Rule,
 } from './ledger'
 import { category1 } from './scope3'
 import { noDeflation } from './spend'
@@ -17,6 +17,7 @@ const rule = (o: Partial<Rule> = {}): Rule => ({
   factorId: 'f-exio-obs-dk', category: 1, reason: 'Rådgivning', ...o,
 })
 const none = new Map<string, ManualAction>()
+const hitId = (c: ClassifiedPosting) => (c.hit.kind === 'exception' ? c.hit.rule.id : null)
 
 describe('parseCsv', () => {
   it('reads a semicolon-separated Danish export with a byte-order mark', () => {
@@ -100,32 +101,32 @@ describe('classify', () => {
   it('uses the first matching rule, in order', () => {
     const first = rule({ id: 'first', factorId: 'f-exio-obs-se' })
     const second = rule({ id: 'second' })
-    expect(classify(posting(), [first, second], none).rule?.id).toBe('first')
-    expect(classify(posting(), [second, first], none).rule?.id).toBe('second')
+    expect(hitId(classify(posting(), [first, second], none))).toBe('first')
+    expect(hitId(classify(posting(), [second, first], none))).toBe('second')
   })
 
   it('skips inactive rules and falls through to the next', () => {
-    expect(classify(posting(), [rule({ id: 'off', active: false }), rule({ id: 'on' })], none).rule?.id).toBe('on')
+    expect(hitId(classify(posting(), [rule({ id: 'off', active: false }), rule({ id: 'on' })], none))).toBe('on')
   })
 
-  it('excludes by an exclude rule, without a factor or category', () => {
+  it('excludes by an exclude rule, without a factor', () => {
     const c = classify(posting(), [rule({ type: 'exclude', reason: 'Ikke klimarelevant' })], none)
-    expect(c).toMatchObject({ status: 'excluded', source: 'rule', factorId: null, category: null, reason: 'Ikke klimarelevant' })
+    expect(c).toMatchObject({ status: 'excluded', hit: { kind: 'exception' }, factorId: null, category: null, reason: 'Ikke klimarelevant' })
   })
 
   it('lets a manual action override the rules', () => {
     const manual = new Map([['p1', { postingId: 'p1', type: 'exclude', factorId: null, category: null, reason: 'Intern omposting' } as ManualAction]])
-    expect(classify(posting(), [rule()], manual)).toMatchObject({ status: 'excluded', source: 'manual', rule: null })
+    expect(classify(posting(), [rule()], manual)).toMatchObject({ status: 'excluded', hit: { kind: 'manual' } })
   })
 
   it('leaves unmatched postings untagged', () => {
-    expect(classify(posting({ account: '1000' }), [rule()], none)).toMatchObject({ status: 'untagged', source: 'none' })
+    expect(classify(posting({ account: '1000' }), [rule()], none)).toMatchObject({ status: 'untagged', hit: { kind: 'none' } })
   })
 
   it('counts statuses and manual actions', () => {
     const manual = new Map([['p3', { postingId: 'p3', type: 'tag', factorId: 'f-exio-obs-dk', category: 1, reason: '' } as ManualAction]])
     const cs = [posting(), posting({ id: 'p2', account: '1000' }), posting({ id: 'p3', account: '1000' })].map((p) => classify(p, [rule()], manual))
-    expect(ledgerSummary(cs)).toEqual({ total: 3, tagged: 2, excluded: 0, untagged: 1, manual: 1 })
+    expect(ledgerSummary(cs)).toEqual({ total: 3, included: 2, review: 0, pending: 0, excluded: 0, untagged: 1, manual: 1 })
   })
 })
 
@@ -135,7 +136,7 @@ describe('tagged postings in category 1', () => {
   it('become spend lines typed by their account, and count in category 1', () => {
     const cs = [posting()].map((p) => classify(p, [rule()], none))
     const lines = ledgerSpendLines(cs, 1)
-    expect(lines[0].group).toMatchObject({ label: 'Revision', sector: 'Regel: Revision', factorId: 'f-exio-obs-dk' })
+    expect(lines[0].group).toMatchObject({ label: 'Revision', sector: 'Undtagelse: Revision', factorId: 'f-exio-obs-dk' })
     expect(lines[0].line.description).toBe('Deloitte — Faktura 2025-117')
     const c1 = category1([], factors, currencyRates, noDeflation, period, lines)
     expect(c1.total).toBeCloseTo((100_000 * 0.1272) / 1000, 9)

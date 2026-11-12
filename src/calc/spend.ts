@@ -1,9 +1,10 @@
-// Spend-based lines: amount → DKK → the factor's currency (EUR for EXIOBASE), optionally
+// Spend-based lines: amount → DKK → the factor's currency (EUR for EXIOBASE), at the rates on the
+// line's date when daily rates are given (ADR 0016), optionally
 // deflated to the factor's price year, × kg CO2e per unit of currency. Ported from the
 // original app's per-line calculation and its price-index adjustment.
 
 import type { Factor } from '../data/factors'
-import { toDKK, type CurrencyRate } from '../data/currencies'
+import { dkkRate, type RateSource } from './exchangeRates'
 import { periodShare, type Period } from './dates'
 import { factorDenominator } from './lineEmissions'
 import { findFactor } from './findFactor'
@@ -110,6 +111,8 @@ export type SpendResult = {
   /** Amount inside the period, in the factor's currency (EUR for EXIOBASE) */
   amountInFactorCurrency: number | null
   factorCurrency: string
+  /** Date of the daily exchange rate used, when one was; null for fixed rates or no conversion */
+  rateDate: string | null
   deflation: DeflationResult
   /** Amount at the factor's price level; equals the above unless deflation is applied */
   deflatedAmount: number | null
@@ -126,37 +129,44 @@ export function spendLine(
   line: SpendLine,
   group: SpendGroup,
   factors: readonly Factor[],
-  rates: readonly CurrencyRate[],
+  rates: RateSource,
   deflation: Deflation,
   period: Period,
 ): SpendResult {
   const share = periodShare(line, period)
   if (group.excluded) {
     return {
-      line, group, share, factor: null, factorValue: null, amountInFactorCurrency: null, factorCurrency: '',
+      line, group, share, factor: null, factorValue: null, amountInFactorCurrency: null, factorCurrency: '', rateDate: null,
       deflation: plain('not-spend'), deflatedAmount: null, tCO2e: 0, pending: false, excluded: true, warning: null,
     }
   }
   const factor = findFactor(factors, line.factorId ?? group.factorId, line.date)
   const factorValue = line.customFactor ?? factor?.value ?? null
   const inPeriod = line.amount === null ? null : line.amount * share
-  const dkk = inPeriod === null ? null : inPeriod * toDKK(rates, line.currency)
   const factorCurrency = (factor ? factorDenominator(factor.unit) : '') || 'DKK'
-  const amountInFactorCurrency = dkk === null ? null : dkk / toDKK(rates, factorCurrency)
+  const sameCurrency = (line.currency || 'DKK').toUpperCase() === factorCurrency.toUpperCase()
+  const from = sameCurrency ? null : dkkRate(rates, line.currency, line.date)
+  const to = sameCurrency ? null : dkkRate(rates, factorCurrency, line.date)
+  const rateMissing = !!from && !!to && (from.value === null || to.value === null)
+  const amountInFactorCurrency = inPeriod === null || rateMissing
+    ? null
+    : sameCurrency ? inPeriod : (inPeriod * from!.value!) / to!.value!
+  const rateDate = from?.rateDate ?? to?.rateDate ?? null
+  const rateNote = [from?.note, to?.note].filter(Boolean).join(' ') || null
   const d = deflationFor(deflation, factor, line.date)
   const deflatedAmount = amountInFactorCurrency === null ? null : amountInFactorCurrency / (d.ratio || 1)
 
-  const warning =
-    d.status === 'no-base-year'
+  const warning = rateNote ??
+    (d.status === 'no-base-year'
       ? 'Spendfaktoren mangler basisår — indeksregulering kan ikke anvendes.'
       : d.status === 'no-index-point'
         ? 'Indeksserien mangler værdi for linjens år eller for faktorens basisår.'
-        : null
+        : null)
 
   return {
-    line, group, share, factor, factorValue, amountInFactorCurrency, factorCurrency, deflation: d, deflatedAmount,
+    line, group, share, factor, factorValue, amountInFactorCurrency, factorCurrency, rateDate, deflation: d, deflatedAmount,
     tCO2e: (finiteOrZero(deflatedAmount) * finiteOrZero(factorValue)) / 1000,
-    pending: factorValue === null && finiteOrZero(line.amount) !== 0,
+    pending: (factorValue === null || rateMissing) && finiteOrZero(line.amount) !== 0,
     excluded: false,
     warning,
   }

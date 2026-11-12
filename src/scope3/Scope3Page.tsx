@@ -6,12 +6,15 @@ import type { ActivityLine } from '../calc/activity'
 import { category7, type Survey } from '../calc/commuting'
 import { category15, type Investment } from '../calc/investments'
 import type { Deflation, SpendLine } from '../calc/spend'
-import type { LedgerSpendLine } from '../calc/ledger'
+import { classifyLedger, ledgerSpendLines } from '../calc/ledger'
+import type { LedgerState } from '../ledger/state'
+import { LedgerPostingsSection } from '../ledger/LedgerPostingsSection'
 import { currencyRates } from '../data/currencies'
+import { appRates } from '../calc/exchangeRates'
 import type { Scope1Line } from '../calc/scope1'
 import { includedScope3Total } from '../calc/accountTotals'
 import { scope2Summary, type Location, type Scope2Line } from '../calc/scope2'
-import { category1, category3, category4, category5, category5Groups, category6, category6Groups, scope3Categories, type Category3Params } from '../calc/scope3'
+import { category1, category3, category4, category5, category5Groups, category6, category6Groups, ledgerSpend, scope3Categories, type Category3Params } from '../calc/scope3'
 import { ActivityLinesSection } from '../activity/ActivityLinesSection'
 import { FreightSection } from './FreightSection'
 import { CommutingSection } from './CommutingSection'
@@ -50,8 +53,9 @@ type Props = {
   setCat1Lines: Dispatch<SetStateAction<SpendLine[]>>
   deflation: Deflation
   setDeflation: Dispatch<SetStateAction<Deflation>>
-  /** Postings tagged to category 1 on the Kontoplan screen */
-  ledgerLines: readonly LedgerSpendLine[]
+  /** The postings imported on the Kontoplan screen, tagged by the rules (ADR 0015) */
+  ledger: LedgerState
+  setLedger: Dispatch<SetStateAction<LedgerState>>
 }
 
 /** The spend factors category 1 uses in the period: the ones a base year can be set for. */
@@ -61,18 +65,24 @@ const spendFactorsUsed = (cat1: ReturnType<typeof category1>): Factor[] =>
 const pendingNote = (n: number) => (n === 0 ? undefined : n === 1 ? '1 linje afventer faktor' : `${n} linjer afventer faktor`)
 
 export function Scope3Page(props: Props) {
-  const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledgerLines } = props
+  const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledger, setLedger } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
-  const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, currencyRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
+  const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, appRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
   const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
   const cat15 = useMemo(() => category15(investments, currencyRates, period), [investments, period])
-  const cat1 = useMemo(() => category1(cat1Lines, factors, currencyRates, deflation, period, ledgerLines), [cat1Lines, factors, deflation, period, ledgerLines])
+  const classified = useMemo(() => classifyLedger(ledger), [ledger])
+  const cat1 = useMemo(() => category1(cat1Lines, factors, appRates, deflation, period, ledgerSpendLines(classified, 1)), [cat1Lines, factors, deflation, period, classified])
+  const cat2 = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 2), factors, appRates, deflation, period), [classified, factors, deflation, period])
+  const cat6Spend = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 6), factors, appRates, deflation, period), [classified, factors, deflation, period])
+  const postings = (nr: number, results: Parameters<typeof LedgerPostingsSection>[0]['results']) => (
+    <LedgerPostingsSection category={nr} classified={classified} results={results} period={period} factors={factors} setLedger={setLedger} />
+  )
 
   /** Categories calculated so far, by number. The rest are listed but not calculated yet. */
-  const calculated: Record<number, number> = { 1: cat1.total, 3: cat3.total, 4: cat4.total, 5: cat5.total, 6: cat6.total, 7: cat7.total, 15: cat15.total }
+  const calculated: Record<number, number> = { 1: cat1.total, 2: cat2.total, 3: cat3.total, 4: cat4.total, 5: cat5.total, 6: cat6.total + cat6Spend.total, 7: cat7.total, 15: cat15.total }
   const isIncluded = (nr: number) => relevance[nr]?.relevant ?? false
   const total = includedScope3Total(calculated, relevance)
   const pendingRelevant = scope3Categories.filter((c) => isIncluded(c.nr) && !(c.nr in calculated))
@@ -117,10 +127,11 @@ export function Scope3Page(props: Props) {
             <dl className="tiles" aria-live="polite">
               <Tile label="Scope 3, beregnet indtil videre" value={total} accent />
               <Tile label="1 — indkøb" value={cat1.total} note={excludedNote(1) ?? pendingNote(cat1.pendingCount)} />
+              <Tile label="2 — kapitalgoder" value={cat2.total} note={excludedNote(2) ?? pendingNote(cat2.pendingCount)} />
               <Tile label="3 — brændstof og energi" value={cat3.total} note={excludedNote(3)} />
               <Tile label="4 — transport" value={cat4.total} note={excludedNote(4) ?? pendingNote(cat4.pendingCount)} />
               <Tile label="5 — affald" value={cat5.total} note={excludedNote(5)} />
-              <Tile label="6 — forretningsrejser" value={cat6.total} note={excludedNote(6)} />
+              <Tile label="6 — forretningsrejser" value={cat6.total + cat6Spend.total} note={excludedNote(6) ?? pendingNote(cat6Spend.pendingCount)} />
               <Tile label="7 — pendling" value={cat7.total} note={excludedNote(7)} />
               <Tile label="15 — investeringer" value={cat15.total} note={excludedNote(15)} />
             </dl>
@@ -138,7 +149,24 @@ export function Scope3Page(props: Props) {
       )}
 
       {subpage === 'kategori-1' && (
-        <PurchasesSection cat1={cat1} lines={cat1Lines} setLines={setCat1Lines} factors={factors} defaultDate={period.start} />
+        <>
+          <PurchasesSection cat1={cat1} lines={cat1Lines} setLines={setCat1Lines} factors={factors} defaultDate={period.start} />
+          {postings(1, cat1.lines.filter((r) => r.source === 'ledger'))}
+        </>
+      )}
+
+      {subpage === 'kategori-2' && (
+        <>
+          <section aria-labelledby="cat2-heading">
+            <h2 id="cat2-heading">Kategori 2 — kapitalgoder</h2>
+            <p className="muted">
+              Spendbaseret ud fra tilgangskonti i kontoplanen: beløbet ganges med EXIOBASE-faktoren for
+              aktivets sektor. Kategori 2 i alt: <strong>{formatNumber(cat2.total, 3)} tCO2e</strong>
+              {cat2.pendingCount > 0 && <> ({pendingNote(cat2.pendingCount)})</>}.
+            </p>
+          </section>
+          {postings(2, cat2.lines)}
+        </>
       )}
 
       {subpage === 'kategori-3' && <Category3Section cat3={cat3} params={params} />}
@@ -181,6 +209,17 @@ export function Scope3Page(props: Props) {
           defaultDate={period.start}
           emptyText="Ingen forretningsrejser i perioden."
         />
+      )}
+      {subpage === 'kategori-6' && (
+        <>
+          <p className="muted">
+            Rejseudgifter fra kontoplanen tæller med spendbaseret: {formatNumber(cat6Spend.total, 3)} tCO2e
+            {cat6Spend.pendingCount > 0 && <> ({pendingNote(cat6Spend.pendingCount)})</>}. Kategori 6 i alt:{' '}
+            <strong>{formatNumber(cat6.total + cat6Spend.total, 3)} tCO2e</strong>. Registrér ikke den samme rejse både
+            som aktivitet ovenfor og som postering.
+          </p>
+          {postings(6, cat6Spend.lines)}
+        </>
       )}
 
       {subpage === 'kategori-7' && <CommutingSection cat7={cat7} surveys={surveys} setSurveys={setSurveys} factors={factors} period={period} />}
