@@ -51,20 +51,6 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
     setLocations((ls) => ls.filter((l) => l.id !== location.id))
     setLines((ls) => ls.filter((l) => l.locationId !== location.id))
   }
-  const insertExamples = () => {
-    // Only offered when there's at least one location and no lines yet.
-    const hq = locations[0]
-    const store: Location = { ...defaultLocation(), name: 'Butik Aarhus', marketInstrument: 'oprindelsesgaranti', heatingFactorId: 'f-s2-fjernvarme-lokal' }
-    setLocations((ls) => [...ls, store])
-    setLines((ls) => [
-      ...ls,
-      { id: newId(), locationId: hq.id, kind: 'electricity', date: '2025-01-01', dateTo: '2025-06-30', kWh: 84_000, description: 'Elregning H1' },
-      { id: newId(), locationId: hq.id, kind: 'electricity', date: '2025-07-01', dateTo: '2025-12-31', kWh: 79_500, description: 'Elregning H2' },
-      { id: newId(), locationId: hq.id, kind: 'heating', date: '2025-01-01', dateTo: '2025-12-31', kWh: 96_000, description: 'Fjernvarme, årsopgørelse' },
-      { id: newId(), locationId: store.id, kind: 'electricity', date: '2024-12-01', dateTo: '2025-02-28', kWh: 9_000, description: 'Kvartalsregning' },
-      { id: newId(), locationId: store.id, kind: 'heating', date: '2025-01-01', dateTo: '2025-12-31', kWh: 22_000, description: 'Fjernvarme' },
-    ])
-  }
 
   return (
     <>
@@ -127,11 +113,6 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
               onDeleteLine={(id) => setLines((ls) => ls.filter((x) => x.id !== id))}
             />
           ))
-        )}
-        {lines.length === 0 && locations.length > 0 && (
-          <button type="button" className="secondary" onClick={insertExamples}>
-            Indsæt eksempellinjer
-          </button>
         )}
         {hiddenCount > 0 && (
           <p className="muted">
