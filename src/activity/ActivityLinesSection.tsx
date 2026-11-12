@@ -18,11 +18,10 @@ type Props = {
   setLines: Dispatch<SetStateAction<ActivityLine[]>>
   defaultDate: string
   emptyText: string
-  examples?: Omit<ActivityLine, 'id'>[]
 }
 
 /** Add, list and delete activity lines for one category: quantity × factor per row type. */
-export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText, examples }: Props) {
+export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText }: Props) {
   const id = useId()
   const hiddenCount = lines.length - summary.lines.length
 
@@ -34,11 +33,6 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
       {summary.lines.length === 0 ? (
         <div className="empty">
           <p>{emptyText}</p>
-          {lines.length === 0 && examples && (
-            <button type="button" className="secondary" onClick={() => setLines(examples.map((l) => ({ ...l, id: newId() })))}>
-              Indsæt eksempellinjer
-            </button>
-          )}
         </div>
       ) : (
         <div className="table-wrap">

@@ -74,3 +74,9 @@ describe('The Tilføj linje form', () => {
     expect(html).not.toMatch(/<form[^>]*hidden/)
   })
 })
+
+describe('Scope 1 without lines', () => {
+  it('offers no example lines', () => {
+    expect(render([car])).not.toContain('Indsæt eksempellinjer')
+  })
+})

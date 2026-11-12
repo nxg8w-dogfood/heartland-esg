@@ -15,23 +15,6 @@ type Props = {
   period: Period
 }
 
-const exampleSurvey = (date: string): Survey => ({
-  id: newId(),
-  label: 'Pendlingsundersøgelse',
-  date,
-  employees: 85,
-  responses: 52,
-  workWeeksPerYear: 46,
-  modes: {
-    'k7-benzin': { respondents: 14, distanceKm: 22, officeDaysPerWeek: 3.5 },
-    'k7-diesel': { respondents: 6, distanceKm: 35, officeDaysPerWeek: 3 },
-    'k7-el': { respondents: 9, distanceKm: 28, officeDaysPerWeek: 3.5, factorId: 'f-c-el-dk' },
-    'k7-tog': { respondents: 11, distanceKm: 40, officeDaysPerWeek: 3 },
-    'k7-cykel': { respondents: 10, distanceKm: 6, officeDaysPerWeek: 4.5 },
-    'k7-gaaende': { respondents: 2, distanceKm: 1.5, officeDaysPerWeek: 5 },
-  },
-})
-
 export function CommutingSection({ cat7, surveys, setSurveys, factors, period }: Props) {
   const defaultDate = period.start
   const id = useId()
@@ -79,9 +62,6 @@ export function CommutingSection({ cat7, surveys, setSurveys, factors, period }:
       {surveys.length === 0 && (
         <div className="empty">
           <p>Ingen pendlingsundersøgelser.</p>
-          <button type="button" className="secondary" onClick={() => setSurveys([exampleSurvey(defaultDate)])}>
-            Indsæt eksempelundersøgelse
-          </button>
         </div>
       )}
 

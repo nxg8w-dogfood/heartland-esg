@@ -190,4 +190,8 @@ describe('Scope3Page', () => {
   it('has no intro text on the purchases page', () => {
     expect(render('#/scope3/kategori-1')).not.toContain('Spendbaseret')
   })
+
+  it('offers no example data on any category page', () => {
+    for (const p of scope3Subpages) expect(render(scope3Href(p.id))).not.toMatch(/Indsæt eksempel/)
+  })
 })
