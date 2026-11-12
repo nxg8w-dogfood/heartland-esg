@@ -1,0 +1,70 @@
+name: exchange-rates
+# Keeps the exchange-rate table (src/data/exchangeRates.ts) current, as ADR 0016 requires: once a
+# week it regenerates the table from the ECB's daily reference rates and pushes the change to
+# chore/exchange-rates, with CI run on it. GitHub Actions may not create pull requests in this
+# repository, so a person opens the pull request from the link in the run summary (or the
+# existing one is updated), reviews it and merges it.
+
+on:
+  schedule:
+    # Mondays 05:30 UTC, after the ECB has published the previous week's rates
+    - cron: '30 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: exchange-rates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the update branch
+      pull-requests: write # retitle an open pull request from it
+      actions: write # start CI on it (see below)
+    env:
+      BRANCH: chore/exchange-rates
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # The script has no dependencies, so no npm ci. It stops on anything unexpected from the ECB.
+      - run: node scripts/exchange-rates.ts
+
+      - name: Push the update and start CI
+        run: |
+          if git diff --quiet -- src/data/exchangeRates.ts; then
+            echo "The table is already current." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          last=$(grep -oE '^    \["[0-9]{4}-[0-9]{2}-[0-9]{2}"' src/data/exchangeRates.ts | tail -1 | grep -oE '[0-9-]{10}')
+          title="Update the exchange rates to $last"
+
+          # The branch is rebuilt from main on every run, so it only ever holds this one commit.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add src/data/exchangeRates.ts
+          git commit -m "$title"
+          git push --force origin "$BRANCH"
+
+          pr=$(gh pr list --head "$BRANCH" --base main --state open --json url --jq '.[0].url')
+          if [ -n "$pr" ]; then
+            gh pr edit "$pr" --title "$title"
+            echo "Updated the pull request: $pr" >> "$GITHUB_STEP_SUMMARY"
+          else
+            # Actions may not create pull requests here (a repository setting), so a person opens it.
+            url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1&title=$(jq -rn --arg t "$title" '$t|@uri')"
+            echo "::notice::New exchange rates are on $BRANCH. Open the pull request: $url"
+            echo "New exchange rates are on **$BRANCH**. [Open the pull request]($url), check the new days and merge it." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # A push or pull request made with the workflow's own token starts no other workflows,
+          # so the required checks wouldn't run. A dispatch is the exception: start CI on the branch.
+          gh workflow run ci.yml --ref "$BRANCH"
