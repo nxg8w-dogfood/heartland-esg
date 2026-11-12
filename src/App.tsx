@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Logotype } from './brand/Logotype'
 import { ledgerLinesFor } from './calc/accountTotals'
 import type { ActivityLine } from './calc/activity'
@@ -30,7 +30,7 @@ import { activeCompany, emptyGroup, selectedPeriod, withActiveCompany, type Grou
 import { chooseStore } from './storage/choose'
 import type { GroupStore } from './storage/store'
 import { movedHash, pageFromHash, pages, type CompanyPageId } from './pages'
-import { PeriodSelect } from './ui'
+import { ContextSwitcher } from './ui'
 import { exampleLookup } from './vehicles/exampleLookup'
 import { connectorLookup } from './vehicles/connectorLookup'
 import { MotorAPIService } from './generated'
@@ -113,7 +113,6 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
   const [group, setGroup] = useState(initial)
   const [hash, setHash] = useState(currentHash)
   const page = pageFromHash(hash)
-  const companyId = useId()
   const active = activeCompany(group)
   const activeId = active.id
   const period = selectedPeriod(group)
@@ -156,13 +155,14 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
           <span className="brand-name">Klimaregnskab</span>
           {store.central && <span className="connection">Forbundet til {store.label}</span>}
         </div>
-        <div className="company-picker">
-          <label htmlFor={companyId}>Virksomhed</label>
-          <select id={companyId} value={active.id} onChange={(e) => setGroup((g) => withActiveCompany(g, e.target.value))}>
-            {group.companies.map((c) => <option key={c.id} value={c.id}>{c.name || 'Uden navn'}</option>)}
-          </select>
-        </div>
-        <PeriodSelect periods={active.account.periods} value={period.id} onChange={(activePeriodId) => setGroup((g) => ({ ...g, activePeriodId }))} />
+        <ContextSwitcher
+          companies={group.companies}
+          companyId={active.id}
+          onCompany={(id) => setGroup((g) => withActiveCompany(g, id))}
+          periods={active.account.periods}
+          periodId={period.id}
+          onPeriod={(activePeriodId) => setGroup((g) => ({ ...g, activePeriodId }))}
+        />
         <nav aria-label="Sider">
           <ul>
             {pages.map((p) => (
