@@ -55,8 +55,14 @@ The script stops on a column or value it doesn't recognise, rather than guessing
 ### Update the exchange rates
 
 Spend lines are converted at the exchange rate on their date (ADR 0016), from a table of the
-ECB's daily euro reference rates in `src/data/exchangeRates.ts`. Regenerate it on a branch at
-least monthly, and before closing a reporting period, then review the diff:
+ECB's daily euro reference rates in `src/data/exchangeRates.ts`.
+
+Every Monday the `exchange-rates` workflow regenerates the table and opens, or updates, a pull
+request from `chore/exchange-rates`, with CI run on it. Review and merge it like any other change.
+Before closing a reporting period, run it by hand: **Actions → exchange-rates → Run workflow**.
+For it to open the pull request, the repository must allow GitHub Actions to create pull
+requests (**Settings → Actions → General**). Without that, it pushes the branch and links to it
+in the run summary. To update the table locally instead:
 
 ```bash
 node scripts/exchange-rates.ts
@@ -154,6 +160,7 @@ You need the System Administrator role in the environment.
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |
 | `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |
 | `.github/workflows/deploy.yml` | Publishes the app to dev, test or prod. |
+| `.github/workflows/exchange-rates.yml` | Weekly: regenerates the exchange-rate table and opens a pull request with it (ADR 0016). |
 
 ## Working here
 

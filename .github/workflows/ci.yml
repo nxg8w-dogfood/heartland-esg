@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Started by the exchange-rates workflow, whose pull requests don't trigger CI by themselves
+  workflow_dispatch:
 
 permissions:
   contents: read
