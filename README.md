@@ -59,8 +59,11 @@ ECB's daily euro reference rates in `src/data/exchangeRates.ts`.
 
 Every Monday the `exchange-rates` workflow regenerates the table, pushes any change to
 `chore/exchange-rates` and runs CI on it. GitHub Actions isn't allowed to open pull requests in
-this repository, so open it yourself: the run's summary has an *Open the pull request* link. If
-one is already open, the workflow updates it. Review and merge it like any other change. Before
+this repository, so it opens an issue labelled `exchange-rates`, assigned to the code owner,
+with an *Open the pull request* link (the run's summary has it too). Open the pull request from
+it, review it and merge it like any other change. While the rates wait, later runs update the
+same issue and comment on it; the first run after they're on main closes it. If a pull request
+is already open, the workflow updates it. Before
 closing a reporting period, run it by hand: **Actions → exchange-rates → Run workflow**. To
 update the table locally instead:
 

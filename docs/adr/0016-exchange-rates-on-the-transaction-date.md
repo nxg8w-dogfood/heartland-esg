@@ -52,5 +52,8 @@ allows them (ADR 0011), and the rates aren't stored in Dataverse.
   does it every Monday: it pushes the update to `chore/exchange-rates` and starts CI there,
   because pushes made with the workflow's own token don't start CI. GitHub Actions stays unable
   to create pull requests in this repository (@mortengad, 2026-11-12), so a person opens the
-  pull request from the link in the run summary, reviews it and merges it.
+  pull request from the link, reviews it and merges it. The link is in an issue labelled
+  `exchange-rates` and assigned to the code owner, so the alert reaches a person by GitHub's
+  own notifications; later runs update that one issue, and it closes when the table on main is
+  current.
 - The table adds about 50 kB of source (2024 to now, six currencies).
