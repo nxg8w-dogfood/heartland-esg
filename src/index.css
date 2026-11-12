@@ -599,7 +599,8 @@ footer {
   margin: var(--hl-sp-7) 0 var(--hl-sp-4);
 }
 
-.section-head > h2 {
+.section-head > h2,
+.section-head > h3 {
   margin: 0;
 }
 
