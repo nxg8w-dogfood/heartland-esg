@@ -186,4 +186,8 @@ describe('Scope3Page', () => {
     expect(html).not.toContain('Ingen indkøb i perioden.')
     expect(html).not.toContain('<caption class="visually-hidden">Indkøb i perioden</caption>')
   })
+
+  it('has no intro text on the purchases page', () => {
+    expect(render('#/scope3/kategori-1')).not.toContain('Spendbaseret')
+  })
 })
