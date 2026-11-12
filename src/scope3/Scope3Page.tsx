@@ -22,21 +22,6 @@ import { Tile } from '../ui'
 import type { Relevance } from './relevance'
 import { categorySubpage, scope3Href, scope3Subpages, type Scope3SubpageId } from './subpages'
 
-const cat6Examples: Omit<ActivityLine, 'id'>[] = [
-  { group: 'k6-fly-kort', date: '2025-03-12', quantity: 2 * 1250, description: 'København–Frankfurt t/r, 2 personer' },
-  { group: 'k6-fly-lang', date: '2025-05-20', quantity: 12_800, description: 'København–New York t/r' },
-  { group: 'k6-tog', date: '2025-09-04', quantity: 620, description: 'København–Aarhus t/r' },
-  { group: 'k6-hotel', factorId: 'f-hotel-de', date: '2025-03-12', quantity: 4, description: 'Frankfurt, 2 nætter × 2' },
-  { group: 'k6-hotel', factorId: 'f-hotel-us', date: '2025-05-20', quantity: 3, description: 'New York' },
-  { group: 'k6-hotel', date: '2025-09-04', quantity: 1, description: 'Aarhus — vælg proxy-land' },
-]
-
-const cat5Examples: Omit<ActivityLine, 'id'>[] = [
-  { group: 'k5-papir-gen', date: '2025-01-01', dateTo: '2025-12-31', quantity: 3.2, description: 'Papircontainer' },
-  { group: 'k5-hush-forbr', date: '2025-01-01', dateTo: '2025-12-31', quantity: 5.8, description: 'Restaffald' },
-  { group: 'k5-andet-gen', date: '2025-06-15', quantity: 0.4, description: 'Kasseret IT-udstyr' },
-]
-
 type Props = {
   /** Which of Scope 3's pages to show */
   subpage: Scope3SubpageId
@@ -181,7 +166,6 @@ export function Scope3Page(props: Props) {
           setLines={setCat5Lines}
           defaultDate={period.start}
           emptyText="Intet affald registreret i perioden."
-          examples={cat5Examples}
         />
       )}
 
@@ -196,7 +180,6 @@ export function Scope3Page(props: Props) {
           setLines={setCat6Lines}
           defaultDate={period.start}
           emptyText="Ingen forretningsrejser i perioden."
-          examples={cat6Examples}
         />
       )}
 

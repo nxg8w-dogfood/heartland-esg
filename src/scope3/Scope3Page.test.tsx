@@ -143,4 +143,8 @@ describe('Scope3Page', () => {
     expect(html).not.toContain('Ingen indkøb i perioden.')
     expect(html).not.toContain('<caption class="visually-hidden">Indkøb i perioden</caption>')
   })
+
+  it('offers no example data on any category page', () => {
+    for (const p of scope3Subpages) expect(render(scope3Href(p.id))).not.toMatch(/Indsæt eksempel/)
+  })
 })

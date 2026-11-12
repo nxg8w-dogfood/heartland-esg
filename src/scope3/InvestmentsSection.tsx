@@ -12,12 +12,6 @@ const blank = (date: string): Investment => ({
   factorKgPerEUR: null, factorSource: '', country: '',
 })
 
-const examples = (date: string): Investment[] => [
-  { ...blank(date), company: 'Nordisk Energi A/S', ownershipPct: 30, accountingMethod: 'Ass.', dataSource: 'Selskabets klimaregnskab 2025', totalKgCO2e: 1_850_000 },
-  { ...blank(date), company: 'Svensk Rådgivning AB', ownershipPct: 15, basis: 'Revenue', revenueLocal: 42_000_000, localCurrency: 'SEK', rateLocalToDKK: 0.6688, factorKgPerEUR: 0.0768, factorSource: 'EXIOBASE, Other business services, Sverige', country: 'Sverige' },
-  { ...blank(date), company: 'Heartland Datter ApS', ownershipPct: 100, dataSource: 'Konsolideret', totalKgCO2e: 640_000 },
-]
-
 type Props = {
   cat15: Category15
   investments: Investment[]
@@ -63,7 +57,6 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period 
       {investments.length === 0 && (
         <div className="empty">
           <p>Ingen investeringer.</p>
-          <button type="button" className="secondary" onClick={() => setInvestments(examples(defaultDate))}>Indsæt eksempelinvesteringer</button>
         </div>
       )}
 

@@ -31,3 +31,9 @@ describe('The Scope 2 Tilføj linje form', () => {
     expect(html).not.toMatch(/<form id="[^"]*-form"[^>]*hidden/)
   })
 })
+
+describe('Scope 2 without lines', () => {
+  it('offers no example lines', () => {
+    expect(render([])).not.toContain('Indsæt eksempellinjer')
+  })
+})

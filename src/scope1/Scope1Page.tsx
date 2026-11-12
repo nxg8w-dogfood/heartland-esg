@@ -11,14 +11,6 @@ import { newId } from '../newId'
 import { Tile } from '../ui'
 import { scope1Href } from './subpages'
 
-const exampleLines: Omit<Scope1Line, 'id'>[] = [
-  { group: 's1-diesel', date: '2025-01-01', dateTo: '2025-03-31', quantity: 1850, description: 'Brændstofkort, Q1' },
-  { group: 's1-benzin', date: '2025-02-14', quantity: 420, description: 'Poolbil' },
-  { group: 's1-naturgas', date: '2025-01-01', dateTo: '2025-12-31', quantity: 12400, description: 'Hovedkontor' },
-  { group: 's1-hfc134a', date: '2025-06-03', quantity: 1.5, description: 'Efterfyldning, køleanlæg' },
-  { group: 's1-koel-andet', date: '2025-09-10', quantity: 0.8, description: 'Serverrum, type ukendt' },
-]
-
 type Props = {
   period: Period
   factors: readonly Factor[]
@@ -70,11 +62,6 @@ export function Scope1Page({ period, factors, lines, setLines, vehicles }: Props
         {summary.lines.length === 0 ? (
           <div className="empty">
             <p>Ingen Scope 1-linjer i perioden.</p>
-            {lines.length === 0 && (
-              <button type="button" onClick={() => setLines(exampleLines.map((l) => ({ ...l, id: newId() })))}>
-                Indsæt eksempellinjer
-              </button>
-            )}
           </div>
         ) : (
           <div className="table-wrap">
