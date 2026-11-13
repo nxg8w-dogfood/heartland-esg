@@ -14,6 +14,7 @@ import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 import { useConfirm } from '../confirm'
+import { emptyPostingFilter, filterOptions, filterPostings, isFiltered, type FilterOption, type PostingFilter } from '../calc/postingFilter'
 
 const exampleCsv = `Bilagsdato;Kontonr.;Kontotekst;Kreditor;Posteringstekst;Beløb;Valuta
 15.01.2025;6100;Revision;Deloitte;Revision 2024;185.000,00;DKK
@@ -407,8 +408,11 @@ const PAGE = 200
 
 function PostingsSection({ classified, setLedger, spendFactors }: { classified: ClassifiedPosting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; spendFactors: Factor[] }) {
   const id = useId()
-  const [filter, setFilter] = useState<PostingStatus | 'all'>('all')
-  const shown = classified.filter((c) => filter === 'all' || c.status === filter)
+  const [filter, setFilter] = useState<PostingFilter>(emptyPostingFilter)
+  const options = useMemo(() => filterOptions(classified), [classified])
+  const shown = useMemo(() => filterPostings(classified, filter), [classified, filter])
+  const set = (patch: Partial<PostingFilter>) => setFilter((f) => ({ ...f, ...patch }))
+  const choice = (o: FilterOption) => <option key={o.value} value={o.value}>{o.label} ({o.count})</option>
   const setManual = (postingId: string, action: ManualAction | null) =>
     setLedger((l) => {
       const manual = { ...l.manual }
@@ -419,16 +423,69 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
 
   return (
     <section aria-labelledby={`${id}-heading`}>
-      <div className="section-head">
-        <h2 id={`${id}-heading`}>Posteringer</h2>
+      <h2 id={`${id}-heading`}>Posteringer</h2>
+      <div className="location-settings" role="search" aria-label="Filtrer posteringer">
+        <div className="field wide">
+          <label htmlFor={`${id}-search`}>Søg</label>
+          <input
+            id={`${id}-search`}
+            type="search"
+            value={filter.search}
+            onChange={(e) => set({ search: e.target.value })}
+            aria-describedby={`${id}-search-hint`}
+          />
+          <span id={`${id}-search-hint`} className="muted">Konto, kontonavn, leverandør eller tekst. Flere ord skal alle passe.</span>
+        </div>
         <div className="field">
-          <label htmlFor={`${id}-filter`} className="visually-hidden">Vis</label>
-          <select id={`${id}-filter`} value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
-            <option value="all">Alle</option>
+          <label htmlFor={`${id}-status`}>Status</label>
+          <select id={`${id}-status`} value={filter.status} onChange={(e) => set({ status: e.target.value as PostingFilter['status'] })}>
+            <option value="">Alle</option>
             {(Object.keys(postingStatusLabels) as PostingStatus[]).map((s) => <option key={s} value={s}>{postingStatusLabels[s]}</option>)}
           </select>
         </div>
+        <div className="field">
+          <label htmlFor={`${id}-account`}>Konto</label>
+          <select id={`${id}-account`} value={filter.account} onChange={(e) => set({ account: e.target.value })}>
+            <option value="">Alle</option>
+            {options.accounts.map(choice)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-category`}>Kategori</label>
+          <select id={`${id}-category`} value={filter.category} onChange={(e) => set({ category: e.target.value })}>
+            <option value="">Alle</option>
+            {options.categories.map(choice)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-rule`}>Regel</label>
+          <select id={`${id}-rule`} value={filter.rule} onChange={(e) => set({ rule: e.target.value })}>
+            <option value="">Alle</option>
+            {options.rules.map(choice)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-currency`}>Valuta</label>
+          <select id={`${id}-currency`} value={filter.currency} onChange={(e) => set({ currency: e.target.value })}>
+            <option value="">Alle</option>
+            {options.currencies.map(choice)}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-from`}>Fra dato</label>
+          <input id={`${id}-from`} type="date" value={filter.from} max={filter.to || undefined} onChange={(e) => set({ from: e.target.value })} />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-to`}>Til dato</label>
+          <input id={`${id}-to`} type="date" value={filter.to} min={filter.from || undefined} onChange={(e) => set({ to: e.target.value })} />
+        </div>
+        <div className="field end">
+          <button type="button" className="secondary" disabled={!isFiltered(filter)} onClick={() => { setFilter(emptyPostingFilter); document.getElementById(`${id}-search`)?.focus() }}>Nulstil filtre</button>
+        </div>
       </div>
+      <p className="muted" role="status">
+        {isFiltered(filter) ? `${formatNumber(shown.length, 0)} af ${formatNumber(classified.length, 0)} posteringer passer på filtrene.` : `${formatNumber(classified.length, 0)} posteringer.`}
+      </p>
       <div className="table-wrap">
         <table>
           <caption className="visually-hidden">Posteringer</caption>
@@ -484,7 +541,7 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
           </tbody>
         </table>
       </div>
-      {shown.length > PAGE && <p className="muted">Viser de første {PAGE} af {shown.length} posteringer. Brug filteret for at indsnævre.</p>}
+      {shown.length > PAGE && <p className="muted">Viser de første {PAGE} af {formatNumber(shown.length, 0)} posteringer. Brug filtrene for at indsnævre.</p>}
     </section>
   )
 }
