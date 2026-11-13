@@ -18,10 +18,10 @@ deleted in the app:
   the app reported *Gemt*.
 - After a reload, the import was still there with **18,436** of its postings. Only 366 had gone.
 
-So the cascade over thousands of children does not finish within the request, and the parent row
-survives. The app had already dropped the children from its own copy, called the save a success,
-and showed the import as half-saved on the next load — telling the user, correctly, that
-something was wrong, while having no way to finish the job.
+That reading was taken as final, and it was not: the cascade was still running. See the
+amendment below. What holds either way is that the app had already dropped the children from its
+own copy, called the save a success, and showed the import as half-saved on the next load —
+telling the user something was wrong while having no way to finish the job.
 
 ## Decision
 
@@ -51,10 +51,38 @@ something was wrong, while having no way to finish the job.
 ## Consequences
 
 - Deleting a large import now takes about as long as importing it — thousands of requests at
-  roughly 50 a second — instead of one request that didn't work. The user sees the progress and
-  is asked not to close the app, as on an import.
+  roughly 50 a second — instead of one request that returns at once and leaves the work to a
+  cascade the user can't see. The user sees the progress and is asked not to close the app, as on
+  an import.
 - Deleting a company sends a delete per row of that company, not one. That is slower and is the
   same correctness fix.
 - A delete interrupted part-way leaves fewer rows each time and can simply be run again: what is
   already gone is skipped.
 - The app no longer treats a 204 on a parent as proof its children are gone.
+
+## Amendment, 2026-11-13: the cascade is slow, not broken
+
+Later the same afternoon I re-checked the environment and found Blackbird Air empty: no import,
+no postings, its Scope 3 down from 887,073 to 1,323 tCO2e, with nobody having deleted anything
+in between. The import row and its 18,436 postings were still there at about 12:47 and gone by
+about 14:50.
+
+So the premise in *Context* above is wrong, and I got it wrong: **Dataverse's parental cascade
+does finish — asynchronously, and slowly.** It took under two hours for 18,802 rows. The 366 I
+measured was a snapshot of a cascade still draining, which I reported as a permanent half-delete.
+
+The decision stands, for a narrower reason than first stated:
+
+- The app reports *Gemt* while thousands of rows are still being removed server-side, so "saved"
+  means "the request was accepted", not "the data is gone".
+- For as long as the drain takes, the next load shows the import as half-saved, and the user has
+  no way to tell whether their delete worked, is still working, or failed.
+- Deleting every row explicitly makes the delete synchronous, observable while it runs, and
+  actually finished when the app says it is.
+
+What this costs is still what *Consequences* says: a large delete now takes about as long as the
+import did, instead of one request that appears instant and is not.
+
+Not yet proven at real scale: the batched delete has only been exercised against the fake
+Dataverse in the tests. The import it was written for removed itself before #79 reached the
+environment.
