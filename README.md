@@ -138,6 +138,15 @@ Each environment needs a one-time setup first (a Power Platform environment, a s
 principal and a GitHub environment). Until then its deploy run warns and deploys nothing.
 The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR 0003.
 
+### Saving and deleting large data
+
+A ledger import is thousands of records, one Dataverse request each. Saves run one at a time, a
+few records at a time, and retry when Dataverse turns a request away for its service protection
+limits (ADR 0005). Deleting is the same: every row that goes is deleted itself, children before
+parents, rather than relying on Dataverse's parental cascade, which did not finish on an import
+of 18,802 postings (ADR 0019). So deleting a large import takes about as long as importing it,
+shows the same progress, and can be run again if it is interrupted.
+
 ### Dataverse tables
 
 The tables are defined in `src/dataverse/schema.ts` and created with a script (ADR 0007). It

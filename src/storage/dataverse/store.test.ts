@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { tables } from '../../dataverse/schema'
 import { emptyAccount } from '../account'
 import { GROUP_VERSION, type GroupData } from '../group'
-import { dataverseStore, entitySet, isThrottled, type DvRecord, type TableApi, type ViewPrefs } from './store'
+import { dataverseStore, entitySet, isAlreadyGone, isThrottled, type DvRecord, type TableApi, type ViewPrefs } from './store'
 
 /**
  * Dataverse in memory, close enough for the store: records by id, a generated id when none is
@@ -159,17 +159,20 @@ describe('the Dataverse store', () => {
     expect(fake.writes().slice(before)).toEqual([{ op: 'update', table: 'hlesg_faktorkilde', id, body: { hlesg_vaerdi: 0.09 } }])
   })
 
-  it('deletes a company with one request, and Dataverse removes its records', async () => {
+  it('deletes a company\'s own records as well as the company, ending with the company', async () => {
     const two = sample()
     two.companies.push({ ...sample().companies[0], id: 'c-2', name: 'Datter ApS', account: emptyAccount() })
     const { fake, store } = await saved(two)
     const before = fake.writes().length
     await store.save(sample())
-    expect(fake.writes().slice(before)).toEqual([{ op: 'delete', table: 'hlesg_virksomhed', id: 'c-2' }])
+    const sent = fake.writes().slice(before)
+    expect(sent.every((c) => c.op === 'delete')).toBe(true)
+    expect(sent.at(-1)).toEqual({ op: 'delete', table: 'hlesg_virksomhed', id: 'c-2' })
     expect([...fake.db.get('hlesg_relevans')!.values()].every((r) => r._hlesg_virksomhedid_value === 'c-1')).toBe(true)
     // And it doesn't try to delete the gone records on the next save.
+    const after = fake.writes().length
     await store.save(sample())
-    expect(fake.writes().length).toBe(before + 1)
+    expect(fake.writes().length).toBe(after)
   })
 
   it('recreates a deleted company’s records when it comes back, e.g. from a backup', async () => {
@@ -355,6 +358,88 @@ describe('the Dataverse store', () => {
       expect(fake.calls.filter((c) => c.op === 'create' && c.table === 'hlesg_postering').length).toBe(100)
       expect(fake.db.get('hlesg_postering')!.get('p-0')!.hlesg_tekst).toBe('Rettet')
     })
+  })
+
+  describe('deleting a large import', () => {
+    /** A saved group whose one import holds `n` postings. */
+    async function withImport(n: number) {
+      const group = sample()
+      const ledger = group.companies[0].account.ledger
+      ledger.imports[0].count = n
+      ledger.postings = Array.from({ length: n }, (_, i) => ({ ...ledger.postings[0], id: `p-${i}`, text: `Faktura ${i}` }))
+      const fake = fakeDataverse()
+      const store = dataverseStore(fake.api, memoryPrefs())
+      await store.load()
+      await store.save(group)
+      return { fake, store, group }
+    }
+
+    /** The same group with the import and its postings gone. */
+    function withoutImport(group: GroupData): GroupData {
+      const next = JSON.parse(JSON.stringify(group)) as GroupData
+      const ledger = next.companies[0].account.ledger
+      next.companies[0].account.ledger = { ...ledger, imports: [], postings: [], manual: {} }
+      return next
+    }
+
+    it('deletes every posting itself rather than trusting the cascade, and reports progress', async () => {
+      const { fake, store, group } = await withImport(300)
+      const before = fake.writes().length
+      const progress: [number, number][] = []
+      await store.save(withoutImport(group), (done, total) => progress.push([done, total]))
+      const sent = fake.writes().slice(before)
+      expect(sent.filter((c) => c.table === 'hlesg_postering' && c.op === 'delete')).toHaveLength(300)
+      expect(sent.at(-1)).toMatchObject({ op: 'delete', table: 'hlesg_import' })
+      expect(fake.db.get('hlesg_postering')!.size).toBe(0)
+      expect(fake.db.get('hlesg_import')!.size).toBe(0)
+      expect(progress.at(-1)).toEqual([301, 301])
+    })
+
+    it('finishes the job when a cascade already removed some postings behind the app\'s back', async () => {
+      const { fake, store, group } = await withImport(50)
+      // Dataverse removed a third of them on its own; the app doesn't know.
+      let removed = 0
+      for (const id of [...fake.db.get('hlesg_postering')!.keys()]) {
+        if (removed++ % 3 === 0) fake.db.get('hlesg_postering')!.delete(id)
+      }
+      const gone = 50 - fake.db.get('hlesg_postering')!.size
+      expect(gone).toBeGreaterThan(0)
+      const inner = fake.api.delete
+      fake.api.delete = async (table, id) => {
+        try {
+          return await inner(table, id)
+        } catch (e) {
+          throw new Error(`Kunne ikke slette i ${table}: 404 Resource not found (${(e as Error).message})`, { cause: e })
+        }
+      }
+      await store.save(withoutImport(group))
+      expect(fake.db.get('hlesg_postering')!.size).toBe(0)
+      expect(fake.db.get('hlesg_import')!.size).toBe(0)
+    })
+
+    it('retries a delete Dataverse turns away for the limits', async () => {
+      const { fake, store, group } = await withImport(40)
+      let refused = 0
+      const inner = fake.api.delete
+      fake.api.delete = async (table, id) => {
+        if (table === 'hlesg_postering' && refused++ % 5 === 2) {
+          throw new Error('Number of requests exceeded the limit of 6000 over time window of 300 seconds.')
+        }
+        return inner(table, id)
+      }
+      const slow = dataverseStore(fake.api, memoryPrefs(), { retryDelayMs: 1, maxRetryDelayMs: 4 })
+      await slow.load()
+      await slow.save(withoutImport(group))
+      expect(fake.db.get('hlesg_postering')!.size).toBe(0)
+      expect(refused).toBeGreaterThan(40)
+      void store
+    })
+  })
+
+  it('recognises a row that is already gone', () => {
+    expect(isAlreadyGone(new Error('Kunne ikke slette i hlesg_postering: 404 Resource not found'))).toBe(true)
+    expect(isAlreadyGone(new Error('0x80040217 The record does not exist'))).toBe(true)
+    expect(isAlreadyGone(new Error('Number of concurrent requests exceeded the limit of 52.'))).toBe(false)
   })
 
   it('recognises Dataverse\'s service protection errors', () => {
