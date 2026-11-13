@@ -45,6 +45,12 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
   const summary = ledgerSummary(classified)
   const spendFactors = factors.filter((f) => f.method === 'spend')
   const { confirm, dialog } = useConfirm()
+  // Postings per import, to spot an import whose save was cut short (e.g. by closing the app).
+  const stored = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of ledger.postings) m.set(p.importId, (m.get(p.importId) ?? 0) + 1)
+    return m
+  }, [ledger.postings])
 
   return (
     <>
@@ -74,7 +80,12 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
           <ul className="plain">
             {ledger.imports.map((b) => (
               <li key={b.id}>
-                {b.fileName} · {b.count} posteringer · {new Date(b.importedAt).toLocaleString('da-DK')}{' '}
+                {b.fileName} · {formatNumber(b.count, 0)} posteringer · {new Date(b.importedAt).toLocaleString('da-DK')}{' '}
+                {(stored.get(b.id) ?? 0) < b.count && (
+                  <span className="warning-text">
+                    Kun {formatNumber(stored.get(b.id) ?? 0, 0)} er gemt. Importen blev afbrudt, før den var gemt: slet den og importér filen igen.{' '}
+                  </span>
+                )}
                 <button
                   type="button"
                   className="link"

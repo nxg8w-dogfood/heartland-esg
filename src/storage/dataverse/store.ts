@@ -1,5 +1,7 @@
 // The group stored in Dataverse (docs/adr/0005 section 7): loads every table, and saves only
 // what changed, record by record and column by column, so auditing shows real changes only.
+// One save runs at a time; within it, records of one table go a few at a time, within
+// Dataverse's service protection limits (see SaveOptions).
 // Dataverse checks every request against the user's security roles; what a user can't read
 // simply isn't loaded, and a change they aren't allowed fails with Dataverse's message.
 //
@@ -9,7 +11,7 @@
 import { tables, type Column } from '../../dataverse/schema'
 import { schemaName } from '../../dataverse/metadata'
 import { parseGroup, type GroupData, type GroupLoadResult } from '../group'
-import type { GroupStore } from '../store'
+import type { GroupStore, SaveProgress } from '../store'
 import { diff, emptyRows, fromRows, GROUP_KEY, migrateLegacyPeriods, naturalKey, toRows, type Operation, type Row, type Rows, type Value } from './rows'
 
 /** A Dataverse record as the Web API returns or accepts it */
@@ -82,13 +84,91 @@ export function recordFromRow(table: string, row: Row, idOf: (table: string, key
   return out
 }
 
-export function dataverseStore(api: TableApi, prefs: ViewPrefs): GroupStore {
+/**
+ * How a save talks to Dataverse. A large import is thousands of records, one request each, and
+ * Dataverse limits each user to about 6,000 requests per five minutes and 52 at a time
+ * (service protection limits). So records of one table are sent a few at a time, and a
+ * request Dataverse turns away for the limits is retried after a pause that grows.
+ */
+export type SaveOptions = { concurrency: number; retryDelayMs: number; maxRetryDelayMs: number; maxRetries: number }
+
+export const defaultSaveOptions: SaveOptions = { concurrency: 8, retryDelayMs: 2_000, maxRetryDelayMs: 60_000, maxRetries: 30 }
+
+/** Dataverse's answers when a user exceeds the service protection limits. */
+export function isThrottled(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e)
+  return /\b429\b|too many requests|number of requests exceeded|concurrent requests exceeded|combined execution time|0x80072321|0x80072322|0x80072326/i.test(m)
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+/** Runs consecutive operations on the same table and of the same kind as one group. */
+function groups(ops: Operation[]): Operation[][] {
+  const out: Operation[][] = []
+  for (const op of ops) {
+    const last = out.at(-1)
+    if (last && last[0].kind === op.kind && last[0].table === op.table) last.push(op)
+    else out.push([op])
+  }
+  return out
+}
+
+export function dataverseStore(api: TableApi, prefs: ViewPrefs, options: Partial<SaveOptions> = {}): GroupStore {
+  const opts = { ...defaultSaveOptions, ...options }
   let loaded: Rows = emptyRows()
   // Periods made from the old columns on load (ADR 0013), not in Dataverse until changed.
   let unsaved = new Set<string>()
   const PERIODS = 'hlesg_regnskabsperiode'
   const ids = new Map<string, Map<string, string>>()
   const idOf = (table: string, key: string) => ids.get(table)?.get(key) ?? (APP_IDS.has(table) ? key : undefined)
+
+  /** One operation, retried while Dataverse says the user has sent too much. */
+  async function applyWithRetry(op: Operation): Promise<void> {
+    for (let attempt = 0, delay = opts.retryDelayMs; ; attempt++, delay = Math.min(delay * 2, opts.maxRetryDelayMs)) {
+      try {
+        return await apply(op)
+      } catch (e) {
+        if (!isThrottled(e) || attempt >= opts.maxRetries) throw e
+        await sleep(delay)
+      }
+    }
+  }
+
+  /**
+   * Sends one group's operations a few at a time. After a failure no more are started; the
+   * ones under way finish and stay recorded, so the next save sends only what's left.
+   */
+  async function applyGroup(ops: Operation[], progress: () => void): Promise<void> {
+    let next = 0
+    let failure: { error: unknown } | null = null
+    const worker = async () => {
+      while (!failure && next < ops.length) {
+        const op = ops[next++]
+        try {
+          await applyWithRetry(op)
+          progress()
+        } catch (error) {
+          failure ??= { error }
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(opts.concurrency, ops.length) }, worker))
+    if (failure) throw (failure as { error: unknown }).error
+  }
+
+  async function saveNow(group: GroupData, onProgress?: SaveProgress): Promise<void> {
+    prefs.write({ activeCompanyId: group.activeCompanyId, activePeriodId: group.activePeriodId })
+    // Parents before children: each group of one table and kind finishes before the next starts.
+    const ops = diff(loaded, toRows(group))
+    let done = 0
+    onProgress?.(0, ops.length)
+    for (const g of groups(ops)) await applyGroup(g, () => onProgress?.(++done, ops.length))
+  }
+
+  // One save at a time: a change made during a long save waits, then only what's still
+  // different is sent. Saves that queued meanwhile all send the latest group.
+  let queue: Promise<void> = Promise.resolve()
+  let latest: GroupData | null = null
 
   async function apply(op: Operation): Promise<void> {
     if (op.table === PERIODS && unsaved.has(op.key)) {
@@ -153,11 +233,11 @@ export function dataverseStore(api: TableApi, prefs: ViewPrefs): GroupStore {
       // Validate like any loaded data, so a record the app can't use is dropped and counted.
       return parseGroup(JSON.parse(JSON.stringify(group)))
     },
-    async save(group: GroupData): Promise<void> {
-      prefs.write({ activeCompanyId: group.activeCompanyId, activePeriodId: group.activePeriodId })
-      // One at a time, in order: parents exist before children point to them. If one fails,
-      // what was saved stays recorded, so the next save sends only what's left.
-      for (const op of diff(loaded, toRows(group))) await apply(op)
+    save(group: GroupData, onProgress?: SaveProgress): Promise<void> {
+      latest = group
+      const run = queue.catch(() => {}).then(() => saveNow(latest!, onProgress))
+      queue = run
+      return run
     },
   }
 }

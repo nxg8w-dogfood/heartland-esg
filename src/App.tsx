@@ -120,14 +120,25 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 
   // Autosave half a second after the last change. The group as loaded isn't saved again, so
   // unreadable saved data is only replaced once someone actually changes something.
+  // The store runs one save at a time; only the latest save's outcome is shown, and a long
+  // save's progress about once a second.
   const [status, setStatus] = useState<SaveStatus>({ state: 'idle' })
+  const saveSeq = useRef(0)
   useEffect(() => {
     if (group === initial) return
     const timer = setTimeout(() => {
+      const seq = ++saveSeq.current
+      const isLatest = () => seq === saveSeq.current
+      let shown = 0
       setStatus({ state: 'pending' })
-      store.save(group).then(
-        () => setStatus({ state: 'saved', at: new Date() }),
-        (e: unknown) => setStatus({ state: 'failed', reason: e instanceof Error ? e.message : undefined }),
+      store.save(group, (done, total) => {
+        const now = Date.now()
+        if (!isLatest() || (done < total && now - shown < 1000)) return
+        shown = now
+        setStatus({ state: 'pending', done, total })
+      }).then(
+        () => { if (isLatest()) setStatus({ state: 'saved', at: new Date() }) },
+        (e: unknown) => { if (isLatest()) setStatus({ state: 'failed', reason: e instanceof Error ? e.message : undefined }) },
       )
     }, 500)
     return () => clearTimeout(timer)
