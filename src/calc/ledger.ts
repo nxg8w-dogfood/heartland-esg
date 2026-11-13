@@ -223,6 +223,29 @@ export type Rule = {
   reason: string
 }
 
+/**
+ * A company's change to one of the ESG owner's posting rules (docs/adr/0018). It replaces the
+ * rule's handling, factor, target category and reason; the search word, priority and the
+ * category it applies to stay as approved. The approved rule is unchanged in code, so removing
+ * the change brings it back.
+ */
+export type PostingRuleEdit = {
+  id: string
+  /** The RegelID it changes, e.g. R33 */
+  ruleId: string
+  handling: PostingHandling
+  /** A factor in the factor table; null uses the account's factor */
+  factorId: string | null
+  /** Moves the posting to this category; null keeps the account's */
+  moveTo: number | null
+  reason: string
+  /** When it was changed (ISO date) */
+  editedOn: string
+}
+
+/** A posting rule as it applies to a company: the approved rule, with the company's change if any. */
+export type EffectivePostingRule = PostingRule & { edit?: PostingRuleEdit }
+
 export type ManualAction = {
   postingId: string
   type: 'tag' | 'exclude'
@@ -249,7 +272,7 @@ export const postingStatusLabels: Record<PostingStatus, string> = {
 export type RuleHit =
   | { kind: 'manual' }
   | { kind: 'exception'; rule: Rule }
-  | { kind: 'posting'; rule: PostingRule }
+  | { kind: 'posting'; rule: EffectivePostingRule }
   | { kind: 'account'; rule: AccountRule }
   | { kind: 'none' }
 
@@ -268,7 +291,7 @@ export type ClassifiedPosting = {
 export type RuleBook = {
   accountRules: readonly AccountRule[]
   /** In priority order */
-  postingRules: readonly PostingRule[]
+  postingRules: readonly EffectivePostingRule[]
   /** FaktorID → factor table id */
   factorFor: (code: string | null) => string | null
 }
@@ -277,6 +300,22 @@ export const builtinRuleBook: RuleBook = {
   accountRules: seedAccountRules,
   postingRules: seedPostingRules,
   factorFor: (code) => registeredFactor(code)?.factorId ?? null,
+}
+
+/**
+ * The rule book with a company's changes applied: an edited rule takes the change's handling,
+ * factor, category and reason. A change to a rule that no longer exists is ignored.
+ */
+export function withRuleEdits(book: RuleBook, edits: readonly PostingRuleEdit[]): RuleBook {
+  if (edits.length === 0) return book
+  const byRule = new Map(edits.map((e) => [e.ruleId, e]))
+  return {
+    ...book,
+    postingRules: book.postingRules.map((r) => {
+      const edit = byRule.get(r.id)
+      return edit ? { ...r, handling: edit.handling, moveTo: edit.moveTo, reason: edit.reason, edit } : r
+    }),
+  }
 }
 
 const norm = (s: string) => s.trim().toLowerCase()
@@ -305,7 +344,8 @@ const statusFor: Record<PostingHandling, PostingStatus> = { exclude: 'excluded',
  * 2. the user's own exceptions (`rules`), in order, the first that matches;
  * 3. the account rule for the posting's account. An account that isn't in the rules is untagged,
  *    and one that isn't included is excluded;
- * 4. for an included account, the first posting rule by priority whose search word is in the
+ * 4. for an included account, the first posting rule by priority (with the company's change to it,
+ *    if any) whose search word is in the
  *    posting's text or supplier, and that applies to the account's category. It can exclude the
  *    posting, override its factor, move it to another category, or flag it for review or as
  *    pending;
@@ -338,7 +378,9 @@ export function classify(posting: Posting, rules: readonly Rule[], manual: Reado
     const status = statusFor[postingRule.handling]
     return {
       posting, status, hit: { kind: 'posting', rule: postingRule },
-      factorId: status === 'excluded' ? null : book.factorFor(postingRule.factorCode ?? accountRule.factorCode),
+      factorId: status === 'excluded' ? null
+        : postingRule.edit ? (postingRule.edit.factorId ?? book.factorFor(accountRule.factorCode))
+        : book.factorFor(postingRule.factorCode ?? accountRule.factorCode),
       category: postingRule.moveTo ?? accountRule.category,
       reason: postingRule.reason,
     }
@@ -349,20 +391,24 @@ export function classify(posting: Posting, rules: readonly Rule[], manual: Reado
   }
 }
 
-export function classifyLedger(ledger: { postings: readonly Posting[]; rules: readonly Rule[]; manual: Record<string, ManualAction> }, book: RuleBook = builtinRuleBook): ClassifiedPosting[] {
+export function classifyLedger(
+  ledger: { postings: readonly Posting[]; rules: readonly Rule[]; manual: Record<string, ManualAction>; ruleEdits?: readonly PostingRuleEdit[] },
+  book: RuleBook = builtinRuleBook,
+): ClassifiedPosting[] {
   const manual = new Map(Object.entries(ledger.manual))
-  return ledger.postings.map((p) => classify(p, ledger.rules, manual, book))
+  const effective = withRuleEdits(book, ledger.ruleEdits ?? [])
+  return ledger.postings.map((p) => classify(p, ledger.rules, manual, effective))
 }
 
 /** Counts in the climate account */
 export const counts = (c: ClassifiedPosting) => c.status === 'included' || c.status === 'review'
 
-/** The rule that hit, in a few words, e.g. "R10 «DSB »" or "Kontoregel 240003". */
+/** The rule that hit, in a few words, e.g. "R10 «DSB »", "R33 «Dorte Mandrup» (ændret)" or "Kontoregel 240003". */
 export function hitLabel(hit: RuleHit): string {
   switch (hit.kind) {
     case 'manual': return 'Manuel handling'
     case 'exception': return `Undtagelse: ${hit.rule.name}`
-    case 'posting': return `${hit.rule.id} «${hit.rule.searchWord}»`
+    case 'posting': return `${hit.rule.id} «${hit.rule.searchWord}»${hit.rule.edit ? ' (ændret)' : ''}`
     case 'account': return `Kontoregel ${hit.rule.account}`
     case 'none': return 'Ingen regel'
   }

@@ -17,6 +17,7 @@ import { factors } from '../data/factors'
 import { factorPublications } from '../data/factorPublications'
 import type { FactorSourceChoice, FactorSources } from '../calc/factorSources'
 import { emptyLedger, type LedgerState } from '../ledger/state'
+import { handlingLabels } from '../calc/spendRules'
 import { defaultLocation } from '../scope2/defaultLocation'
 import { defaultRelevance, type Relevance } from '../scope3/relevance'
 import { newId } from '../newId'
@@ -182,6 +183,12 @@ export function parseAccount(input: unknown): LoadResult {
       postings,
       imports: list(ledgerIn.imports),
       rules: list(ledgerIn.rules, (r) => Array.isArray(r.conditions)),
+      // One change per standard rule; a later one for the same rule replaces an earlier one.
+      ruleEdits: [...new Map(list<LedgerState['ruleEdits'][number]>(ledgerIn.ruleEdits, (e) =>
+        typeof e.ruleId === 'string' && e.ruleId !== '' && typeof e.handling === 'string' && e.handling in handlingLabels &&
+        (e.factorId === null || typeof e.factorId === 'string') &&
+        (e.moveTo === null || (typeof e.moveTo === 'number' && Number.isInteger(e.moveTo) && e.moveTo >= 1 && e.moveTo <= 15)))
+        .map((e) => [e.ruleId, { ...e, reason: typeof e.reason === 'string' ? e.reason : '', editedOn: typeof e.editedOn === 'string' ? e.editedOn : '' }] as const)).values()],
       manual: manual as LedgerState['manual'],
     },
   }

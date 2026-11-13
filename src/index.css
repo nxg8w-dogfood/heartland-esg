@@ -718,6 +718,15 @@ ul.plain {
   flex: 1;
 }
 
+/* A rule's editor opens in the row under it, in the rules tables on Kontoplan. */
+.rule-edit-row > td {
+  padding-top: 0;
+}
+
+.rule-edit-row .card {
+  margin: 0;
+}
+
 .databar {
   margin-top: var(--hl-sp-5);
 }

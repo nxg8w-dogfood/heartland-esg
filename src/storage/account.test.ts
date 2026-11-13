@@ -68,6 +68,23 @@ describe('parseAccount', () => {
     expect(r.ok && r.dropped).toBe(7)
   })
 
+  it('keeps one valid change per posting rule and drops the rest', () => {
+    const a = emptyAccount()
+    const e = (o: Record<string, unknown>) => ({ id: String(o.id), ruleId: 'R33', handling: 'include', factorId: null, moveTo: null, reason: 'x', editedOn: '2026-11-13', ...o })
+    const r = parseAccount({ ...a, ledger: { ...a.ledger, ruleEdits: [
+      e({ id: 'a' }), e({ id: 'b', handling: 'review' }), e({ id: 'c', ruleId: 'R34', handling: 'maybe' }), e({ id: 'd', ruleId: 'R35', moveTo: 16 }), e({ id: 'f', ruleId: 'R36', reason: undefined }),
+    ] } })
+    expect(r.ok && r.account.ledger.ruleEdits.map((x) => [x.id, x.handling, x.reason])).toEqual([['b', 'review', 'x'], ['f', 'include', '']])
+  })
+
+  it('reads an account saved before rule changes existed', () => {
+    const a = emptyAccount()
+    const old: Partial<typeof a.ledger> = { ...a.ledger }
+    delete old.ruleEdits
+    const r = parseAccount({ ...a, ledger: old })
+    expect(r.ok && r.account.ledger.ruleEdits).toEqual([])
+  })
+
   it('drops manual ledger actions for postings that no longer exist', () => {
     const a = emptyAccount()
     const r = parseAccount({ ...a, ledger: { ...a.ledger, postings: [{ id: 'p1' }], manual: { p1: { postingId: 'p1', type: 'exclude' }, p9: { postingId: 'p9', type: 'exclude' } } } })
