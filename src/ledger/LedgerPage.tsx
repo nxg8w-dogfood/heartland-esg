@@ -13,6 +13,7 @@ import type { LedgerState } from './state'
 import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { Tile } from '../ui'
+import { useConfirm } from '../confirm'
 
 const exampleCsv = `Bilagsdato;Kontonr.;Kontotekst;Kreditor;Posteringstekst;Beløb;Valuta
 15.01.2025;6100;Revision;Deloitte;Revision 2024;185.000,00;DKK
@@ -42,9 +43,11 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
   const classified = useMemo(() => classifyLedger(ledger), [ledger])
   const summary = ledgerSummary(classified)
   const spendFactors = factors.filter((f) => f.method === 'spend')
+  const { confirm, dialog } = useConfirm()
 
   return (
     <>
+      {dialog}
       <h1>Kontoplan</h1>
       <p className="lead">
         Importer posteringer fra finanssystemet. ESG-ansvarliges kontoregler giver hver konto en
@@ -74,8 +77,8 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
                 <button
                   type="button"
                   className="link"
-                  onClick={() => {
-                    if (!window.confirm(`Slet importen ${b.fileName} og dens ${b.count} posteringer?`)) return
+                  onClick={async () => {
+                    if (!(await confirm(`Slet importen ${b.fileName} og dens ${b.count} posteringer?`, 'Slet import'))) return
                     setLedger((l) => {
                       const gone = new Set(l.postings.filter((p) => p.importId === b.id).map((p) => p.id))
                       return {
@@ -274,9 +277,11 @@ function RulesSection({ rules, setLedger, classified, spendFactors }: { rules: R
       return next
     })
   const matchCount = (ruleId: string) => classified.filter((c) => c.hit.kind === 'exception' && c.hit.rule.id === ruleId).length
+  const { confirm, dialog } = useConfirm()
 
   return (
     <section aria-labelledby="rules-heading">
+      {dialog}
       <div className="section-head">
         <h2 id="rules-heading">Undtagelser</h2>
         <button
@@ -304,7 +309,7 @@ function RulesSection({ rules, setLedger, classified, spendFactors }: { rules: R
           spendFactors={spendFactors}
           onChange={(patch) => update(r.id, patch)}
           onMove={(to) => move(i, to)}
-          onDelete={() => { if (window.confirm(`Slet reglen ${r.name}?`)) setRules((rs) => rs.filter((x) => x.id !== r.id)) }}
+          onDelete={async () => { if (await confirm(`Slet reglen ${r.name}?`)) setRules((rs) => rs.filter((x) => x.id !== r.id)) }}
         />
       ))}
     </section>

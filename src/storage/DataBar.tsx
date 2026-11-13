@@ -1,3 +1,5 @@
+import { useConfirm } from '../confirm'
+
 export type SaveStatus =
   | { state: 'idle' }
   | { state: 'pending' }
@@ -15,6 +17,7 @@ type Props = {
 
 /** Where the data lives, whether it's saved, and clearing a browser draft. */
 export function DataBar({ storeLabel, central, status, message, onClear }: Props) {
+  const { confirm, dialog } = useConfirm()
   const statusText =
     status.state === 'pending' ? 'Gemmer …'
       : status.state === 'saved' ? `Gemt kl. ${status.at.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
@@ -26,6 +29,7 @@ export function DataBar({ storeLabel, central, status, message, onClear }: Props
 
   return (
     <div className={central ? 'databar' : 'databar notice'} role="region" aria-label="Data og lagring">
+      {dialog}
       <p>
         {!central && (
           <>
@@ -41,8 +45,8 @@ export function DataBar({ storeLabel, central, status, message, onClear }: Props
           <button
             type="button"
             className="link"
-            onClick={() => {
-              if (window.confirm('Slet alle data for alle virksomheder i denne browser? Det kan ikke fortrydes.')) onClear()
+            onClick={async () => {
+              if (await confirm('Slet alle data for alle virksomheder i denne browser? Det kan ikke fortrydes.', 'Ryd alt')) onClear()
             }}
           >
             Ryd alt

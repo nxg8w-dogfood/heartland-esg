@@ -5,6 +5,7 @@ import { investmentResult, type Category15, type Investment, type InvestmentBasi
 import { formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
+import { useConfirm } from '../confirm'
 
 const blank = (date: string): Investment => ({
   id: newId(), date, company: '', ownershipPct: null, accountingMethod: 'Other investments', climateMethod: 'Investment-specific method',
@@ -25,9 +26,11 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period 
   const counted = new Set(cat15.rows.map((r) => r.investment.id))
   const update = (invId: string, patch: Partial<Investment>) =>
     setInvestments((is) => is.map((i) => (i.id === invId ? { ...i, ...patch } : i)))
+  const { confirm, dialog } = useConfirm()
 
   return (
     <section aria-labelledby={`${id}-heading`}>
+      {dialog}
       <div className="section-head">
         <h2 id={`${id}-heading`}>Kategori 15 — investeringer</h2>
         <button type="button" onClick={() => setInvestments((is) => [...is, blank(defaultDate)])}>Ny investering</button>
@@ -66,8 +69,8 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period 
           result={investmentResult(inv, currencyRates, period)}
           counted={counted.has(inv.id)}
           onChange={(patch) => update(inv.id, patch)}
-          onDelete={() => {
-            if (window.confirm(`Slet ${inv.company || 'investeringen'}?`)) setInvestments((is) => is.filter((i) => i.id !== inv.id))
+          onDelete={async () => {
+            if (await confirm(`Slet ${inv.company || 'investeringen'}?`)) setInvestments((is) => is.filter((i) => i.id !== inv.id))
           }}
         />
       ))}
