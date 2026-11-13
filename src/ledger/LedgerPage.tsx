@@ -7,7 +7,7 @@ import { scope3Categories } from '../calc/scope3'
 import {
   classifyLedger, guessMapping, hitLabel, postingStatusLabels, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
   type ClassifiedPosting, type ColumnMapping, type PostingStatus, type Condition, type ConditionField, type ConditionOperator,
-  type CellValue, type LedgerField, type ManualAction, type Posting, type Rule, type TableRow,
+  type LedgerField, type ManualAction, type Posting, type Rule, type TableRow,
 } from '../calc/ledger'
 import type { LedgerState } from './state'
 import { formatDate, formatNumber } from '../format'
@@ -124,8 +124,8 @@ async function readText(file: File): Promise<string> {
 
 /** The first sheet of an .xlsx file. The reader is loaded only when an Excel file is chosen. */
 async function readXlsx(file: File): Promise<{ headers: string[]; rows: TableRow[] }> {
-  const { readSheet } = await import('read-excel-file/browser')
-  return tableToRows((await readSheet(file)) as CellValue[][])
+  const { readXlsxSheet } = await import('../calc/readXlsx')
+  return tableToRows(await readXlsxSheet(file))
 }
 
 function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<Posting, 'id' | 'importId'>[]) => void }) {
