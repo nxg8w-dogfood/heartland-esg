@@ -2,7 +2,7 @@
 // rules and account rules, and the factor register, each as a table that's folded until opened.
 // An exception or a posting rule is edited in place from its row (docs/adr/0015, 0018).
 
-import { useId, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useId, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
 import { accountRules } from '../data/scope3Rules'
 import { spendFactorRegister } from '../data/spendFactorRegister'
@@ -32,24 +32,37 @@ const operatorOptions: { value: ConditionOperator; label: string }[] = [
 const category = (n: number | null) => (n === null ? '' : `3.${n}`)
 const today = () => new Date().toISOString().slice(0, 10)
 
-type Props = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[] }
+type Props = {
+  ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[]
+  /** An exception to open and focus, such as one just created from a posting's text */
+  focusRuleId?: string | null; onFocused?: () => void
+}
 
-export function RulesSection({ ledger, setLedger, classified, spendFactors }: Props) {
+export function RulesSection({ ledger, setLedger, classified, spendFactors, focusRuleId = null, onFocused }: Props) {
   // Which row's editor is open: an exception's id, or a posting rule's RegelID.
   const [open, setOpen] = useState<string | null>(null)
   const [exceptionsOpen, setExceptionsOpen] = useState(false)
-  // The button that opened an editor gets focus back when it closes.
-  const opener = useRef<HTMLElement | null>(null)
+  // A closed editor hands focus to its row's Rediger button, however it was opened.
+  const returnTo = useRef<string | null>(null)
   const close = () => {
+    returnTo.current = open
     setOpen(null)
-    const el = opener.current
-    requestAnimationFrame(() => el?.focus())
   }
-  const toggle = (key: string, button: HTMLElement) => {
-    if (open === key) return close()
-    opener.current = button
-    setOpen(key)
+  useEffect(() => {
+    if (open || !returnTo.current) return
+    document.querySelector<HTMLElement>(`[data-rule-edit="${CSS.escape(returnTo.current)}"]`)?.focus()
+    returnTo.current = null
+  }, [open])
+  // A rule made from a posting opens in the exceptions table; its editor scrolls into view and
+  // takes focus (RuleCard). Adjusted while rendering, as React recommends over an effect.
+  const [focused, setFocused] = useState<string | null>(null)
+  if (focusRuleId && focusRuleId !== focused) {
+    setFocused(focusRuleId)
+    setExceptionsOpen(true)
+    setOpen(focusRuleId)
   }
+  useEffect(() => { if (focusRuleId) onFocused?.() }, [focusRuleId, onFocused])
+  const toggle = (key: string) => (open === key ? close() : setOpen(key))
 
   return (
     <section aria-labelledby="rules-heading">
@@ -57,7 +70,8 @@ export function RulesSection({ ledger, setLedger, classified, spendFactors }: Pr
       <p className="muted">
         Den første regel, der passer, vinder: først dine undtagelser, så ESG-ansvarliges
         posteringsregler, og til sidst kontoreglen. En manuel handling på en postering går forud for
-        alle regler. Undtagelser kan også oprettes fra en postering på kategorisiderne under Scope 3.
+        alle regler. Undtagelser kan også oprettes fra en postering nedenfor og på
+        kategorisiderne under Scope 3.
       </p>
       <ExceptionsTable
         rules={ledger.rules}
@@ -68,7 +82,7 @@ export function RulesSection({ ledger, setLedger, classified, spendFactors }: Pr
         detailsOpen={exceptionsOpen}
         setDetailsOpen={setExceptionsOpen}
         onToggle={toggle}
-        onCreated={(id) => { opener.current = null; setExceptionsOpen(true); setOpen(id) }}
+        onCreated={(id) => { setExceptionsOpen(true); setOpen(id) }}
         onClose={close}
       />
       <PostingRulesTable
@@ -89,7 +103,7 @@ export function RulesSection({ ledger, setLedger, classified, spendFactors }: Pr
 function ExceptionsTable({ rules, setLedger, classified, spendFactors, open, detailsOpen, setDetailsOpen, onToggle, onCreated, onClose }: {
   rules: Rule[]; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[]
   open: string | null; detailsOpen: boolean; setDetailsOpen: (open: boolean) => void
-  onToggle: (key: string, button: HTMLElement) => void; onCreated: (id: string) => void; onClose: () => void
+  onToggle: (key: string) => void; onCreated: (id: string) => void; onClose: () => void
 }) {
   const setRules = (f: (rs: Rule[]) => Rule[]) => setLedger((l) => ({ ...l, rules: f(l.rules) }))
   const update = (ruleId: string, patch: Partial<Rule>) => setRules((rs) => rs.map((r) => (r.id === ruleId ? { ...r, ...patch } : r)))
@@ -160,7 +174,7 @@ function ExceptionsTable({ rules, setLedger, classified, spendFactors, open, det
                     <td>{r.reason}</td>
                     <td className="num">{hits(r.id)}</td>
                     <td>
-                      <button type="button" className="link" aria-expanded={open === r.id} onClick={(e) => onToggle(r.id, e.currentTarget)}>
+                      <button type="button" className="link" data-rule-edit={r.id} aria-expanded={open === r.id} onClick={() => onToggle(r.id)}>
                         {open === r.id ? 'Luk' : 'Rediger'}<span className="visually-hidden"> {r.name}</span>
                       </button>
                     </td>
@@ -201,9 +215,12 @@ function RuleCard({ rule, index, count, matches, spendFactors, onChange, onMove,
   onChange: (patch: Partial<Rule>) => void; onMove: (to: number) => void; onDelete: () => void; onClose: () => void
 }) {
   const id = useId()
+  const card = useRef<HTMLDivElement>(null)
+  // Braces matter: scrollIntoView returns a Promise in newer browsers, and an effect may only return a cleanup.
+  useEffect(() => { card.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }, [])
   const setCondition = (cid: string, patch: Partial<Condition>) => onChange({ conditions: rule.conditions.map((c) => (c.id === cid ? { ...c, ...patch } : c)) })
   return (
-    <div className="card" role="group" aria-labelledby={`${id}-name-label`}>
+    <div className="card" role="group" aria-labelledby={`${id}-name-label`} ref={card}>
       <div className="location-settings">
         <div className="field">
           <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Undtagelse {index + 1}</label>
@@ -287,7 +304,7 @@ function FactorSelect({ id, value, factors, emptyLabel, onChange }: { id: string
 /** The ESG owner's posting rules, with this company's changes; each can be changed or restored. */
 function PostingRulesTable({ edits, setLedger, classified, spendFactors, open, onToggle, onClose }: {
   edits: PostingRuleEdit[]; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[]
-  open: string | null; onToggle: (key: string, button: HTMLElement) => void; onClose: () => void
+  open: string | null; onToggle: (key: string) => void; onClose: () => void
 }) {
   const rules = withRuleEdits(builtinRuleBook, edits).postingRules
   const hits = (id: string) => classified.filter((c) => c.hit.kind === 'posting' && c.hit.rule.id === id).length
@@ -339,7 +356,7 @@ function PostingRulesTable({ edits, setLedger, classified, spendFactors, open, o
                 </td>
                 <td className="num">{hits(r.id)}</td>
                 <td>
-                  <button type="button" className="link" aria-expanded={open === r.id} onClick={(e) => onToggle(r.id, e.currentTarget)}>
+                  <button type="button" className="link" data-rule-edit={r.id} aria-expanded={open === r.id} onClick={() => onToggle(r.id)}>
                     {open === r.id ? 'Luk' : 'Rediger'}<span className="visually-hidden"> {r.id}</span>
                   </button>
                 </td>
