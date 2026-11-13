@@ -2,8 +2,9 @@ name: exchange-rates
 # Keeps the exchange-rate table (src/data/exchangeRates.ts) current, as ADR 0016 requires: once a
 # week it regenerates the table from the ECB's daily reference rates and pushes the change to
 # chore/exchange-rates, with CI run on it. GitHub Actions may not create pull requests in this
-# repository, so a person opens the pull request from the link in the run summary (or the
-# existing one is updated), reviews it and merges it.
+# repository, so it opens (or updates) an issue, assigned to the code owner, with the link to a
+# ready pull request; a person opens it, reviews it and merges it. When the table on main is
+# current again, the next run closes the issue.
 
 on:
   schedule:
@@ -25,9 +26,13 @@ jobs:
       contents: write # push the update branch
       pull-requests: write # retitle an open pull request from it
       actions: write # start CI on it (see below)
+      issues: write # the alert that new rates are ready
     env:
       BRANCH: chore/exchange-rates
       GH_TOKEN: ${{ github.token }}
+      LABEL: exchange-rates
+      # Who the alert is assigned to: the code owner (.github/CODEOWNERS)
+      ASSIGNEE: mortengad
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -39,8 +44,14 @@ jobs:
 
       - name: Push the update and start CI
         run: |
+          gh label create "$LABEL" --color 0E8A16 --description "New exchange rates are ready to merge (ADR 0016)" --force
+          issue=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number')
+
           if git diff --quiet -- src/data/exchangeRates.ts; then
             echo "The table is already current." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "$issue" ]; then
+              gh issue close "$issue" --comment "The exchange-rate table on main is current."
+            fi
             exit 0
           fi
           last=$(grep -oE '^    \["[0-9]{4}-[0-9]{2}-[0-9]{2}"' src/data/exchangeRates.ts | tail -1 | grep -oE '[0-9-]{10}')
@@ -57,12 +68,24 @@ jobs:
           pr=$(gh pr list --head "$BRANCH" --base main --state open --json url --jq '.[0].url')
           if [ -n "$pr" ]; then
             gh pr edit "$pr" --title "$title"
-            echo "Updated the pull request: $pr" >> "$GITHUB_STEP_SUMMARY"
+            todo="Review and merge the pull request: $pr"
           else
             # Actions may not create pull requests here (a repository setting), so a person opens it.
             url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1&title=$(jq -rn --arg t "$title" '$t|@uri')"
-            echo "::notice::New exchange rates are on $BRANCH. Open the pull request: $url"
-            echo "New exchange rates are on **$BRANCH**. [Open the pull request]($url), check the new days and merge it." >> "$GITHUB_STEP_SUMMARY"
+            todo="[Open the pull request]($url), check that the new days look reasonable, and merge it."
+          fi
+          echo "New exchange rates are on **$BRANCH**. $todo" >> "$GITHUB_STEP_SUMMARY"
+
+          # The alert: one open issue at a time, kept up to date. A comment notifies on each update.
+          body=$(printf '%s\n\n%s\n\n%s\n' \
+            "The exchange-rate table has new days up to **$last** on \`$BRANCH\` (ADR 0016). Until they're merged, spend lines dated after the table's last day fall back to a fixed rate or stay pending." \
+            "$todo" \
+            "CI: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/workflows/ci.yml?query=branch%3A$BRANCH. This issue closes itself on the first run after the rates are on main.")
+          if [ -n "$issue" ]; then
+            gh issue edit "$issue" --title "$title" --body "$body"
+            gh issue comment "$issue" --body "Updated: new days up to $last."
+          else
+            gh issue create --title "$title" --body "$body" --label "$LABEL" --assignee "$ASSIGNEE"
           fi
 
           # A push or pull request made with the workflow's own token starts no other workflows,
