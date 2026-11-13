@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { currencyRates } from '../data/currencies'
 import { factors } from '../data/factors'
 import {
-  classify, conditionMatches, guessColumn, guessMapping, ledgerSpendLines, ledgerSummary, parseCsv, parseLedgerAmount,
+  classify, conditionMatches, guessColumn, guessMapping, ledgerSpendLines, normalizeCurrency, ledgerSummary, parseCsv, parseLedgerAmount,
   parseLedgerDate, rowsToPostings, ruleMatches, type ClassifiedPosting, type ManualAction, type Posting, type Rule,
 } from './ledger'
 import { category1 } from './scope3'
@@ -74,6 +74,24 @@ describe('parsing values (checked against the original)', () => {
   it('turns rows into postings with DKK as the default currency', () => {
     const [p] = rowsToPostings([{ Dato: '31.03.2025', Konto: ' 6100 ', Beløb: '7.460,40' }], { date: 'Dato', account: 'Konto', accountName: '', supplier: '', text: '', amount: 'Beløb', currency: '' })
     expect(p).toEqual({ date: '2025-03-31', account: '6100', accountName: '', supplier: '', text: '', amount: 7460.4, currency: 'DKK' })
+  })
+
+  it.each([
+    ['EUR', 'EUR'], [' eur ', 'EUR'], ['DKK.', 'DKK'], ['kr.', 'DKK'], ['Danske kroner', 'DKK'], ['€', 'EUR'], ['£', 'GBP'], ['', 'DKK'], [null, 'DKK'],
+  ] as const)('currency %j → %j', (input, expected) => {
+    expect(normalizeCurrency(input)).toBe(expected)
+  })
+
+  it('keeps a currency value it can\'t read as written, so the import can name it', () => {
+    expect(normalizeCurrency('1.234,50')).toBe('1.234,50')
+    expect(normalizeCurrency(7.4604)).toBe('7.4604')
+    expect(normalizeCurrency('Euro-kurs')).toBe('Euro-kurs')
+  })
+
+  it('doesn\'t take a currency amount or rate column for the currency', () => {
+    expect(guessColumn(['Dato', 'Valutabeløb', 'Valutakurs', 'Valutakode'], 'currency')).toBe('Valutakode')
+    expect(guessColumn(['Dato', 'Beløb i valuta', 'Valutakurs'], 'currency')).toBe('')
+    expect(guessColumn(['Dato', 'Valuta (ISO)'], 'currency')).toBe('Valuta (ISO)')
   })
 })
 

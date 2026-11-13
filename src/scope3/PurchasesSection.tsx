@@ -8,7 +8,6 @@ import { formatDate, formatFactor, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
-import { scope3Href } from './subpages'
 
 type Props = {
   cat1: Category1
@@ -21,20 +20,11 @@ type Props = {
 export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }: Props) {
   const id = useId()
   const hiddenCount = lines.length - cat1.lines.filter((r) => r.source === 'manual').length
-  const fromLedger = cat1.lines.filter((r) => r.source === 'ledger').length
   const blankGroups = category1Groups.filter((g) => !g.excluded && factors.find((f) => f.id === g.factorId)?.value == null)
 
   return (
     <section aria-labelledby={`${id}-heading`}>
       <h2 id={`${id}-heading`}>Kategori 1 — indkøbte varer og services</h2>
-      <p className="muted">
-        Spendbaseret: beløbet omregnes til DKK og videre til faktorens valuta (EUR for EXIOBASE), og
-        ganges med faktoren i kg CO2e pr. EUR for indkøbstypens EXIOBASE-sektor. Priserne kan
-        indeksreguleres til faktorens prisår under{' '}
-        <a href={scope3Href('indstillinger')}>Indstillinger</a>. Posteringer, der er tagget på{' '}
-        <a href="#/kontoplan">Kontoplan</a>, kommer med her automatisk
-        {fromLedger > 0 && <> ({fromLedger} i perioden)</>}.
-      </p>
       {blankGroups.length > 0 && (
         <p className="warning">
           <strong>{blankGroups.length} af indkøbstyperne har endnu ingen EXIOBASE-faktor</strong> (afventer

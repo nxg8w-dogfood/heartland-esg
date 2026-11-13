@@ -20,12 +20,6 @@ type Props = {
   defaultDate: string
 }
 
-const examples = (year: string): Omit<ActivityLine, 'id'>[] => [
-  { group: 'k4-lastbil', date: `${year}-01-01`, dateTo: `${year}-12-31`, quantity: 18_000, description: 'Varer fra leverandør, 60 leverancer × 1 t × 300 km' },
-  { group: 'k4-fragt-skib', date: `${year}-04-10`, quantity: 160_000, description: 'Container Shanghai–Aarhus, 8 t × 20.000 km' },
-  { group: 'k4-fragt-fly', date: `${year}-09-02`, quantity: 1_400, description: 'Hasteforsendelse, 0,2 t × 7.000 km' },
-]
-
 /** Category 4: inbound freight by tonne-km, and courier and parcels by spend. */
 export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLines, factors, defaultDate }: Props) {
   const id = useId()
@@ -34,7 +28,6 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
     <>
       <ActivityLinesSection
         title="Kategori 4 — upstream transport og distribution"
-        intro="Transport af indkøbte varer til virksomheden i køretøjer, I ikke selv ejer eller driver. Angiv mængden i tonkm: vægt i tons × transporteret afstand i km. Faktorerne er DESNZ' gennemsnit for hver transportform, fordi køretøj, lastgrad og rute ikke registreres; vælg en anden kilde under Faktorer, hvis transportøren oplyser sin egen. Kurér og pakker opgøres efter beløb nedenfor."
         groups={category4Groups}
         factors={factors}
         summary={cat4.freight}
@@ -42,16 +35,10 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
         setLines={setLines}
         defaultDate={defaultDate}
         emptyText="Ingen fragt i perioden."
-        examples={examples(defaultDate.slice(0, 4))}
       />
 
       <section aria-labelledby={`${id}-courier`}>
         <h3 id={`${id}-courier`}>Kurér og pakkelevering</h3>
-        <p className="muted">
-          Spendbaseret som kategori 1: beløbet omregnes til EUR og ganges med EXIOBASE-faktoren for
-          sektoren &quot;Post and Telecommunication&quot;. Den faktor har ingen værdi i den indbyggede
-          tabel, så linjerne afventer, til en kilde er valgt under Faktorer.
-        </p>
         {cat4.courier.length > 0 && (
           <div className="table-wrap">
             <table>
