@@ -143,9 +143,10 @@ The setup steps are in [docs/deploy.md](docs/deploy.md). The reasoning is in ADR
 A ledger import is thousands of records, one Dataverse request each. Saves run one at a time, a
 few records at a time, and retry when Dataverse turns a request away for its service protection
 limits (ADR 0005). Deleting is the same: every row that goes is deleted itself, children before
-parents, rather than relying on Dataverse's parental cascade, which did not finish on an import
-of 18,802 postings (ADR 0019). So deleting a large import takes about as long as importing it,
-shows the same progress, and can be run again if it is interrupted.
+parents, rather than leaving the work to Dataverse's parental cascade, which runs asynchronously
+and took under two hours on an import of 18,802 postings while the app reported it saved
+(ADR 0019). So deleting a large import takes about as long as importing it, shows the same
+progress, and can be run again if it is interrupted.
 
 ### Dataverse tables
 
@@ -157,6 +158,14 @@ environment's tenant with the Azure CLI, check what it would do with `--dry-run`
 az login --tenant <tenant-id>
 npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com --dry-run
 npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com
+```
+
+The app selects every column in the schema when it loads, so an environment that is behind the
+code fails to load entirely. The deploy checks for that before it publishes and stops if anything
+is missing (ADR 0020). To ask the same question yourself, without changing anything:
+
+```bash
+npm run dataverse:check -- --url https://<org>.crm4.dynamics.com
 ```
 
 The same script creates the security roles and keeps their privileges in step with

@@ -68,6 +68,13 @@ admin. Step 4 must be done by a person, because Power Platform requires it.
    | `PA_CLI_SP_TENANT_ID` | Variable | Directory (tenant) ID |
    | `PA_CLI_SP_CLIENT_SECRET` | **Secret** | The client secret |
    | `PA_CLI_SOLUTION_ID` | Variable, optional | Solution to add the app to |
+   | `PA_DATAVERSE_URL` | Variable | The environment's Dataverse URL, `https://<org>.crm4.dynamics.com` |
+
+   `PA_DATAVERSE_URL` is what the deploy checks the schema against before publishing (ADR 0020):
+   the app selects every column in `src/dataverse/schema.ts` when it loads, so an environment
+   that is behind the code fails to load entirely. Without the variable the deploy warns and
+   skips that check. The service principal needs only read access to the metadata for it; it
+   creates nothing.
 
    Under **Deployment branches**, allow `main` only. For `prod`, add required reviewers if
    the organisation's GitHub plan offers them for private repositories.
