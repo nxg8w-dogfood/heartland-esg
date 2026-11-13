@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { tables } from '../../dataverse/schema'
 import { emptyAccount } from '../account'
 import { GROUP_VERSION, type GroupData } from '../group'
-import { dataverseStore, entitySet, type DvRecord, type TableApi, type ViewPrefs } from './store'
+import { dataverseStore, entitySet, isThrottled, type DvRecord, type TableApi, type ViewPrefs } from './store'
 
 /**
  * Dataverse in memory, close enough for the store: records by id, a generated id when none is
@@ -193,9 +193,12 @@ describe('the Dataverse store', () => {
     await expect(store.save(sample())).rejects.toThrow('denied: create hlesg_linje')
     fail = false
     await store.save(sample())
+    // Lines are sent in parallel, so both may fail the first time; each is saved once in the end.
     const lines = fake.calls.filter((c) => c.op === 'create' && c.table === 'hlesg_linje')
-    expect(lines.length).toBe(3) // the failed attempt, then each line once
+    expect(lines.length).toBeLessThanOrEqual(4)
+    expect(fake.db.get('hlesg_linje')!.size).toBe(2)
     expect(fake.db.get('hlesg_virksomhed')!.size).toBe(1)
+    expect(fake.calls.filter((c) => c.op === 'create' && c.table === 'hlesg_virksomhed').length).toBe(1)
   })
 
   it('loads only what the user may read, and starts empty with nothing', async () => {
@@ -271,6 +274,94 @@ describe('the Dataverse store', () => {
       await store.save({ ...group, companies: [{ ...group.companies[0], account: { ...a, periods: [other] } }] })
       expect(fake.writes().map((c) => `${c.op} ${c.table} ${c.body?.hlesg_regnskabsperiodeid ?? c.id ?? ''}`.trim())).toEqual(['create hlesg_regnskabsperiode per-new'])
     })
+  })
+
+  describe('a large import', () => {
+    /** The sample with `n` postings in its import */
+    function withPostings(n: number, group = sample()): GroupData {
+      const ledger = group.companies[0].account.ledger
+      ledger.imports[0].count = n
+      ledger.postings = Array.from({ length: n }, (_, i) => ({ ...ledger.postings[0], id: `p-${i}`, text: `Faktura ${i}` }))
+      return group
+    }
+
+    /** The fake, with each request taking a moment, counting how many run at once */
+    function slow(api: TableApi) {
+      let now = 0
+      const stats = { max: 0 }
+      const wrap = <A extends unknown[], R>(f: (...a: A) => Promise<R>) => async (...a: A) => {
+        stats.max = Math.max(stats.max, ++now)
+        try {
+          await new Promise((r) => setTimeout(r, 1))
+          return await f(...a)
+        } finally {
+          now--
+        }
+      }
+      return { api: { list: api.list, create: wrap(api.create), update: wrap(api.update), delete: wrap(api.delete) } as TableApi, stats }
+    }
+
+    it('sends records a few at a time, and reports progress', async () => {
+      const fake = fakeDataverse()
+      const { api, stats } = slow(fake.api)
+      const store = dataverseStore(api, memoryPrefs(), { concurrency: 4 })
+      await store.load()
+      const progress: [number, number][] = []
+      await store.save(withPostings(200), (done, total) => progress.push([done, total]))
+      expect(fake.db.get('hlesg_postering')!.size).toBe(200)
+      expect(stats.max).toBe(4)
+      expect(progress[0]).toEqual([0, progress.at(-1)![1]])
+      expect(progress.at(-1)![0]).toBe(progress.at(-1)![1])
+      expect(progress.at(-1)![1]).toBeGreaterThan(200)
+    })
+
+    it('waits and retries when Dataverse says too many requests, creating each record once', async () => {
+      let refused = 0
+      const fake = fakeDataverse({ failOn: (op, table) => op === 'create' && table === 'hlesg_postering' && refused++ % 7 === 3 })
+      const inner = fake.api.create
+      fake.api.create = async (table, body) => {
+        try {
+          return await inner(table, body)
+        } catch (e) {
+          throw new Error(`Kunne ikke oprette i ${table}: Number of requests exceeded the limit of 6000 over time window of 300 seconds. (${(e as Error).message})`, { cause: e })
+        }
+      }
+      const store = dataverseStore(fake.api, memoryPrefs(), { retryDelayMs: 1, maxRetryDelayMs: 4 })
+      await store.load()
+      await store.save(withPostings(100))
+      expect(fake.db.get('hlesg_postering')!.size).toBe(100)
+      expect(refused).toBeGreaterThan(100)
+    })
+
+    it('doesn\'t retry what Dataverse refuses for another reason', async () => {
+      const fake = fakeDataverse({ failOn: (op, table) => op === 'create' && table === 'hlesg_postering' })
+      const store = dataverseStore(fake.api, memoryPrefs(), { retryDelayMs: 1 })
+      await store.load()
+      await expect(store.save(withPostings(20))).rejects.toThrow('denied: create hlesg_postering')
+      expect(fake.calls.filter((c) => c.op === 'create' && c.table === 'hlesg_postering').length).toBeLessThanOrEqual(8)
+    })
+
+    it('runs one save at a time: a change during a long save is sent after it, without duplicates', async () => {
+      const fake = fakeDataverse()
+      const { api } = slow(fake.api)
+      const store = dataverseStore(api, memoryPrefs())
+      await store.load()
+      const first = store.save(withPostings(100))
+      const changed = withPostings(100)
+      changed.companies[0].account.ledger.postings[0].text = 'Rettet'
+      const second = store.save(changed)
+      await Promise.all([first, second])
+      expect(fake.db.get('hlesg_postering')!.size).toBe(100)
+      expect(fake.calls.filter((c) => c.op === 'create' && c.table === 'hlesg_postering').length).toBe(100)
+      expect(fake.db.get('hlesg_postering')!.get('p-0')!.hlesg_tekst).toBe('Rettet')
+    })
+  })
+
+  it('recognises Dataverse\'s service protection errors', () => {
+    expect(isThrottled(new Error('Number of concurrent requests exceeded the limit of 52.'))).toBe(true)
+    expect(isThrottled(new Error('Combined execution time of incoming requests exceeded limit of 1,200,000 milliseconds'))).toBe(true)
+    expect(isThrottled(new Error('Request failed with status 429'))).toBe(true)
+    expect(isThrottled(new Error("The length of the 'hlesg_valuta' attribute exceeded the maximum allowed length of '3'."))).toBe(false)
   })
 
   it('names entity sets the way Dataverse created them', () => {

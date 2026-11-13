@@ -1,8 +1,10 @@
 import { useConfirm } from '../confirm'
+import { formatNumber } from '../format'
 
 export type SaveStatus =
   | { state: 'idle' }
-  | { state: 'pending' }
+  /** done and total: how many of a long save's changes are sent */
+  | { state: 'pending'; done?: number; total?: number }
   | { state: 'saved'; at: Date }
   | { state: 'failed'; reason?: string }
 
@@ -15,11 +17,17 @@ type Props = {
   onClear?: () => void
 }
 
+/** From how many changes a save shows its progress (an import is thousands). */
+const LONG_SAVE = 50
+
 /** Where the data lives, whether it's saved, and clearing a browser draft. */
 export function DataBar({ storeLabel, central, status, message, onClear }: Props) {
   const { confirm, dialog } = useConfirm()
   const statusText =
-    status.state === 'pending' ? 'Gemmer …'
+    status.state === 'pending'
+      ? status.total && status.total > LONG_SAVE
+        ? `Gemmer ${formatNumber(status.done ?? 0, 0)} af ${formatNumber(status.total, 0)} ændringer … Luk ikke appen, før det er gemt.`
+        : 'Gemmer …'
       : status.state === 'saved' ? `Gemt kl. ${status.at.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
         : status.state === 'failed' ? `Kunne ikke gemme${status.reason ? `: ${status.reason}` : ''}`
           : ''
