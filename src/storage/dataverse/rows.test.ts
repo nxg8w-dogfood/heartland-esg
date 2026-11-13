@@ -181,16 +181,24 @@ describe('diff', () => {
     expect(ops.map((o) => `${o.kind} ${o.table} ${o.key}`)).toEqual(['delete hlesg_linje s2-a', 'delete hlesg_lokation loc-1'])
   })
 
-  it('deletes only the company when a company goes, since its records go with it', () => {
+  it('deletes a company\'s own records too, children before the company (ADR 0019)', () => {
     const two = group(company('c-1', 'Heartland A/S', richAccount()), company('c-2', 'Datter ApS', richAccount2()))
     const ops = diff(toRows(two), toRows(g()))
-    expect(ops).toEqual([{ kind: 'delete', table: 'hlesg_virksomhed', key: 'c-2' }])
+    expect(ops.every((o) => o.kind === 'delete')).toBe(true)
+    // Every row of the company that went, not just the company itself.
+    expect(ops.length).toBeGreaterThan(1)
+    expect(ops.at(-1)).toEqual({ kind: 'delete', table: 'hlesg_virksomhed', key: 'c-2' })
+    expect(ops.some((o) => o.table === 'hlesg_lokation')).toBe(true)
   })
 
-  it('deletes only the import when an import goes, since its postings go with it', () => {
+  it('deletes an import\'s postings explicitly, before the import itself', () => {
     const after = g()
     after.companies[0].account.ledger = { ...after.companies[0].account.ledger, imports: [], postings: [], manual: {} }
-    expect(diff(toRows(g()), toRows(after))).toEqual([{ kind: 'delete', table: 'hlesg_import', key: 'imp-a' }])
+    expect(diff(toRows(g()), toRows(after))).toEqual([
+      { kind: 'delete', table: 'hlesg_postering', key: 'p-b' },
+      { kind: 'delete', table: 'hlesg_postering', key: 'p-a' },
+      { kind: 'delete', table: 'hlesg_import', key: 'imp-a' },
+    ])
   })
 
   it('records a manual tag on a posting as an update of that posting', () => {

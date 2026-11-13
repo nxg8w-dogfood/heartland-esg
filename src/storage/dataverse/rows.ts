@@ -422,8 +422,12 @@ const same = (x: Value | undefined, y: Value | undefined) => (x ?? null) === (y 
 
 /**
  * What to send to make `before` into `after`: creates, updates with only the changed columns
- * (ADR 0005: no false updates in the audit log), and deletes. Deleting a company or an import
- * deletes its records through the parental relationship, so those aren't sent separately.
+ * (ADR 0005: no false updates in the audit log), and deletes.
+ *
+ * Every row that goes gets its own delete, children before parents (ADR 0019). Dataverse would
+ * cascade a parent's children through the parental relationship, but on an import of thousands
+ * of postings that cascade did not finish: the parent delete returned 204 while most postings
+ * stayed behind, leaving an import the app then reported as half-saved.
  */
 export function diff(before: Rows, after: Rows): Operation[] {
   const creates: Operation[] = []
@@ -439,19 +443,11 @@ export function diff(before: Rows, after: Rows): Operation[] {
       for (const col of new Set([...Object.keys(row), ...Object.keys(old)])) if (!same(row[col], old[col])) changes[col] = row[col] ?? null
       if (Object.keys(changes).length) updates.push({ kind: 'update', table, key, changes })
     }
-    for (const [key, row] of b) {
+    for (const [key] of b) {
       if (a.has(key)) continue
-      if (cascades(table, row, after)) continue
       deletes.push({ kind: 'delete', table, key })
     }
   }
   return [...creates, ...updates, ...deletes.reverse()]
 }
 
-/** Whether a row disappears anyway because its parent is deleted. */
-function cascades(table: string, row: Row, after: Rows): boolean {
-  if (table === c('postering')) return !after[c('import')]?.has(str(row[c('importid')]))
-  if (table === c('virksomhed') || table === c('koncern')) return false
-  const company = row[COMPANY]
-  return typeof company === 'string' && !after[c('virksomhed')]?.has(company)
-}

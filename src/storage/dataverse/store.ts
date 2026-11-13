@@ -94,6 +94,15 @@ export type SaveOptions = { concurrency: number; retryDelayMs: number; maxRetryD
 
 export const defaultSaveOptions: SaveOptions = { concurrency: 8, retryDelayMs: 2_000, maxRetryDelayMs: 60_000, maxRetries: 30 }
 
+/**
+ * A row that is already gone. A parental cascade may have removed some children behind the
+ * app's back, and deleting what isn't there is the outcome we want anyway.
+ */
+export function isAlreadyGone(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e)
+  return /\b404\b|does not exist|0x80040217|Resource not found/i.test(m)
+}
+
 /** Dataverse's answers when a user exceeds the service protection limits. */
 export function isThrottled(e: unknown): boolean {
   const m = e instanceof Error ? e.message : String(e)
@@ -194,7 +203,11 @@ export function dataverseStore(api: TableApi, prefs: ViewPrefs, options: Partial
       loaded[op.table].set(op.key, { ...loaded[op.table].get(op.key), ...op.changes })
       return
     }
-    await api.delete(op.table, id)
+    try {
+      await api.delete(op.table, id)
+    } catch (e) {
+      if (!isAlreadyGone(e)) throw e
+    }
     forget(op.table, op.key)
   }
 
