@@ -2,20 +2,17 @@ import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type SetSta
 import { searchFactors } from '../calc/factorSearch'
 import { textRule } from './textRule'
 import type { Factor } from '../data/factors'
-import { accountRules, postingRules } from '../data/scope3Rules'
-import { spendFactorRegister } from '../data/spendFactorRegister'
-import { handlingLabels } from '../calc/spendRules'
-import { scope3Categories } from '../calc/scope3'
 import {
   classifyLedger, guessMapping, hitLabel, isCurrencyCode, postingStatusLabels, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
-  type ClassifiedPosting, type ColumnMapping, type PostingStatus, type Condition, type ConditionField, type ConditionOperator,
-  type LedgerField, type ManualAction, type Posting, type Rule, type TableRow,
+  type ClassifiedPosting, type ColumnMapping, type PostingStatus,
+  type LedgerField, type ManualAction, type Posting, type TableRow,
 } from '../calc/ledger'
 import type { LedgerState } from './state'
 import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 import { useConfirm } from '../confirm'
+import { RulesSection } from './RulesSection'
 import { emptyPostingFilter, filterOptions, filterPostings, isFiltered, type FilterOption, type PostingFilter } from '../calc/postingFilter'
 
 const exampleCsv = `Bilagsdato;Kontonr.;Kontotekst;Kreditor;Posteringstekst;Beløb;Valuta
@@ -27,18 +24,6 @@ const exampleCsv = `Bilagsdato;Kontonr.;Kontotekst;Kreditor;Posteringstekst;Bel�
 30.06.2025;7300;Bankgebyrer;Danske Bank;Gebyrer Q2;3.150,00;DKK
 15.08.2025;6100;Revision;Deloitte;Halvårsgennemgang;45.000,00;DKK
 01.09.2025;6500;Husleje;Ejendomsselskab;Husleje september;95.000,00;DKK`
-
-const fieldOptions: { value: ConditionField; label: string }[] = [
-  { value: 'account', label: 'Kontonummer' },
-  { value: 'accountName', label: 'Kontonavn' },
-  { value: 'supplier', label: 'Leverandør' },
-  { value: 'text', label: 'Posteringstekst' },
-]
-const operatorOptions: { value: ConditionOperator; label: string }[] = [
-  { value: 'is', label: 'er' },
-  { value: 'startsWith', label: 'starter med' },
-  { value: 'contains', label: 'indeholder' },
-]
 
 type Props = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; factors: readonly Factor[] }
 
@@ -68,8 +53,8 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
       <p className="lead">
         Importer posteringer fra finanssystemet. ESG-ansvarliges kontoregler giver hver konto en
         Scope 3-kategori og en EXIOBASE-faktor, og posteringsreglerne finjusterer enkelte posteringer
-        ud fra et søgeord. Dine egne undtagelser går forud for begge, og en manuel handling på en
-        postering går forud for alt. Medtagne posteringer og posteringer til review indgår i deres
+        ud fra et søgeord; du kan rette en posteringsregel for denne virksomhed. Dine egne
+        undtagelser går forud for begge, og en manuel handling på en postering går forud for alt. Medtagne posteringer og posteringer til review indgår i deres
         kategori i Scope 3.
       </p>
 
@@ -130,9 +115,7 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
         </dl>
       )}
 
-      <RulesSection rules={ledger.rules} setLedger={setLedger} classified={classified} spendFactors={spendFactors} focusRuleId={newRuleId} onFocused={() => setNewRuleId(null)} />
-
-      <BuiltinRulesSection classified={classified} />
+      <RulesSection ledger={ledger} setLedger={setLedger} classified={classified} spendFactors={spendFactors} focusRuleId={newRuleId} onFocused={() => setNewRuleId(null)} />
 
       {ledger.postings.length > 0 && <PostingsSection classified={classified} setLedger={setLedger} spendFactors={spendFactors} onCreateRule={createTextRule} />}
     </>
@@ -283,159 +266,6 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
         </div>
       )}
     </section>
-  )
-}
-
-function RulesSection({ rules, setLedger, classified, spendFactors, focusRuleId, onFocused }: {
-  rules: Rule[]; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[]
-  /** A rule to bring into view and focus, such as one just created from a posting */
-  focusRuleId: string | null; onFocused: () => void
-}) {
-  const setRules = (f: (rs: Rule[]) => Rule[]) => setLedger((l) => ({ ...l, rules: f(l.rules) }))
-  const update = (ruleId: string, patch: Partial<Rule>) => setRules((rs) => rs.map((r) => (r.id === ruleId ? { ...r, ...patch } : r)))
-  const move = (from: number, to: number) =>
-    setRules((rs) => {
-      if (to < 0 || to >= rs.length) return rs
-      const next = [...rs]
-      const [r] = next.splice(from, 1)
-      next.splice(to, 0, r)
-      return next
-    })
-  const matchCount = (ruleId: string) => classified.filter((c) => c.hit.kind === 'exception' && c.hit.rule.id === ruleId).length
-  const { confirm, dialog } = useConfirm()
-
-  return (
-    <section aria-labelledby="rules-heading">
-      {dialog}
-      <div className="section-head">
-        <h2 id="rules-heading">Undtagelser</h2>
-        <button
-          type="button"
-          onClick={() =>
-            setRules((rs) => [...rs, { id: newId(), name: `Undtagelse ${rs.length + 1}`, type: 'tag', active: true, conditions: [{ id: newId(), field: 'account', operator: 'is', value: '' }], factorId: null, category: 1, reason: '' }])
-          }
-        >
-          Ny regel
-        </button>
-      </div>
-      <p className="muted">
-        Undtagelser går forud for kontoreglerne og posteringsreglerne: den første, der passer, vinder.
-        Betingelserne skelner ikke mellem store og små bogstaver. Undtagelser kan også oprettes fra en
-        postering på kategorisiderne under Scope 3.
-      </p>
-      {rules.length === 0 && <p className="muted">Ingen undtagelser endnu.</p>}
-      {rules.map((r, i) => (
-        <RuleCard
-          key={r.id}
-          rule={r}
-          index={i}
-          count={rules.length}
-          matches={matchCount(r.id)}
-          spendFactors={spendFactors}
-          focus={r.id === focusRuleId}
-          onFocused={onFocused}
-          onChange={(patch) => update(r.id, patch)}
-          onMove={(to) => move(i, to)}
-          onDelete={async () => { if (await confirm(`Slet reglen ${r.name}?`)) setRules((rs) => rs.filter((x) => x.id !== r.id)) }}
-        />
-      ))}
-    </section>
-  )
-}
-
-function RuleCard({ rule, index, count, matches, spendFactors, focus = false, onFocused, onChange, onMove, onDelete }: {
-  rule: Rule; index: number; count: number; matches: number; spendFactors: Factor[]
-  focus?: boolean; onFocused?: () => void
-  onChange: (patch: Partial<Rule>) => void; onMove: (to: number) => void; onDelete: () => void
-}) {
-  const id = useId()
-  const card = useRef<HTMLElement>(null)
-  const name = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (!focus) return
-    card.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    name.current?.focus({ preventScroll: true })
-    onFocused?.()
-  }, [focus, onFocused])
-  const setCondition = (cid: string, patch: Partial<Condition>) => onChange({ conditions: rule.conditions.map((c) => (c.id === cid ? { ...c, ...patch } : c)) })
-  return (
-    <article className="card" aria-labelledby={`${id}-name-label`} ref={card}>
-      <div className="location-settings">
-        <div className="field">
-          <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Undtagelse {index + 1}</label>
-          <input id={`${id}-name`} ref={name} value={rule.name} onChange={(e) => onChange({ name: e.target.value })} />
-        </div>
-        <div className="field">
-          <label htmlFor={`${id}-type`}>Handling</label>
-          <select id={`${id}-type`} value={rule.type} onChange={(e) => onChange({ type: e.target.value as Rule['type'] })}>
-            <option value="tag">Medtag med faktor</option>
-            <option value="exclude">Udelad</option>
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor={`${id}-cat`}>Kategori</label>
-          <select id={`${id}-cat`} value={rule.category} onChange={(e) => onChange({ category: Number(e.target.value) })}>
-            {scope3Categories.map((c) => <option key={c.nr} value={c.nr}>{c.nr}. {c.name}</option>)}
-          </select>
-        </div>
-        {rule.type === 'tag' && (
-          <div className="field">
-            <label htmlFor={`${id}-factor`}>Faktor</label>
-            <FactorSelect id={`${id}-factor`} value={rule.factorId} factors={spendFactors} onChange={(factorId) => onChange({ factorId })} />
-          </div>
-        )}
-        <div className="field">
-          <label htmlFor={`${id}-reason`}>Begrundelse</label>
-          <input id={`${id}-reason`} value={rule.reason} onChange={(e) => onChange({ reason: e.target.value })} />
-        </div>
-      </div>
-      <fieldset className="conditions">
-        <legend>Betingelser (alle skal være opfyldt)</legend>
-        {rule.conditions.map((c, ci) => (
-          <div className="condition" key={c.id}>
-            <label className="visually-hidden" htmlFor={`${id}-${c.id}-f`}>Felt, betingelse {ci + 1}</label>
-            <select id={`${id}-${c.id}-f`} value={c.field} onChange={(e) => setCondition(c.id, { field: e.target.value as ConditionField })}>
-              {fieldOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <label className="visually-hidden" htmlFor={`${id}-${c.id}-o`}>Sammenligning, betingelse {ci + 1}</label>
-            <select id={`${id}-${c.id}-o`} value={c.operator} onChange={(e) => setCondition(c.id, { operator: e.target.value as ConditionOperator })}>
-              {operatorOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-            <label className="visually-hidden" htmlFor={`${id}-${c.id}-v`}>Værdi, betingelse {ci + 1}</label>
-            <input id={`${id}-${c.id}-v`} value={c.value} placeholder="værdi" onChange={(e) => setCondition(c.id, { value: e.target.value })} />
-            {rule.conditions.length > 1 && (
-              <button type="button" className="link" onClick={() => onChange({ conditions: rule.conditions.filter((x) => x.id !== c.id) })} aria-label={`Fjern betingelse ${ci + 1}`}>Fjern</button>
-            )}
-          </div>
-        ))}
-        <button type="button" className="link" onClick={() => onChange({ conditions: [...rule.conditions, { id: newId(), field: 'account', operator: 'is', value: '' }] })}>Tilføj betingelse</button>
-      </fieldset>
-      <div className="rule-footer">
-        <label className="check">
-          <input type="checkbox" checked={rule.active} onChange={(e) => onChange({ active: e.target.checked })} />
-          Aktiv
-        </label>
-        <span className={matches ? 'strong' : 'muted'}>{matches} {matches === 1 ? 'postering' : 'posteringer'} rammes</span>
-        {rule.type === 'tag' && !rule.factorId && <span className="warning-text">Vælg en faktor — ellers afventer posteringerne</span>}
-        <span className="spacer" />
-        <button type="button" className="link" disabled={index === 0} onClick={() => onMove(index - 1)} aria-label={`Flyt ${rule.name} op`}>Op</button>
-        <button type="button" className="link" disabled={index === count - 1} onClick={() => onMove(index + 1)} aria-label={`Flyt ${rule.name} ned`}>Ned</button>
-        <button type="button" className="link" onClick={onDelete}>Slet<span className="visually-hidden"> {rule.name}</span></button>
-      </div>
-    </article>
-  )
-}
-
-function FactorSelect({ id, value, factors, onChange }: { id: string; value: string | null; factors: Factor[]; onChange: (id: string | null) => void }) {
-  return (
-    <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">Vælg faktor</option>
-      {factors.map((f) => (
-        <option key={f.id} value={f.id}>
-          {f.name}, {f.region}{f.value === null ? ' (faktor mangler)' : ''}
-        </option>
-      ))}
-    </select>
   )
 }
 
@@ -678,111 +508,6 @@ function FactorPicker({ posting, factors, onPick, onCancel }: {
       <div className="actions">
         <button type="button" className="secondary" onClick={onCancel}>Annullér</button>
       </div>
-    </section>
-  )
-}
-
-/** The ESG owner's account and posting rules and the factor register, read-only (ADR 0015). */
-function BuiltinRulesSection({ classified }: { classified: ClassifiedPosting[] }) {
-  const hits = (id: string) => classified.filter((c) => c.hit.kind === 'posting' && c.hit.rule.id === id).length
-  const category = (n: number | null) => (n === null ? '' : `3.${n}`)
-  return (
-    <section aria-labelledby="builtin-heading">
-      <h2 id="builtin-heading">Standardregler</h2>
-      <p className="muted">
-        ESG-ansvarliges godkendte regler. De ændres i koden, så hver ændring bliver gennemgået; brug en
-        undtagelse ovenfor til enkelte posteringer. Posteringsregler matcher søgeordet præcis som skrevet,
-        med store og små bogstaver og mellemrum, i posteringstekst og leverandør, og gælder kun
-        posteringer på konti, der medtages.
-      </p>
-      <details>
-        <summary>Posteringsregler ({postingRules.length})</summary>
-        <div className="table-wrap">
-          <table>
-            <caption className="visually-hidden">Posteringsregler i prioriteret rækkefølge</caption>
-            <thead>
-              <tr>
-                <th scope="col">Regel</th>
-                <th scope="col">Søgeord</th>
-                <th scope="col">Gælder for</th>
-                <th scope="col">Handling</th>
-                <th scope="col">Faktor</th>
-                <th scope="col">Flyt til</th>
-                <th scope="col">Begrundelse</th>
-                <th scope="col" className="num">Rammer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {postingRules.map((r) => (
-                <tr key={r.id}>
-                  <th scope="row">{r.id}<span className="sub">Prioritet {r.priority}</span></th>
-                  <td><code>{`«${r.searchWord}»`}</code></td>
-                  <td>{category(r.appliesTo) || 'Alle'}</td>
-                  <td>{handlingLabels[r.handling]}</td>
-                  <td>{r.factorCode ?? '—'}</td>
-                  <td>{category(r.moveTo) || '—'}</td>
-                  <td>{r.reason}<span className="sub">Godkendt {r.approvedOn ? formatDate(r.approvedOn) : '—'}</span></td>
-                  <td className="num">{hits(r.id)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-      <details>
-        <summary>Kontoregler ({accountRules.length})</summary>
-        <div className="table-wrap">
-          <table>
-            <caption className="visually-hidden">Kontoregler</caption>
-            <thead>
-              <tr>
-                <th scope="col">Konto</th>
-                <th scope="col">Medtages</th>
-                <th scope="col">Kategori</th>
-                <th scope="col">Faktor</th>
-                <th scope="col">Grundlag</th>
-                <th scope="col">Begrundelse</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accountRules.map((r) => (
-                <tr key={r.account}>
-                  <th scope="row">{r.account}<span className="sub">{r.name}</span></th>
-                  <td>{r.include ? 'Ja' : 'Nej'}</td>
-                  <td>{category(r.category)}</td>
-                  <td>{r.factorCode ?? ''}</td>
-                  <td>{r.basis}</td>
-                  <td>{r.reason}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-      <details>
-        <summary>Faktorregister ({spendFactorRegister.length})</summary>
-        <div className="table-wrap">
-          <table>
-            <caption className="visually-hidden">FaktorID og den sektor, de står for</caption>
-            <thead>
-              <tr>
-                <th scope="col">FaktorID</th>
-                <th scope="col">Sektor</th>
-                <th scope="col">Datamanualen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {spendFactorRegister.map((r) => (
-                <tr key={r.code}>
-                  <th scope="row">{r.code}</th>
-                  <td>{r.database}: {r.sector}</td>
-                  <td>{r.dataManual || <span className="muted">Ikke nævnt</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
     </section>
   )
 }

@@ -89,7 +89,7 @@ function sample(): GroupData {
         ledger: {
           imports: [{ id: 'imp-a', fileName: 'kontoplan.csv', importedAt: '2026-02-01T09:00:00.000Z', count: 1 }],
           postings: [{ id: 'p-a', importId: 'imp-a', date: '2025-03-31', account: '6100', accountName: 'Revision', supplier: 'Deloitte', text: 'Faktura', amount: 1000, currency: 'DKK' }],
-          rules: [], manual: {},
+          rules: [], ruleEdits: [], manual: {},
         },
       },
     }],

@@ -58,6 +58,10 @@ function richAccount(): AccountData {
         { id: 'r-a', name: 'Revision', type: 'tag', active: true, conditions: [{ id: 'c1', field: 'account', operator: 'is', value: '6100' }], factorId: 'f-exio-obs-dk', category: 1, reason: 'Rådgivning' },
         { id: 'r-b', name: 'Bank', type: 'exclude', active: false, conditions: [{ id: 'c2', field: 'account', operator: 'startsWith', value: '10' }], factorId: null, category: 1, reason: 'Ikke klimarelevant' },
       ],
+      ruleEdits: [
+        { id: 're-a', ruleId: 'R23', handling: 'review', factorId: null, moveTo: null, reason: 'Gebyr — tjek', editedOn: '2026-11-13' },
+        { id: 're-b', ruleId: 'R33', handling: 'include', factorId: 'f-exio-obs-dk', moveTo: 1, reason: 'Arkitektrådgivning', editedOn: '2026-11-13' },
+      ],
       manual: { 'p-b': { postingId: 'p-b', type: 'exclude', factorId: null, category: null, reason: 'Intern' } },
     },
   }
@@ -223,7 +227,7 @@ function richAccount2(): AccountData {
     scope2Lines: re(a.scope2Lines).map((l) => ({ ...l, locationId: 'loc-1-2' })),
     cat1Lines: re(a.cat1Lines), cat4Lines: re(a.cat4Lines), cat4SpendLines: re(a.cat4SpendLines), cat5Lines: re(a.cat5Lines), cat6Lines: re(a.cat6Lines),
     surveys: re(a.surveys), investments: re(a.investments),
-    ledger: { imports: re(a.ledger.imports), postings: re(a.ledger.postings).map((p) => ({ ...p, importId: 'imp-a-2' })), rules: re(a.ledger.rules), manual: {} },
+    ledger: { imports: re(a.ledger.imports), postings: re(a.ledger.postings).map((p) => ({ ...p, importId: 'imp-a-2' })), rules: re(a.ledger.rules), ruleEdits: re(a.ledger.ruleEdits), manual: {} },
   }
 }
 

@@ -13,7 +13,8 @@ import type { ActivityLine } from '../../calc/activity'
 import type { Survey } from '../../calc/commuting'
 import type { FactorSourceChoice } from '../../calc/factorSources'
 import type { Investment } from '../../calc/investments'
-import type { ImportBatch, ManualAction, Posting, Rule } from '../../calc/ledger'
+import type { ImportBatch, ManualAction, Posting, PostingRuleEdit, Rule } from '../../calc/ledger'
+import type { PostingHandling } from '../../calc/spendRules'
 import type { Scope1Line } from '../../calc/scope1'
 import type { TestNorm, Vehicle, VehicleFuel } from '../../calc/vehicles'
 import type { Location, Scope2Line } from '../../calc/scope2'
@@ -112,6 +113,7 @@ export function toRows(group: GroupData): Rows {
     for (const b of a.ledger.imports) put(c('import'), b.id, { [COMPANY]: id, [c('filnavn')]: b.fileName, [c('importeret')]: b.importedAt, [c('antal')]: b.count })
     for (const p of a.ledger.postings) put(c('postering'), p.id, postingRow(p, a.ledger.manual[p.id]))
     a.ledger.rules.forEach((r, i) => put(c('regel'), r.id, ruleRow(id, r, i)))
+    for (const e of a.ledger.ruleEdits) put(c('regel'), e.id, ruleEditRow(id, e))
   }
   return rows
 }
@@ -201,6 +203,18 @@ function ruleRow(company: string, r: Rule, order: number): Row {
     [COMPANY]: company, [c('navn')]: r.name, [c('raekkefoelge')]: order,
     [c('regeltype')]: toChoice(c('regel'), c('regeltype'), r.type), [c('aktiv')]: r.active,
     [c('betingelser')]: JSON.stringify(r.conditions), [c('faktorid')]: s(r.factorId), [c('kategori')]: r.category, [c('begrundelse')]: s(r.reason),
+    [c('standardregel')]: null, [c('handling')]: null, [c('flyttil')]: null, [c('aendret')]: null,
+  }
+}
+
+/** A change to a standard posting rule shares the rule table, marked by its RegelID (ADR 0018). */
+function ruleEditRow(company: string, e: PostingRuleEdit): Row {
+  return {
+    [COMPANY]: company, [c('navn')]: e.ruleId, [c('raekkefoelge')]: null,
+    // Type is required; it only says whether the edit counts the postings or not.
+    [c('regeltype')]: toChoice(c('regel'), c('regeltype'), e.handling === 'exclude' ? 'exclude' : 'tag'), [c('aktiv')]: true,
+    [c('betingelser')]: null, [c('faktorid')]: s(e.factorId), [c('kategori')]: null, [c('begrundelse')]: s(e.reason),
+    [c('standardregel')]: e.ruleId, [c('handling')]: toChoice(c('regel'), c('handling'), e.handling), [c('flyttil')]: n(e.moveTo), [c('aendret')]: s(e.editedOn),
   }
 }
 
@@ -274,11 +288,16 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePer
             id: key, importId: str(r[c('importid')]), date: str(r[c('dato')]), account: str(r[c('konto')]), accountName: str(r[c('kontonavn')]),
             supplier: str(r[c('leverandoer')]), text: str(r[c('tekst')]), amount: num(r[c('beloeb')]), currency: str(r[c('valuta')]),
           })).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id)),
-          rules: of(c('regel'), id).sort(([, x], [, y]) => (num(x[c('raekkefoelge')]) ?? 0) - (num(y[c('raekkefoelge')]) ?? 0)).map(([key, r]): Rule => ({
+          rules: of(c('regel'), id).filter(([, r]) => !optStr(r[c('standardregel')])).sort(([, x], [, y]) => (num(x[c('raekkefoelge')]) ?? 0) - (num(y[c('raekkefoelge')]) ?? 0)).map(([key, r]): Rule => ({
             id: key, name: str(r[c('navn')]), type: fromChoice(c('regel'), c('regeltype'), r[c('regeltype')]) === 'exclude' ? 'exclude' : 'tag',
             active: r[c('aktiv')] === true, conditions: JSON.parse(str(r[c('betingelser')]) || '[]') as Rule['conditions'],
             factorId: optStr(r[c('faktorid')]) ?? null, category: num(r[c('kategori')]) ?? 1, reason: str(r[c('begrundelse')]),
           })),
+          ruleEdits: of(c('regel'), id).filter(([, r]) => optStr(r[c('standardregel')])).map(([key, r]): PostingRuleEdit => ({
+            id: key, ruleId: str(r[c('standardregel')]),
+            handling: (fromChoice(c('regel'), c('handling'), r[c('handling')]) ?? 'pending') as PostingHandling,
+            factorId: optStr(r[c('faktorid')]) ?? null, moveTo: num(r[c('flyttil')]), reason: str(r[c('begrundelse')]), editedOn: str(r[c('aendret')]),
+          })).sort((x, y) => x.ruleId.localeCompare(y.ruleId, 'da', { numeric: true }) || x.id.localeCompare(y.id)),
           manual,
         },
       }

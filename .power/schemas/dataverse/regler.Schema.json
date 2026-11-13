@@ -122,6 +122,50 @@
           "x-ms-schema-name": "hlesg_Begrundelse",
           "maxLength": 400
         },
+        "hlesg_standardregel": {
+          "type": "string",
+          "title": "Standardregel",
+          "x-ms-dataverse-attribute": "hlesg_standardregel",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "hlesg_Standardregel",
+          "maxLength": 20
+        },
+        "hlesg_handling": {
+          "type": "string",
+          "title": "Handling (standardregel)",
+          "x-ms-dataverse-attribute": "hlesg_handling",
+          "x-ms-dataverse-type": "PicklistType",
+          "x-ms-schema-name": "hlesg_Handling",
+          "enum": [
+            "Udelad",
+            "Medtag",
+            "Medtag – review",
+            "Afventer"
+          ],
+          "x-ms-enum-values": [
+            748100001,
+            748100002,
+            748100003,
+            748100004
+          ],
+          "x-ms-isGlobal": false,
+          "x-ms-optionsetdisplayname": "Handling (standardregel)",
+          "x-ms-optionSetType": "Picklist"
+        },
+        "hlesg_flyttil": {
+          "type": "string",
+          "title": "Flyt til kategori",
+          "x-ms-dataverse-attribute": "hlesg_flyttil",
+          "x-ms-dataverse-type": "IntegerType",
+          "x-ms-schema-name": "hlesg_Flyttil"
+        },
+        "hlesg_aendret": {
+          "type": "string",
+          "title": "Ændret",
+          "x-ms-dataverse-attribute": "hlesg_aendret",
+          "x-ms-dataverse-type": "DateTimeType",
+          "x-ms-schema-name": "hlesg_Aendret"
+        },
         "hlesg_betingelser": {
           "type": "string",
           "title": "Betingelser (JSON)",

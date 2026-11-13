@@ -6,6 +6,7 @@ import { formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
 import { useConfirm } from '../confirm'
+import { InvestmentsImport } from './InvestmentsImport'
 
 const blank = (date: string): Investment => ({
   id: newId(), date, company: '', ownershipPct: null, accountingMethod: 'Other investments', climateMethod: 'Investment-specific method',
@@ -35,6 +36,7 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period 
         <h2 id={`${id}-heading`}>Kategori 15 — investeringer</h2>
         <button type="button" onClick={() => setInvestments((is) => [...is, blank(defaultDate)])}>Ny investering</button>
       </div>
+      <InvestmentsImport investments={investments} setInvestments={setInvestments} />
       <p className="muted">
         Den forholdsmæssige andel af investeringernes udledninger: selskabets udledning × ejerandel.
         Kun ejerandele på højst 50 % tæller med; større ejerandele er konsolideret i Scope 1 og 2.

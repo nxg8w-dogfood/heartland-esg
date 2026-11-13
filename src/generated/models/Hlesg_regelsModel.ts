@@ -7,6 +7,13 @@ export const Hlesg_regelshlesg_regeltype = {
   748100002: 'Ekskludér'
 } as const;
 export type Hlesg_regelshlesg_regeltype = keyof typeof Hlesg_regelshlesg_regeltype;
+export const Hlesg_regelshlesg_handling = {
+  748100001: 'Udelad',
+  748100002: 'Medtag',
+  748100003: 'Medtag – review',
+  748100004: 'Afventer'
+} as const;
+export type Hlesg_regelshlesg_handling = keyof typeof Hlesg_regelshlesg_handling;
 export const Hlesg_regelsstatecode = {
   0: 'Active',
   1: 'Inactive'
@@ -19,15 +26,19 @@ export const Hlesg_regelsstatuscode = {
 export type Hlesg_regelsstatuscode = keyof typeof Hlesg_regelsstatuscode;
 
 export interface Hlesg_regelsBase {
+  hlesg_aendret?: string;
   hlesg_aktiv?: boolean;
   hlesg_begrundelse?: string;
   hlesg_betingelser?: string;
   hlesg_faktorid?: string;
+  hlesg_flyttil?: number;
+  hlesg_handling?: Hlesg_regelshlesg_handling;
   hlesg_kategori?: number;
   hlesg_navn: string;
   hlesg_raekkefoelge?: number;
   hlesg_regelid: string;
   hlesg_regeltype: Hlesg_regelshlesg_regeltype;
+  hlesg_standardregel?: string;
   "hlesg_Virksomhedid@odata.bind": string;
   importsequencenumber?: number;
   overriddencreatedon?: string;
@@ -40,6 +51,7 @@ export interface Hlesg_regelsBase {
 export interface Hlesg_regels extends Hlesg_regelsBase {
   createdon?: string;
   hlesg_aktivname?: string;
+  hlesg_handlingname?: string;
   hlesg_regeltypename?: string;
   modifiedon?: string;
   ownerid: string;

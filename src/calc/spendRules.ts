@@ -1,8 +1,9 @@
 // The ESG owner's rules for spend-based tagging (docs/adr/0015): account rules give each ledger
 // account its default Scope 3 category and EXIOBASE factor, and posting rules refine single
-// postings by a search word. Both are kept in code as seed data (src/data/scope3Rules.ts), so a
-// change to an approved rule goes through a pull request. Users add their own exceptions on top
-// (the ledger's Rule list, see ledger.ts), and those win.
+// postings by a search word. Both are kept in code as seed data (src/data/scope3Rules.ts). A
+// company can change a posting rule's handling, factor and category in the app (ADR 0018); the
+// approved rule stays as it is here. Users add their own exceptions on top (the ledger's Rule
+// list, see ledger.ts), and those win.
 
 /**
  * The ESG owner's "Grundlag": from the data manual, an estimate she has confirmed, an estimate
@@ -57,7 +58,7 @@ export function postingRuleMatches(rule: PostingRule, posting: Searchable, accou
 }
 
 /** The first posting rule, by priority, that matches. Expects the rules sorted by priority. */
-export function firstPostingRule(rules: readonly PostingRule[], posting: Searchable, accountCategory: number | null): PostingRule | null {
+export function firstPostingRule<R extends PostingRule>(rules: readonly R[], posting: Searchable, accountCategory: number | null): R | null {
   return rules.find((r) => postingRuleMatches(r, posting, accountCategory)) ?? null
 }
 

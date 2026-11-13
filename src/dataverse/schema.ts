@@ -361,6 +361,16 @@ export const tables: readonly Table[] = [
       text('faktorid', 'Faktor', 100),
       { kind: 'integer', name: n('kategori'), label: 'Kategori', min: 1, max: 15 },
       text('begrundelse', 'Begrundelse', 400),
+      // A row with a RegelID is the company's change to one of the ESG owner's posting rules
+      // (ADR 0018), not an exception: it has no conditions and uses the columns below.
+      text('standardregel', 'Standardregel', 20, 'RegelID på den posteringsregel, rækken ændrer (fx R33). Tom for en undtagelse.'),
+      {
+        kind: 'choice', name: n('handling'), label: 'Handling (standardregel)',
+        options: [option(1, 'Udelad', 'exclude'), option(2, 'Medtag', 'include'), option(3, 'Medtag – review', 'review'), option(4, 'Afventer', 'pending')],
+        description: 'Den ændrede handling for standardreglen. Bruges kun, når Standardregel er udfyldt.',
+      },
+      { kind: 'integer', name: n('flyttil'), label: 'Flyt til kategori', min: 1, max: 15, description: 'Standardreglen flytter posteringen til denne Scope 3-kategori. Tom beholder kontoens.' },
+      date('aendret', 'Ændret'),
     ],
   },
 ]

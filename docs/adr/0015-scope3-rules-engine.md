@@ -1,6 +1,6 @@
 # 15. Spend-based tagging with the ESG owner's account and posting rules
 
-- **Status:** Accepted
+- **Status:** Accepted; decision 1 is superseded for posting rules by ADR 0018 (2026-11-13)
 - **Date:** 2026-11-12
 - **Decided by:** @mortengad (tech lead) with the ESG owner, 2026-11-12
 

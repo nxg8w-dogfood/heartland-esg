@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { factors } from '../data/factors'
 import { accountRules, postingRules } from '../data/scope3Rules'
 import { spendFactorRegister } from '../data/spendFactorRegister'
-import { builtinRuleBook, classify, classifyLedger, counts, hitLabel, ledgerSpendLines, ledgerSummary, type ManualAction, type Posting, type Rule, type RuleBook } from './ledger'
+import { builtinRuleBook, classify, classifyLedger, counts, hitLabel, ledgerSpendLines, ledgerSummary, withRuleEdits, type ManualAction, type Posting, type PostingRuleEdit, type Rule, type RuleBook } from './ledger'
 import { parseScope3Category, postingRuleMatches, type AccountRule, type PostingRule } from './spendRules'
 
 const posting = (o: Partial<Posting> = {}): Posting => ({
@@ -222,5 +222,71 @@ describe('the ESG owner\'s seed rules', () => {
 
   it('exclude a Loyalty Bonus on Diverse omkostninger (R01)', () => {
     expect(classify(posting({ account: '101121', text: 'Hens. Loyalty Bonus 2026' }), [], none)).toMatchObject({ status: 'excluded', hit: { rule: { id: 'R01' } } })
+  })
+})
+
+describe('a company\'s changes to posting rules (ADR 0018)', () => {
+  const edit = (o: Partial<PostingRuleEdit> = {}): PostingRuleEdit => ({
+    id: 'e1', ruleId: 'R10', handling: 'include', factorId: 'f-exio-obs-dk', moveTo: null, reason: 'Rettet', editedOn: '2026-11-13', ...o,
+  })
+  const pendingRule = prule({ handling: 'pending', factorCode: 'EXIO-OBS' })
+  const run = (edits: PostingRuleEdit[], rules = [pendingRule], p = posting({ text: 'DSB ' })) =>
+    classifyLedger({ postings: [p], rules: [], manual: {}, ruleEdits: edits }, book([account()], rules))[0]
+
+  it('count a pending rule\'s postings once it is changed to include, with the chosen factor', () => {
+    expect(run([])).toMatchObject({ status: 'pending' })
+    const c = run([edit()])
+    expect(c).toMatchObject({ status: 'included', factorId: 'f-exio-obs-dk', reason: 'Rettet', hit: { kind: 'posting', rule: { id: 'R10' } } })
+    expect(counts(c)).toBe(true)
+  })
+
+  it('fall back to the account\'s factor when the change gives none', () => {
+    expect(run([edit({ factorId: null })]).factorId).toBe('f-exio-land')
+  })
+
+  it('can exclude, flag for review or move to another category', () => {
+    expect(run([edit({ handling: 'exclude' })])).toMatchObject({ status: 'excluded', factorId: null })
+    expect(run([edit({ handling: 'review' })]).status).toBe('review')
+    expect(run([edit({ moveTo: 1 })]).category).toBe(1)
+  })
+
+  it('keep the approved search word, priority and category scope', () => {
+    // The rule applies to category 6 only; a change doesn't widen it.
+    expect(run([edit()], [pendingRule], posting({ text: 'DSB ', account: '240003' })).hit.kind).toBe('posting')
+    const other = classifyLedger({ postings: [posting({ text: 'DSB ' })], rules: [], manual: {}, ruleEdits: [edit()] }, book([account({ category: 1 })], [pendingRule]))[0]
+    expect(other.hit.kind).toBe('account')
+  })
+
+  it('leave the approved rule as it is, and ignore a change to a rule that no longer exists', () => {
+    const b = book([account()], [pendingRule])
+    const changed = withRuleEdits(b, [edit(), edit({ id: 'e2', ruleId: 'R99' })])
+    expect(changed.postingRules).toHaveLength(1)
+    expect(changed.postingRules[0]).toMatchObject({ handling: 'include', edit: { id: 'e1' } })
+    expect(b.postingRules[0].handling).toBe('pending')
+    expect(withRuleEdits(b, [])).toBe(b)
+  })
+
+  it('still lose to an exception and a manual action', () => {
+    const p = posting({ text: 'DSB rejse ' })
+    const viaException = classifyLedger({ postings: [p], rules: [exception()], manual: {}, ruleEdits: [edit({ ruleId: 'R10' })] }, book([account()], [prule({ searchWord: 'DSB' })]))[0]
+    expect(viaException.hit.kind).toBe('exception')
+    const viaManual = classifyLedger({ postings: [p], rules: [], manual: { p1: { postingId: 'p1', type: 'exclude', factorId: null, category: null, reason: 'x' } }, ruleEdits: [edit()] }, book([account()], [pendingRule]))[0]
+    expect(viaManual.hit.kind).toBe('manual')
+  })
+
+  it('mark a changed rule in its label', () => {
+    expect(hitLabel(run([edit()]).hit)).toBe('R10 «DSB » (ændret)')
+    expect(hitLabel(run([]).hit)).toBe('R10 «DSB »')
+  })
+
+  it('apply to the real R33 (architect consulting), pending until changed', () => {
+    const r33 = postingRules.find((r) => r.id === 'R33')!
+    expect(r33.handling).toBe('pending')
+    const acc = accountRules.find((a) => a.include && (r33.appliesTo === null || a.category === r33.appliesTo))!
+    const p = posting({ account: acc.account, supplier: r33.searchWord })
+    const before = classifyLedger({ postings: [p], rules: [], manual: {}, ruleEdits: [] })[0]
+    expect(before).toMatchObject({ status: 'pending', hit: { kind: 'posting', rule: { id: 'R33' } } })
+    const after = classifyLedger({ postings: [p], rules: [], manual: {}, ruleEdits: [edit({ ruleId: 'R33' })] })[0]
+    expect(after).toMatchObject({ status: 'included', factorId: 'f-exio-obs-dk' })
   })
 })
