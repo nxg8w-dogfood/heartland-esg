@@ -59,6 +59,11 @@ export function guessColumn(headers: readonly string[], field: LedgerField): str
  * and line breaks. A leading byte-order mark is ignored.
  */
 export function parseCsv(input: string): { headers: string[]; rows: Record<string, string>[] } {
+  return tableToRows(parseCsvGrid(input)) as { headers: string[]; rows: Record<string, string>[] }
+}
+
+/** The cells of a CSV, row by row, as written. Used where the layout isn't a plain table. */
+export function parseCsvGrid(input: string): string[][] {
   const text = input.replace(/^\uFEFF/, '')
   const firstLine = text.slice(0, text.search(/\r?\n|$/))
   const counts = [';', ',', '\t'].map((d) => [d, firstLine.split(d).length - 1] as const)
@@ -84,7 +89,7 @@ export function parseCsv(input: string): { headers: string[]; rows: Record<strin
   }
   if (field !== '' || record.length > 0) { record.push(field); records.push(record) }
 
-  return tableToRows(records) as { headers: string[]; rows: Record<string, string>[] }
+  return records
 }
 
 /**
