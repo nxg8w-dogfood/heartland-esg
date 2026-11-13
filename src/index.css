@@ -931,3 +931,44 @@ ul.plain {
 .periods input.period-name {
   width: 9rem;
 }
+
+/* Saving, fixed in the corner so it's visible from anywhere on a long page (an import saves
+   thousands of records). */
+.save-indicator {
+  position: fixed;
+  right: var(--hl-sp-4);
+  bottom: var(--hl-sp-4);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--hl-sp-3);
+  max-width: min(30rem, calc(100vw - 2 * var(--hl-sp-4)));
+  padding: var(--hl-sp-3) var(--hl-sp-4);
+  border: var(--hl-rule-w) solid var(--hl-rule);
+  background: var(--hl-surface);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.12);
+  font-size: var(--hl-fs-xs);
+}
+
+.save-indicator.failed {
+  border-color: var(--hl-danger);
+  color: var(--hl-danger);
+}
+
+.save-spinner {
+  flex: none;
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid var(--hl-rule);
+  border-top-color: var(--hl-text-strong);
+  border-radius: 50%;
+  animation: save-spin 0.8s linear infinite;
+}
+
+@keyframes save-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .save-spinner { animation-duration: 3s; }
+}
