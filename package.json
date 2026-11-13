@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "dataverse:apply": "node scripts/dataverse-apply.ts",
+    "dataverse:check": "node scripts/dataverse-check.ts",
     "dataverse:company": "node scripts/dataverse-company.ts",
     "motorapi:env-vars": "node scripts/motorapi-env-vars.ts"
   },

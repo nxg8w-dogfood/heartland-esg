@@ -106,6 +106,26 @@ jobs:
           npm test
           npm run build
 
+      # The app selects every column in src/dataverse/schema.ts when it loads, so a column that
+      # exists here but not in the environment makes the app fail to load entirely (ADR 0020).
+      # Reads metadata only. Skipped, with a warning, where the environment's URL isn't set.
+      - if: steps.setup.outputs.ready == 'true'
+        name: Check ${{ env.TARGET }} has the tables and columns the app reads
+        env:
+          DATAVERSE_URL: ${{ vars.PA_DATAVERSE_URL }}
+          PA_CLI_SP_CLIENT_ID: ${{ vars.PA_CLI_SP_CLIENT_ID }}
+          PA_CLI_SP_TENANT_ID: ${{ vars.PA_CLI_SP_TENANT_ID }}
+          PA_CLI_SP_CLIENT_SECRET: ${{ secrets.PA_CLI_SP_CLIENT_SECRET }}
+        run: |
+          if [ -z "$DATAVERSE_URL" ]; then
+            echo "::warning::PA_DATAVERSE_URL isn't set for $TARGET, so the schema wasn't checked. See docs/deploy.md."
+            exit 0
+          fi
+          if ! npm run --silent dataverse:check -- --url "$DATAVERSE_URL"; then
+            echo "::error::$TARGET is missing tables or columns the app reads, so it would fail to load. Nothing was deployed. Run npm run dataverse:apply against it first."
+            exit 1
+          fi
+
       - if: steps.setup.outputs.ready == 'true'
         name: Publish to ${{ env.TARGET }}
         env:
