@@ -22,6 +22,7 @@ import { newId } from '../newId'
 import { Tile } from '../ui'
 import { defaultLocation } from './defaultLocation'
 import { UtilityImport } from './UtilityImport'
+import { useConfirm } from '../confirm'
 
 const kindLabel: Record<Scope2Kind, string> = { electricity: 'El', heating: 'Fjernvarme' }
 const regions = [...new Set(municipalities.map((m) => m.region))]
@@ -36,24 +37,26 @@ type Props = {
 }
 
 export function Scope2Page({ period, factors, locations, setLocations, lines, setLines }: Props) {
+  const { confirm, dialog } = useConfirm()
   const summary = useMemo(() => scope2Summary(locations, lines, factors, period), [locations, lines, factors, period])
   const shownCount = summary.locations.reduce((n, l) => n + l.electricity.length + l.heating.length, 0)
   const hiddenCount = lines.filter((l) => locations.some((loc) => loc.id === l.locationId)).length - shownCount
 
   const updateLocation = (id: string, patch: Partial<Location>) =>
     setLocations((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)))
-  const deleteLocation = (location: Location) => {
+  const deleteLocation = async (location: Location) => {
     const count = lines.filter((l) => l.locationId === location.id).length
     const message = count
       ? `Slet ${location.name} og dens ${count} ${count === 1 ? 'linje' : 'linjer'}?`
       : `Slet ${location.name}?`
-    if (!window.confirm(message)) return
+    if (!(await confirm(message, 'Slet lokation'))) return
     setLocations((ls) => ls.filter((l) => l.id !== location.id))
     setLines((ls) => ls.filter((l) => l.locationId !== location.id))
   }
 
   return (
     <>
+      {dialog}
       <h1>Scope 2 — indirekte udledninger fra energi</h1>
       <p className="lead">
         Indkøbt el og fjernvarme pr. lokation. Location-based bruger nettets faktor på linjens

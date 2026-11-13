@@ -11,6 +11,7 @@ import { formatRange, type FiscalPeriod } from '../calc/periods'
 import { newCompany, withActiveCompany, type Company, type GroupData, type OwnershipShare } from '../storage/group'
 import { Tile } from '../ui'
 import { PeriodsEditor } from './PeriodsEditor'
+import { useConfirm } from '../confirm'
 
 type Props = { group: GroupData; setGroup: Dispatch<SetStateAction<GroupData>>; period: FiscalPeriod }
 
@@ -19,6 +20,7 @@ const t = (v: number) => formatNumber(v, 3)
 const MAX_YEARS = 10
 
 export function GroupPage({ group, setGroup, period }: Props) {
+  const { confirm, dialog } = useConfirm()
   const groupNameId = useId()
   const [newName, setNewName] = useState('')
 
@@ -46,8 +48,8 @@ export function GroupPage({ group, setGroup, period }: Props) {
     setNewName('')
   }
 
-  function removeCompany(c: Company) {
-    if (!window.confirm(`Slet ${c.name || 'virksomheden'} og hele dens klimaregnskab? Det kan ikke fortrydes.`)) return
+  async function removeCompany(c: Company) {
+    if (!(await confirm(`Slet ${c.name || 'virksomheden'} og hele dens klimaregnskab? Det kan ikke fortrydes.`, 'Slet virksomhed'))) return
     setGroup((g) => {
       const companies = g.companies.filter((x) => x.id !== c.id)
       const next = { ...g, companies }
@@ -62,6 +64,7 @@ export function GroupPage({ group, setGroup, period }: Props) {
 
   return (
     <>
+      {dialog}
       <h1>Koncern</h1>
       <p className="lead">
         Koncernens klimaregnskab efter <strong>ejerandelsmetoden</strong> (GHG-protokollen, equity
