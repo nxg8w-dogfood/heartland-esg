@@ -31,7 +31,12 @@ const aliases: Record<LedgerField, string[]> = {
   supplier: ['leverandør', 'leverandoer', 'kreditor', 'supplier', 'vendor'],
   text: ['tekst', 'posteringstekst', 'beskrivelse', 'description', 'bilagstekst'],
   amount: ['beløb', 'beloeb', 'amount', 'debet', 'værdi'],
-  currency: ['valuta', 'currency'],
+  currency: ['valuta', 'valutakode', 'currency', 'currency code'],
+}
+
+/** Headers a field's "contains" match skips: "Valutabeløb" and "Valutakurs" aren't the currency. */
+const notContaining: Partial<Record<LedgerField, string[]>> = {
+  currency: ['beløb', 'beloeb', 'kurs', 'amount', 'rate'],
 }
 
 export function guessColumn(headers: readonly string[], field: LedgerField): string {
@@ -40,8 +45,9 @@ export function guessColumn(headers: readonly string[], field: LedgerField): str
     const i = lower.findIndex((h) => h === a)
     if (i !== -1) return headers[i]
   }
+  const skip = notContaining[field] ?? []
   for (const a of aliases[field]) {
-    const i = lower.findIndex((h) => h.includes(a))
+    const i = lower.findIndex((h) => h.includes(a) && !skip.some((x) => h.includes(x)))
     if (i !== -1) return headers[i]
   }
   return ''
@@ -164,6 +170,24 @@ export type TableRow = Record<string, CellValue>
 /** Text for a cell used as text (account, name, supplier…): numbers as written, dates as ISO. */
 const cellText = (v: CellValue) => (v instanceof Date ? parseLedgerDate(v) : v == null ? '' : String(v)).trim()
 
+/** Currencies written another way than as an ISO code. */
+const currencyNames: Record<string, string> = { KR: 'DKK', DKR: 'DKK', 'DANSKE KRONER': 'DKK', '€': 'EUR', EURO: 'EUR', '£': 'GBP', $: 'USD' }
+
+/**
+ * A currency cell as a three-letter ISO code: empty is DKK, case, dots and spaces don't matter,
+ * and a few common names are recognised. Anything else comes back as written, so the import can
+ * say which values it can't read (Dataverse stores three characters).
+ */
+export function normalizeCurrency(v: CellValue): string {
+  const raw = cellText(v)
+  if (!raw) return 'DKK'
+  const t = raw.toUpperCase().replace(/\.+$/, '').replace(/\s+/g, ' ').trim()
+  const code = currencyNames[t] ?? t
+  return /^[A-Z]{3}$/.test(code) ? code : raw
+}
+
+export const isCurrencyCode = (c: string) => /^[A-Z]{3}$/.test(c)
+
 export function rowsToPostings(rows: readonly TableRow[], mapping: ColumnMapping): Omit<Posting, 'id' | 'importId'>[] {
   const get = (row: TableRow, f: LedgerField) => (mapping[f] ? row[mapping[f]] : undefined)
   return rows.map((row) => ({
@@ -173,7 +197,7 @@ export function rowsToPostings(rows: readonly TableRow[], mapping: ColumnMapping
     supplier: cellText(get(row, 'supplier')),
     text: cellText(get(row, 'text')),
     amount: parseLedgerAmount(get(row, 'amount')),
-    currency: cellText(get(row, 'currency')) || 'DKK',
+    currency: normalizeCurrency(get(row, 'currency')),
   }))
 }
 

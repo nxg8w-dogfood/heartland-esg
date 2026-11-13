@@ -5,7 +5,7 @@ import { spendFactorRegister } from '../data/spendFactorRegister'
 import { handlingLabels } from '../calc/spendRules'
 import { scope3Categories } from '../calc/scope3'
 import {
-  classifyLedger, guessMapping, hitLabel, postingStatusLabels, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
+  classifyLedger, guessMapping, hitLabel, isCurrencyCode, postingStatusLabels, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
   type ClassifiedPosting, type ColumnMapping, type PostingStatus, type Condition, type ConditionField, type ConditionOperator,
   type LedgerField, type ManualAction, type Posting, type Rule, type TableRow,
 } from '../calc/ledger'
@@ -149,6 +149,7 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
   const postings = file && mapping ? rowsToPostings(file.rows, mapping) : []
   const missingDates = postings.filter((p) => !p.date).length
   const missingAmounts = postings.filter((p) => p.amount === null).length
+  const badCurrencies = [...new Set(postings.filter((p) => !isCurrencyCode(p.currency)).map((p) => p.currency))]
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -237,8 +238,20 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
               {missingAmounts > 0 && `${missingAmounts} rækker har et ulæseligt beløb.`}
             </p>
           )}
+          {badCurrencies.length > 0 && (
+            <p className="error" id={`${id}-currency-error`} role="alert">
+              Kolonnen “{mapping.currency}” indeholder værdier, der ikke er valutakoder
+              ({badCurrencies.slice(0, 3).map((c) => `“${c}”`).join(', ')}{badCurrencies.length > 3 ? ' …' : ''}).
+              Vælg den kolonne, der har valutakoden (fx DKK eller EUR), eller (ingen), hvis alle beløb er i DKK.
+            </p>
+          )}
           <div className="actions">
-            <button type="button" onClick={() => { onImport(file.name, postings); setFile(null); setMapping(null) }}>
+            <button
+              type="button"
+              disabled={badCurrencies.length > 0}
+              aria-describedby={badCurrencies.length > 0 ? `${id}-currency-error` : undefined}
+              onClick={() => { onImport(file.name, postings); setFile(null); setMapping(null) }}
+            >
               Importer {postings.length} posteringer
             </button>{' '}
             <button type="button" className="secondary" onClick={() => { setFile(null); setMapping(null) }}>Annullér</button>
