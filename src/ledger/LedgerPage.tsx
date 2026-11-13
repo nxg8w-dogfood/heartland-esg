@@ -1,4 +1,6 @@
-import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { searchFactors } from '../calc/factorSearch'
+import { textRule } from './textRule'
 import type { Factor } from '../data/factors'
 import { accountRules, postingRules } from '../data/scope3Rules'
 import { spendFactorRegister } from '../data/spendFactorRegister'
@@ -45,6 +47,13 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
   const summary = ledgerSummary(classified)
   const spendFactors = factors.filter((f) => f.method === 'spend')
   const { confirm, dialog } = useConfirm()
+  /** The rule just made from a posting's text: its card scrolls into view with the name focused */
+  const [newRuleId, setNewRuleId] = useState<string | null>(null)
+  const createTextRule = (text: string, category: number | null) => {
+    const rule = textRule(text, category)
+    setLedger((l) => ({ ...l, rules: [...l.rules, rule] }))
+    setNewRuleId(rule.id)
+  }
   // Postings per import, to spot an import whose save was cut short (e.g. by closing the app).
   const stored = useMemo(() => {
     const m = new Map<string, number>()
@@ -121,11 +130,11 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
         </dl>
       )}
 
-      <RulesSection rules={ledger.rules} setLedger={setLedger} classified={classified} spendFactors={spendFactors} />
+      <RulesSection rules={ledger.rules} setLedger={setLedger} classified={classified} spendFactors={spendFactors} focusRuleId={newRuleId} onFocused={() => setNewRuleId(null)} />
 
       <BuiltinRulesSection classified={classified} />
 
-      {ledger.postings.length > 0 && <PostingsSection classified={classified} setLedger={setLedger} spendFactors={spendFactors} />}
+      {ledger.postings.length > 0 && <PostingsSection classified={classified} setLedger={setLedger} spendFactors={spendFactors} onCreateRule={createTextRule} />}
     </>
   )
 }
@@ -277,7 +286,11 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
   )
 }
 
-function RulesSection({ rules, setLedger, classified, spendFactors }: { rules: Rule[]; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[] }) {
+function RulesSection({ rules, setLedger, classified, spendFactors, focusRuleId, onFocused }: {
+  rules: Rule[]; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[]
+  /** A rule to bring into view and focus, such as one just created from a posting */
+  focusRuleId: string | null; onFocused: () => void
+}) {
   const setRules = (f: (rs: Rule[]) => Rule[]) => setLedger((l) => ({ ...l, rules: f(l.rules) }))
   const update = (ruleId: string, patch: Partial<Rule>) => setRules((rs) => rs.map((r) => (r.id === ruleId ? { ...r, ...patch } : r)))
   const move = (from: number, to: number) =>
@@ -319,6 +332,8 @@ function RulesSection({ rules, setLedger, classified, spendFactors }: { rules: R
           count={rules.length}
           matches={matchCount(r.id)}
           spendFactors={spendFactors}
+          focus={r.id === focusRuleId}
+          onFocused={onFocused}
           onChange={(patch) => update(r.id, patch)}
           onMove={(to) => move(i, to)}
           onDelete={async () => { if (await confirm(`Slet reglen ${r.name}?`)) setRules((rs) => rs.filter((x) => x.id !== r.id)) }}
@@ -328,18 +343,27 @@ function RulesSection({ rules, setLedger, classified, spendFactors }: { rules: R
   )
 }
 
-function RuleCard({ rule, index, count, matches, spendFactors, onChange, onMove, onDelete }: {
+function RuleCard({ rule, index, count, matches, spendFactors, focus = false, onFocused, onChange, onMove, onDelete }: {
   rule: Rule; index: number; count: number; matches: number; spendFactors: Factor[]
+  focus?: boolean; onFocused?: () => void
   onChange: (patch: Partial<Rule>) => void; onMove: (to: number) => void; onDelete: () => void
 }) {
   const id = useId()
+  const card = useRef<HTMLElement>(null)
+  const name = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (!focus) return
+    card.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    name.current?.focus({ preventScroll: true })
+    onFocused?.()
+  }, [focus, onFocused])
   const setCondition = (cid: string, patch: Partial<Condition>) => onChange({ conditions: rule.conditions.map((c) => (c.id === cid ? { ...c, ...patch } : c)) })
   return (
-    <article className="card" aria-labelledby={`${id}-name-label`}>
+    <article className="card" aria-labelledby={`${id}-name-label`} ref={card}>
       <div className="location-settings">
         <div className="field">
           <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Undtagelse {index + 1}</label>
-          <input id={`${id}-name`} value={rule.name} onChange={(e) => onChange({ name: e.target.value })} />
+          <input id={`${id}-name`} ref={name} value={rule.name} onChange={(e) => onChange({ name: e.target.value })} />
         </div>
         <div className="field">
           <label htmlFor={`${id}-type`}>Handling</label>
@@ -417,8 +441,23 @@ function FactorSelect({ id, value, factors, onChange }: { id: string; value: str
 
 const PAGE = 200
 
-function PostingsSection({ classified, setLedger, spendFactors }: { classified: ClassifiedPosting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; spendFactors: Factor[] }) {
+function PostingsSection({ classified, setLedger, spendFactors, onCreateRule }: {
+  classified: ClassifiedPosting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; spendFactors: Factor[]
+  onCreateRule: (text: string, category: number | null) => void
+}) {
   const id = useId()
+  /** The posting whose factor is being picked, and where focus goes back to after */
+  const [picking, setPicking] = useState<ClassifiedPosting | null>(null)
+  const returnTo = useRef<string | null>(null)
+  const closePicker = () => {
+    returnTo.current = picking ? `${id}-${picking.posting.id}-m` : null
+    setPicking(null)
+  }
+  useEffect(() => {
+    if (picking || !returnTo.current) return
+    document.getElementById(returnTo.current)?.focus()
+    returnTo.current = null
+  }, [picking])
   const [filter, setFilter] = useState<PostingFilter>(emptyPostingFilter)
   const options = useMemo(() => filterOptions(classified), [classified])
   const shown = useMemo(() => filterPostings(classified, filter), [classified, filter])
@@ -517,7 +556,20 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
                 <tr key={p.id}>
                   <td>{p.date ? formatDate(p.date) : <span className="pending">Mangler</span>}</td>
                   <td>{p.account}<span className="sub">{p.accountName}</span></td>
-                  <td>{p.supplier}<span className="sub">{p.text}</span></td>
+                  <td>
+                    {p.supplier}
+                    <span className="sub">
+                      {p.text}
+                      {p.text.trim() && (
+                        <>
+                          {' '}
+                          <button type="button" className="link" onClick={() => onCreateRule(p.text, c.category)}>
+                            Opret regel<span className="visually-hidden">: posteringstekst indeholder {p.text}</span>
+                          </button>
+                        </>
+                      )}
+                    </span>
+                  </td>
                   <td className="num">{p.amount === null ? '—' : `${formatNumber(p.amount, 2)} ${p.currency}`}</td>
                   <td>
                     <span className={c.status === 'review' ? 'warning-text' : c.status === 'pending' || c.status === 'untagged' ? 'pending' : undefined}>{postingStatusLabels[c.status]}</span>
@@ -538,12 +590,15 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
                         const v = e.target.value
                         if (v === 'rules') setManual(p.id, null)
                         else if (v === 'exclude') setManual(p.id, { postingId: p.id, type: 'exclude', factorId: null, category: null, reason: 'Manuelt ekskluderet' })
-                        else setManual(p.id, { postingId: p.id, type: 'tag', factorId: v, category: c.category ?? 1, reason: 'Manuelt tagget' })
+                        else if (v === 'search') setPicking(c)
                       }}
                     >
                       <option value="rules">Følg reglerne</option>
                       <option value="exclude">Ekskluder</option>
-                      {spendFactors.map((f) => <option key={f.id} value={f.id}>Tag: {f.name}, {f.region}</option>)}
+                      {c.hit.kind === 'manual' && c.factorId && (
+                        <option value={c.factorId}>Tag: {factorLabel(spendFactors, c.factorId)}</option>
+                      )}
+                      <option value="search">Tag med faktor…</option>
                     </select>
                   </td>
                 </tr>
@@ -553,6 +608,76 @@ function PostingsSection({ classified, setLedger, spendFactors }: { classified: 
         </table>
       </div>
       {shown.length > PAGE && <p className="muted">Viser de første {PAGE} af {formatNumber(shown.length, 0)} posteringer. Brug filtrene for at indsnævre.</p>}
+      {picking && (
+        <FactorPicker
+          key={picking.posting.id}
+          posting={picking}
+          factors={spendFactors}
+          onCancel={closePicker}
+          onPick={(factorId) => {
+            const p = picking.posting
+            setManual(p.id, { postingId: p.id, type: 'tag', factorId, category: picking.category ?? 1, reason: 'Manuelt tagget' })
+            closePicker()
+          }}
+        />
+      )}
+    </section>
+  )
+}
+
+const factorLabel = (factors: readonly Factor[], factorId: string) => {
+  const f = factors.find((x) => x.id === factorId)
+  return f ? `${f.name}, ${f.region}` : factorId
+}
+
+const PICKER_LIMIT = 50
+
+/** Picks the factor to tag one posting with, searching name, source and country (region). */
+function FactorPicker({ posting, factors, onPick, onCancel }: {
+  posting: ClassifiedPosting; factors: readonly Factor[]; onPick: (factorId: string) => void; onCancel: () => void
+}) {
+  const id = useId()
+  const search = useRef<HTMLInputElement>(null)
+  useEffect(() => search.current?.focus(), [])
+  const [query, setQuery] = useState('')
+  const found = useMemo(() => searchFactors(factors, query), [factors, query])
+  const p = posting.posting
+  return (
+    <section className="card" aria-labelledby={`${id}-h`} onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}>
+      <h3 id={`${id}-h`}>Tag med faktor</h3>
+      <p className="muted">
+        Postering {p.account}{p.date ? `, ${formatDate(p.date)}` : ''}{p.text ? `, ${p.text}` : ''}. Går forud for kontoreglen og alle andre regler.
+      </p>
+      <div className="field wide">
+        <label htmlFor={`${id}-q`}>Søg faktor</label>
+        <input
+          id={`${id}-q`}
+          ref={search}
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-describedby={`${id}-hint ${id}-count`}
+        />
+        <span id={`${id}-hint`} className="muted">Navn, kilde eller land. Flere ord skal alle passe.</span>
+      </div>
+      <p id={`${id}-count`} className="muted" role="status">
+        {found.length === 0 ? 'Ingen faktorer passer.' : found.length > PICKER_LIMIT ? `Viser ${PICKER_LIMIT} af ${found.length} faktorer. Søg for at indsnævre.` : `${found.length} ${found.length === 1 ? 'faktor' : 'faktorer'}.`}
+      </p>
+      {found.length > 0 && (
+        <ul className="plain">
+          {found.slice(0, PICKER_LIMIT).map((f) => (
+            <li key={f.id}>
+              <button type="button" className="link" onClick={() => onPick(f.id)} aria-current={posting.factorId === f.id || undefined}>
+                {f.name}{f.value === null ? ' (faktor mangler)' : ''}
+              </button>
+              <span className="sub">{f.region} · {f.source}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="actions">
+        <button type="button" className="secondary" onClick={onCancel}>Annullér</button>
+      </div>
     </section>
   )
 }
