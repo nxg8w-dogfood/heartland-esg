@@ -6,6 +6,7 @@ import { formatFactor, formatNumber } from '../format'
 import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
+import { useConfirm } from '../confirm'
 
 type Props = {
   cat7: Category7
@@ -29,9 +30,11 @@ export function CommutingSection({ cat7, surveys, setSurveys, factors, period }:
       }),
     )
   const counted = new Set(cat7.surveys.map((r) => r.survey.id))
+  const { confirm, dialog } = useConfirm()
 
   return (
     <section aria-labelledby={`${id}-heading`}>
+      {dialog}
       <div className="section-head">
         <h2 id={`${id}-heading`}>Kategori 7 — medarbejderpendling</h2>
         <button type="button" onClick={() => setSurveys((ss) => [...ss, { id: newId(), label: 'Pendlingsundersøgelse', date: defaultDate, employees: null, responses: null, workWeeksPerYear: 46, modes: {} }])}>
@@ -73,8 +76,8 @@ export function CommutingSection({ cat7, surveys, setSurveys, factors, period }:
           factors={factors}
           onChange={(patch) => update(s.id, patch)}
           onModeChange={(modeId, patch) => updateMode(s.id, modeId, patch)}
-          onDelete={() => {
-            if (window.confirm(`Slet ${s.label}?`)) setSurveys((ss) => ss.filter((x) => x.id !== s.id))
+          onDelete={async () => {
+            if (await confirm(`Slet ${s.label}?`)) setSurveys((ss) => ss.filter((x) => x.id !== s.id))
           }}
         />
       ))}

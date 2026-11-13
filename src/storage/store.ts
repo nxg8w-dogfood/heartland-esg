@@ -4,6 +4,8 @@
 
 import { parseGroup, type GroupData, type GroupLoadResult } from './group'
 
+export type SaveProgress = (done: number, total: number) => void
+
 export type GroupStore = {
   /** A short description for the UI, e.g. "denne browser" */
   readonly label: string
@@ -11,7 +13,8 @@ export type GroupStore = {
   readonly central: boolean
   /** null when nothing has been saved yet */
   load(): Promise<GroupLoadResult | null>
-  save(group: GroupData): Promise<void>
+  /** `onProgress` is told how many of the save's changes are done, for a long save. */
+  save(group: GroupData, onProgress?: SaveProgress): Promise<void>
   /** Delete everything. Only the browser draft offers it; shared data isn't cleared from the app. */
   clear?(): Promise<void>
 }
