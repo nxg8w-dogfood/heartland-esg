@@ -24,7 +24,7 @@ import { Scope3Page } from './scope3/Scope3Page'
 import type { Relevance } from './scope3/relevance'
 import { scope3SubpageFromHash, type Scope3SubpageId } from './scope3/subpages'
 import { ACCOUNT_VERSION, type AccountData } from './storage/account'
-import { DataBar, type SaveStatus } from './storage/DataBar'
+import { DataBar, SaveIndicator, type SaveStatus } from './storage/DataBar'
 import { activeCompany, emptyGroup, selectedPeriod, withActiveCompany, type GroupData } from './storage/group'
 import { chooseStore } from './storage/choose'
 import type { GroupStore } from './storage/store'
@@ -194,6 +194,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
             onReplace(emptyGroup(), 'Alle data er ryddet.')
           })}
         />
+        <SaveIndicator status={status} />
         {page === 'koncern' ? (
           <GroupPage group={group} setGroup={setGroup} period={period} />
         ) : (

@@ -1,12 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useConfirm } from '../confirm'
-import { formatNumber } from '../format'
+import { saveStatusText, type SaveStatus } from './saveStatus'
 
-export type SaveStatus =
-  | { state: 'idle' }
-  /** done and total: how many of a long save's changes are sent */
-  | { state: 'pending'; done?: number; total?: number }
-  | { state: 'saved'; at: Date }
-  | { state: 'failed'; reason?: string }
+export type { SaveStatus } from './saveStatus'
 
 type Props = {
   storeLabel: string
@@ -17,20 +13,37 @@ type Props = {
   onClear?: () => void
 }
 
-/** From how many changes a save shows its progress (an import is thousands). */
-const LONG_SAVE = 50
+/** How long "Gemt" stays on screen after a save. */
+const SAVED_MS = 5_000
+
+/**
+ * Saving, shown wherever the user is on the page. The data bar is at the top, so an import or
+ * a delete made further down saved with nothing to see. Stays while saving and after a failure;
+ * "Gemt" disappears by itself.
+ */
+export function SaveIndicator({ status }: { status: SaveStatus }) {
+  const [hiddenAt, setHiddenAt] = useState<number | null>(null)
+  const at = status.state === 'saved' ? status.at.getTime() : null
+  useEffect(() => {
+    if (at === null) return
+    const timer = setTimeout(() => setHiddenAt(at), SAVED_MS)
+    return () => clearTimeout(timer)
+  }, [at])
+
+  if (status.state === 'idle' || (at !== null && at === hiddenAt)) return null
+  const kind = status.state === 'failed' ? 'failed' : status.state === 'saved' ? 'saved' : 'pending'
+  return (
+    <output className={`save-indicator ${kind}`} aria-live="polite">
+      {status.state === 'pending' && <span className="save-spinner" aria-hidden="true" />}
+      {saveStatusText(status)}
+    </output>
+  )
+}
 
 /** Where the data lives, whether it's saved, and clearing a browser draft. */
 export function DataBar({ storeLabel, central, status, message, onClear }: Props) {
   const { confirm, dialog } = useConfirm()
-  const statusText =
-    status.state === 'pending'
-      ? status.total && status.total > LONG_SAVE
-        ? `Gemmer ${formatNumber(status.done ?? 0, 0)} af ${formatNumber(status.total, 0)} ændringer … Luk ikke appen, før det er gemt.`
-        : 'Gemmer …'
-      : status.state === 'saved' ? `Gemt kl. ${status.at.toLocaleTimeString('da-DK', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-        : status.state === 'failed' ? `Kunne ikke gemme${status.reason ? `: ${status.reason}` : ''}`
-          : ''
+  const statusText = saveStatusText(status)
 
   // In Dataverse the header says where data lives, so the bar only shows saving and messages.
   if (central && !statusText && !message && !onClear) return null
