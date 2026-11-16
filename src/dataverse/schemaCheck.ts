@@ -8,7 +8,9 @@
 // The comparison is one-way on purpose: columns the environment has and the schema doesn't are
 // fine, since the app never asks for them.
 
-import { tables, type Table } from './schema'
+// The extension is required: the scripts run this module in Node, which resolves no extension of
+// its own, unlike the bundler the app and the tests use (scripts/scripts.test.ts guards it).
+import { tables, type Table } from './schema.ts'
 
 /** A table as the environment reports it: its logical name and its attributes' logical names. */
 export type EnvironmentTable = { name: string; columns: readonly string[] }
