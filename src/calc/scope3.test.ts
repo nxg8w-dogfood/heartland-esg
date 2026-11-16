@@ -126,7 +126,7 @@ describe('category 6, business travel', () => {
 
 describe('category 5, waste', () => {
   it('has the original 11 rows, each with a factor that exists', () => {
-    expect(category5Groups).toHaveLength(11)
+    expect(category5Groups).toHaveLength(14)
     for (const g of category5Groups) expect(factors.some((f) => f.id === g.factorId), g.id).toBe(true)
   })
 
