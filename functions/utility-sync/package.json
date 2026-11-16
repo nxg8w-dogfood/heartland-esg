@@ -1,0 +1,24 @@
+{
+  "name": "heartland-esg-utility-sync",
+  "private": true,
+  "version": "0.0.0",
+  "description": "The nightly Eloverblik and Varmeoverblik sync (docs/adr/0021)",
+  "type": "module",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@azure/functions --outfile=dist/index.js",
+    "package": "npm run build && rm -rf package && mkdir -p package && cp -r dist host.json package.json package-lock.json package/ && cd package && npm ci --omit=dev --ignore-scripts && rm -f ../released-package.zip && zip -qr ../released-package.zip ."
+  },
+  "dependencies": {
+    "@azure/functions": "^4.17.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.28.2",
+    "typescript": "~5.9.3"
+  }
+}

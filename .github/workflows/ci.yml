@@ -25,6 +25,14 @@ jobs:
       - run: npm audit --audit-level=high
       # The Azure setup for plate lookups (ADR 0009); building catches template errors.
       - run: az bicep build --file infra/motorapi/main.bicep --stdout > /dev/null
+      # The nightly utility sync (ADR 0021): its own packages, type check, bundle and template.
+      # Its tests run with the app's (npm test above).
+      - working-directory: functions/utility-sync
+        run: |
+          npm ci
+          npm run build
+          npm audit --audit-level=high
+      - run: az bicep build --file infra/utility-sync/main.bicep --stdout > /dev/null
 
   secret-scan:
     runs-on: ubuntu-latest

@@ -1,0 +1,5 @@
+node_modules
+dist
+package
+released-package.zip
+local.settings.json

@@ -17,6 +17,10 @@ function richAccount(): AccountData {
     ],
     category3Params: { gridLoss: 0.07, wttRatio: 0.2419 },
     locations: [loc],
+    meters: [
+      { id: 'mtr-1', service: 'eloverblik', meterId: '571313000000000001', address: 'Eksempelvej 1, 8000 Aarhus C', municipalityCode: '751', locationId: 'loc-1', lastFetched: '2026-11-16T02:00:00.000Z', error: null },
+      { id: 'mtr-2', service: 'varmeoverblik', meterId: 'ip-1', address: 'Eksempelvej 1, 8000 Aarhus C', municipalityCode: null, locationId: null, lastFetched: null, error: 'Token afvist' },
+    ],
     vehicles: [
       { id: 'car-1', plate: 'AB12345', make: 'Skoda', model: 'Octavia', variant: '2.0 TDI', fuel: 'diesel', firstRegistration: '2022-03-14', kmPerLitre: 22.7, co2GPerKm: 117, testNorm: 'WLTP', source: 'lookup', fetchedAt: '2026-11-10T09:00:00.000Z' },
       { id: 'car-2', plate: 'CD23456', make: 'Toyota', model: 'Yaris', fuel: 'benzin', kmPerLitre: null, rangeKm: 650, source: 'manual' },
@@ -230,6 +234,7 @@ function richAccount2(): AccountData {
     ...a,
     periods: re(a.periods),
     locations: re(a.locations),
+    meters: re(a.meters).map((m) => (m.locationId ? { ...m, locationId: 'loc-1-2' } : m)),
     vehicles: re(a.vehicles),
     scope1Lines: re(a.scope1Lines).map((l) => (l.vehicleId ? { ...l, vehicleId: `${l.vehicleId}-2` } : l)),
     scope2Lines: re(a.scope2Lines).map((l) => ({ ...l, locationId: 'loc-1-2' })),

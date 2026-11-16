@@ -9,6 +9,7 @@ import { defaultPeriod, periodError, periodFromRange, sortPeriods, type FiscalPe
 import type { Investment } from '../calc/investments'
 import { scope1Groups, type Scope1Line } from '../calc/scope1'
 import type { Vehicle } from '../calc/vehicles'
+import type { Meter } from '../utility/meters'
 import { NATIONAL_GRID, type Location, type Scope2Line } from '../calc/scope2'
 import { municipality } from '../data/municipalities'
 import { category1Groups, category4Groups, category4SpendGroups, category5Groups, category6Groups, defaultCategory3Params, type Category3Params } from '../calc/scope3'
@@ -36,6 +37,8 @@ export type AccountData = {
   vehicles: Vehicle[]
   scope1Lines: Scope1Line[]
   locations: Location[]
+  /** Electricity and heating meters found by the nightly sync (ADR 0021) */
+  meters: Meter[]
   scope2Lines: Scope2Line[]
   /** Where each factor's value comes from, by factor id; missing means the built-in table */
   factorSources: FactorSources
@@ -61,6 +64,7 @@ export function emptyAccount(): AccountData {
     vehicles: [],
     scope1Lines: [],
     locations: [defaultLocation()],
+    meters: [],
     scope2Lines: [],
     factorSources: {},
     relevance: defaultRelevance(),
@@ -163,6 +167,9 @@ export function parseAccount(input: unknown): LoadResult {
     scope1Lines: list<Scope1Line>(input.scope1Lines, (l) => scope1Known(l) && (l.distanceKm == null || (typeof l.vehicleId === 'string' && vehicleIds.has(l.vehicleId))))
       .map((l) => (l.vehicleId && !vehicleIds.has(l.vehicleId) ? { ...l, vehicleId: null } : l)),
     locations,
+    // A meter whose location is gone waits for a new one, rather than importing nowhere.
+    meters: list<Meter>(input.meters, (m) => (m.service === 'eloverblik' || m.service === 'varmeoverblik') && typeof m.meterId === 'string' && typeof m.address === 'string')
+      .map((m) => (m.locationId && !locationIds.has(m.locationId) ? { ...m, locationId: null } : m)),
     scope2Lines: list(input.scope2Lines, (l) => typeof l.locationId === 'string' && locationIds.has(l.locationId)),
     factorSources,
     relevance: isObject(input.relevance) ? { ...base.relevance, ...(input.relevance as Relevance) } : base.relevance,

@@ -34,6 +34,7 @@ import { exampleLookup } from './vehicles/exampleLookup'
 import { connectorLookup } from './vehicles/connectorLookup'
 import { MotorAPIService } from './generated'
 import { VehiclesPage } from './vehicles/VehiclesPage'
+import type { Meter } from './utility/meters'
 
 // Plate lookups go through the MotorAPI connector inside Power Apps (ADR 0009), which adds the
 // key on the server. `npm run dev` in a plain browser has no connector, so it gets example answers.
@@ -228,13 +229,14 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChan
   const [cat1Lines, setCat1Lines] = useState<SpendLine[]>(initial.cat1Lines)
   const [deflation, setDeflation] = useState<Deflation>(initial.deflation)
   const [ledger, setLedger] = useState<LedgerState>(initial.ledger)
+  const [meters, setMeters] = useState<Meter[]>(initial.meters)
 
   const factors = useMemo(() => applyFactorSources(baseFactors, factorSources, factorPublications), [factorSources])
 
   const account: AccountData = useMemo(() => ({
-    version: ACCOUNT_VERSION, periods, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
+    version: ACCOUNT_VERSION, periods, vehicles, scope1Lines, locations, meters, scope2Lines, factorSources, relevance, category3Params,
     cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger,
-  }), [periods, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
+  }), [periods, vehicles, scope1Lines, locations, meters, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
 
   // Each part keeps its reference until changed, so comparing parts with what was last reported
   // is exact and cheap, and it holds even when React runs the effect twice in development.
@@ -263,6 +265,8 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChan
           setLocations={setLocations}
           lines={scope2Lines}
           setLines={setScope2Lines}
+          meters={meters}
+          setMeters={setMeters}
         />
       )}
       {page === 'scope3' && (

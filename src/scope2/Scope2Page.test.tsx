@@ -11,7 +11,7 @@ const hq: Location = { ...defaultLocation(), id: 'loc-1', name: 'Hovedkontor' }
 const line: Scope2Line = { id: 'l1', locationId: 'loc-1', kind: 'electricity', date: '2025-03-01', kWh: 1000 }
 
 const render = (lines: Scope2Line[]) =>
-  renderToStaticMarkup(<Scope2Page period={year2025} factors={factors} locations={[hq]} setLocations={noop} lines={lines} setLines={noop} />)
+  renderToStaticMarkup(<Scope2Page period={year2025} factors={factors} locations={[hq]} setLocations={noop} lines={lines} setLines={noop} meters={[]} setMeters={noop} />)
 
 describe('The Scope 2 Tilføj linje form', () => {
   it('sits under the locations and their lines', () => {

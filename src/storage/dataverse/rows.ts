@@ -17,6 +17,7 @@ import type { ImportBatch, ManualAction, Posting, PostingRuleEdit, Rule } from '
 import type { PostingHandling } from '../../calc/spendRules'
 import type { Scope1Line } from '../../calc/scope1'
 import type { TestNorm, Vehicle, VehicleFuel } from '../../calc/vehicles'
+import type { Meter } from '../../utility/meters'
 import type { Location, Scope2Line } from '../../calc/scope2'
 import { defaultPriceIndexSeries, noDeflation, type SpendLine } from '../../calc/spend'
 import { factors } from '../../data/factors'
@@ -87,6 +88,14 @@ export function toRows(group: GroupData): Rows {
       })
     }
     for (const v of a.vehicles) put(c('koeretoej'), v.id, vehicleRow(id, v))
+    for (const m of a.meters) {
+      put(c('maaler'), m.id, {
+        [COMPANY]: id, [c('adresse')]: m.address,
+        [c('kilde')]: toChoice(c('maaler'), c('kilde'), m.service),
+        [c('maalernummer')]: m.meterId, [c('kommunekode')]: s(m.municipalityCode),
+        [c('lokationid')]: s(m.locationId), [c('sidsthentet')]: s(m.lastFetched), [c('fejl')]: s(m.error),
+      })
+    }
     for (const list of lineLists) {
       for (const line of a[list.appValue as keyof AccountData] as unknown as AnyLine[]) put(c('linje'), line.id, lineRow(id, list.value, line))
     }
@@ -257,6 +266,12 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePer
           ...(optStr(r[c('kommunekode')]) ? { municipalityCode: str(r[c('kommunekode')]) } : {}),
           ...(num(r[c('varmeandel')]) !== null ? { heatingSharePercent: num(r[c('varmeandel')]) } : {}),
         })).sort((x, y) => x.name.localeCompare(y.name) || x.id.localeCompare(y.id)),
+        meters: of(c('maaler'), id).map(([key, r]): Meter => ({
+          id: key, service: fromChoice(c('maaler'), c('kilde'), r[c('kilde')]) as Meter['service'],
+          meterId: str(r[c('maalernummer')]), address: str(r[c('adresse')]),
+          municipalityCode: optStr(r[c('kommunekode')]) ?? null, locationId: optStr(r[c('lokationid')]) ?? null,
+          lastFetched: optStr(r[c('sidsthentet')]) ?? null, error: optStr(r[c('fejl')]) ?? null,
+        })).sort((x, y) => x.address.localeCompare(y.address) || x.meterId.localeCompare(y.meterId)),
         vehicles: of(c('koeretoej'), id).map(([key, r]) => vehicleFrom(key, r)).sort((x, y) => x.plate.localeCompare(y.plate) || x.id.localeCompare(y.id)),
         scope1Lines: lines('scope1Lines') as Scope1Line[],
         scope2Lines: lines('scope2Lines') as Scope2Line[],
@@ -416,7 +431,7 @@ export type Operation =
   | { kind: 'delete'; table: string; key: string }
 
 /** Parents before children when creating, children before parents when deleting. */
-const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('regnskabsperiode'), c('lokation'), c('koeretoej'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
+const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('regnskabsperiode'), c('lokation'), c('maaler'), c('koeretoej'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
 
 const same = (x: Value | undefined, y: Value | undefined) => (x ?? null) === (y ?? null)
 

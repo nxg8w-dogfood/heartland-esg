@@ -32,7 +32,7 @@ export type ViewPrefs = {
 }
 
 /** Tables whose rows carry the app's own id, used as the Dataverse primary key */
-const APP_IDS = new Set(['virksomhed', 'regnskabsperiode', 'lokation', 'koeretoej', 'linje', 'pendling', 'investering', 'import', 'postering', 'regel'].map((t) => `hlesg_${t}`))
+const APP_IDS = new Set(['virksomhed', 'regnskabsperiode', 'lokation', 'maaler', 'koeretoej', 'linje', 'pendling', 'investering', 'import', 'postering', 'regel'].map((t) => `hlesg_${t}`))
 
 /** Dataverse's entity set names: the logical name plus "s" ("es" after an s), as created. */
 export const entitySet = (table: string) => (table.endsWith('s') ? `${table}es` : `${table}s`)

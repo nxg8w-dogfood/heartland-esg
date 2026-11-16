@@ -79,6 +79,60 @@ admin. Step 4 must be done by a person, because Power Platform requires it.
    Under **Deployment branches**, allow `main` only. For `prod`, add required reviewers if
    the organisation's GitHub plan offers them for private repositories.
 
+## Set up the nightly utility sync (once per environment)
+
+The sync fetches each company's electricity and heating every night (ADR 0021). The app works
+without it; until it's set up, the deploy warns and skips it. It needs an Azure administrator.
+
+1. **Apply the schema** first, so `hlesg_maaler` and the role *Klimaregnskab – Synkronisering*
+   exist: `npm run dataverse:apply -- --url <dataverse url>`.
+2. **Create the Azure resources** in the environment's resource group, next to its Key Vault:
+
+   ```bash
+   export HLESG_OWNER_EMAIL=<owning team's address>
+   export HLESG_BUDGET_EMAILS=<team address>[,<another>]
+   az deployment group create -g <resource group> -f infra/utility-sync/main.bicep -p infra/utility-sync/<env>.bicepparam
+   ```
+
+   Note the outputs `functionAppName` and `principalId`.
+3. **Give the Function access to Dataverse.** Look up the identity's application ID with
+   `az ad sp show --id <principalId> --query appId -o tsv`. Then, in the Power Platform admin
+   center, open the environment and go to **Settings → Users + permissions → Application users →
+   New app user**:
+   - add that application to the root business unit;
+   - give it the role **Klimaregnskab – Synkronisering** only.
+4. **Let the pipeline deploy the code.**
+   - On the deploy service principal (step 2 above), add a federated credential: **Certificates &
+     secrets → Federated credentials → GitHub Actions**, for this repository, entity *Environment*,
+     and the environment's name.
+   - Give the service principal **Website Contributor** on the Function App.
+   - Add these variables to the GitHub environment:
+
+   | Name | Kind | Value |
+   | --- | --- | --- |
+   | `AZURE_SUBSCRIPTION_ID` | Variable | The resource group's subscription |
+   | `UTILITY_SYNC_RESOURCE_GROUP` | Variable | The resource group |
+   | `UTILITY_SYNC_APP` | Variable | `functionAppName` from step 2 |
+
+   The next deploy publishes the Function.
+5. **Add a company's tokens.** The company's ID is `hlesg_virksomhedid`. It's in the address of
+   the company's row in Dataverse, or you can run
+   `az rest` against `hlesg_virksomheds?$select=hlesg_navn`. Then set either secret, or both:
+
+   ```bash
+   az keyvault secret set --vault-name <vault> --name eloverblik-<company id> --file eloverblik.txt
+   az keyvault secret set --vault-name <vault> --name varmeoverblik-<company id> --file varmeoverblik.txt
+   ```
+
+   Save each token to a file first and delete the file afterwards, so the token doesn't stay in
+   your shell history. Don't save the files inside the repository. To replace a token, set it again. To stop the sync for a company, delete
+   the secret.
+6. **Run it once by hand**, rather than waiting for 02:00 UTC: in the Azure portal, open the
+   Function App, then **utilitySync → Code + Test → Test/Run**.
+   - The company's meters appear on its Scope 2 page, under *Målere, der hentes hver nat*.
+   - Pick a location for each meter. Its months come in on the next run.
+   - A failed run sends the team an alert e-mail.
+
 ## Rotating the client secret
 
 Create the new secret in Entra, update `PA_CLI_SP_CLIENT_SECRET` in the GitHub environment,
