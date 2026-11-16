@@ -188,6 +188,9 @@ export const category5Groups: readonly ActivityGroup[] = [
   { id: 'k5-blandet-gen', label: 'Blandet plast/metal – genanvendelse', unit: 'tonne', factorId: 'f-w-blandet-gen' },
   { id: 'k5-andet-dep', label: 'Andet (elektronik/metal/glas) – deponi', unit: 'tonne', factorId: 'f-w-andet-dep' },
   { id: 'k5-andet-gen', label: 'Andet (elektronik/metal/glas) – genanvendelse', unit: 'tonne', factorId: 'f-w-andet-gen' },
+  { id: 'k5-mad-bio', label: 'Organisk/madaffald – bioforgasning', unit: 'tonne', factorId: 'f-w-mad-bio' },
+  { id: 'k5-glas-gen', label: 'Glas – genanvendelse', unit: 'tonne', factorId: 'f-w-glas-gen' },
+  { id: 'k5-erhverv-forbr', label: 'Restaffald fra erhverv – forbrænding m/energi', unit: 'tonne', factorId: 'f-w-erhverv-forbr' },
 ]
 
 /** Spend lines from ledger postings that count in a category (categories 2 and 6, ADR 0015). */

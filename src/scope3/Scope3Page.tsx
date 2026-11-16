@@ -19,6 +19,7 @@ import { ActivityLinesSection } from '../activity/ActivityLinesSection'
 import { FreightSection } from './FreightSection'
 import { CommutingSection } from './CommutingSection'
 import { InvestmentsSection } from './InvestmentsSection'
+import { WasteImport } from './WasteImport'
 import { DeflationPanel, PurchasesSection } from './PurchasesSection'
 import { formatFactor, formatNumber } from '../format'
 import { Tile } from '../ui'
@@ -196,6 +197,7 @@ export function Scope3Page(props: Props) {
           emptyText="Intet affald registreret i perioden."
         />
       )}
+      {subpage === 'kategori-5' && <WasteImport groups={category5Groups} lines={cat5Lines} setLines={setCat5Lines} />}
 
       {subpage === 'kategori-6' && (
         <ActivityLinesSection
