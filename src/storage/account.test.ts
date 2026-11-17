@@ -25,6 +25,12 @@ describe('parseAccount', () => {
     expect(r).toEqual({ ok: true, account: a, dropped: 0, notes: [] })
   })
 
+  it('reads a holding saved before the investment amount existed as having none', () => {
+    const holding = { id: 'i1', date: '2025-07-31', company: 'Delejet ApS', ownershipPct: 40, accountingMethod: 'Ass.', climateMethod: '', dataSource: '', basis: 'Revenue', totalKgCO2e: null, revenueDKK: 1_000_000, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: '' }
+    const r = parseAccount({ ...sample(), investments: [holding, { ...holding, id: 'i2', investmentDKK: 'x' }, { ...holding, id: 'i3', investmentDKK: 2_500_000 }] })
+    expect(r.ok && r.account.investments.map((i) => i.investmentDKK)).toEqual([null, null, 2_500_000])
+  })
+
   it("keeps a location's heating share, and drops one outside 0-100 %", () => {
     const a = sample()
     const loc = a.locations[0]

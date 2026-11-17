@@ -191,7 +191,7 @@ export type PlanRow = {
   ownershipPct: number | null
   /** DKK, the credit from the turnover export turned into revenue */
   revenueDKK: number | null
-  /** DKK, for information only: the app doesn't calculate from an investment amount */
+  /** DKK, the amount invested: the data manual's basis (docs/adr/0022) */
   investmentDKK: number | null
   /** The investment this updates: the same company, dated in the same year */
   existingId: string | null
@@ -248,6 +248,14 @@ export function planInvestments(
     return { ...row, status: row.existingId ? ('update' as const) : ('new' as const) }
   })
 }
+
+/**
+ * The basis a new holding gets. The data manual estimates a company without a climate account
+ * from the amount invested (docs/adr/0022), so that's used when the export has a positive one;
+ * otherwise revenue, as the original did.
+ */
+export const importedBasis = (row: Pick<PlanRow, 'investmentDKK'>): 'Investment' | 'Revenue' =>
+  row.investmentDKK !== null && row.investmentDKK > 0 ? 'Investment' : 'Revenue'
 
 /** The last day of an export period: the date an imported holding is given. */
 export function periodEndDate(period: GroupPeriod): string {

@@ -9,7 +9,7 @@ const period = { start: '2026-01-01', end: '2026-12-31' }
 const holding = (patch: Partial<Investment>): Investment => ({
   id: 'inv-1', date: '2026-07-31', company: 'Delejet ApS', ownershipPct: 40, accountingMethod: 'Other investments',
   climateMethod: 'Investment-specific method', dataSource: 'Koncernsystem, July 2026', basis: 'CO2e', totalKgCO2e: 1_000_000,
-  revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: '',
+  revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null, investmentDKK: null, factorKgPerEUR: null, factorSource: '', country: '',
   ...patch,
 })
 
@@ -17,6 +17,7 @@ const render = (investments: Investment[]) => renderToStaticMarkup(
   <InvestmentsSection cat15={category15(investments, currencyRates, period, factors)} investments={investments} setInvestments={() => {}} period={period} factors={factors} />,
 )
 const onRevenue = (patch: Partial<Investment> = {}) => holding({ basis: 'Revenue', totalKgCO2e: null, revenueDKK: 7_460_400, ...patch })
+const onAmount = (patch: Partial<Investment> = {}) => holding({ basis: 'Investment', totalKgCO2e: null, investmentDKK: 7_460_400, ...patch })
 
 describe('InvestmentsSection', () => {
   it('folds each holding to one line with its name, year, ownership and tCO2e', () => {
@@ -45,14 +46,31 @@ describe('InvestmentsSection', () => {
     expect(missing).toContain('Faktorens værdi mangler — angiv den på Faktorer-siden')
   })
 
-  it('offers one factor for every holding on revenue without one', () => {
-    const html = render([onRevenue({ id: 'a' }), onRevenue({ id: 'b' }), onRevenue({ id: 'c', factorId: 'f-exio-obs-se' }), holding({ id: 'd' })])
+  it('offers one factor for every estimated holding without one', () => {
+    const html = render([onRevenue({ id: 'a' }), onRevenue({ id: 'b' }), onRevenue({ id: 'c', factorId: 'f-exio-obs-se' }), holding({ id: 'd' }), onAmount({ id: 'e' })])
     expect(html).toContain('Faktor til investeringer uden faktor')
-    expect(html).toContain('Brug på 2 investeringer')
+    expect(html).toContain('Brug på 3 investeringer')
     expect(render([holding({})])).not.toContain('Faktor til investeringer uden faktor')
   })
 
   it('opens a new, empty holding so it can be filled in', () => {
     expect(render([holding({ company: '' })])).toContain('<details class="card investment-details" open="">')
+  })
+})
+
+describe('a holding on the investment amount', () => {
+  it('takes the amount and a factor, and counts amount × factor without the ownership share', () => {
+    // 7.460.400 DKK = 1.000.000 EUR × 0,0768 = 76,8 t
+    const html = render([onAmount({ factorId: 'f-exio-obs-se' })])
+    expect(html).toContain('<option value="Investment" selected="">Investeringsbeløb × faktor</option>')
+    expect(html).toContain('Investeringsbeløb (DKK)')
+    expect(html).toContain('Investeret 1.000.000 EUR')
+    expect(html).toContain('76,800 tCO2e</span></summary>')
+  })
+
+  it('says what is missing', () => {
+    expect(render([onAmount({ investmentDKK: null })])).toContain('· Investeringsbeløb mangler</span></summary>')
+    expect(render([onAmount({ investmentDKK: -1 })])).toContain('· Investeringsbeløbet er negativt — tæller ikke med</span></summary>')
+    expect(render([onAmount()])).toContain('· Faktor mangler</span></summary>')
   })
 })
