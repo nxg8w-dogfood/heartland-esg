@@ -113,7 +113,7 @@ describe('planWasteLines', () => {
   const groups = parsed.rows.map((r) => wasteGroupFor(r.wasteType, r.treatment))
 
   it('makes one line per row and month with a quantity, in tonnes, covering the month', () => {
-    const p = planWasteLines(parsed, groups, [], category5Groups)
+    const p = planWasteLines(parsed, groups, null, [], category5Groups)
     expect(p.lines).toHaveLength(12 + 12 + 1 + 12 + 7 + 5)
     expect(p.unassigned).toEqual([])
     const first = p.lines[0]
@@ -127,7 +127,7 @@ describe('planWasteLines', () => {
 
 
   it('leaves out rows without a group and lists them', () => {
-    const p = planWasteLines(parsed, [null, ...groups.slice(1)], [], category5Groups)
+    const p = planWasteLines(parsed, [null, ...groups.slice(1)], null, [], category5Groups)
     expect(p.unassigned).toEqual([0])
     expect(p.lines.some((l) => l.description?.includes('Bølgepap'))).toBe(false)
   })
@@ -138,11 +138,23 @@ describe('planWasteLines', () => {
       { id: 'older-import', group: 'k5-papir-gen', date: '2025-07-01', dateTo: '2025-07-31', quantity: 1, description: `${WASTE_IMPORT_PREFIX} Bølgepap (Genanvendelse), jul 2025` },
       { id: 'manual', group: 'k5-papir-gen', date: '2025-09-15', quantity: 1, description: 'Ekstra container' },
     ]
-    expect(planWasteLines(parsed, groups, existing, category5Groups).replaces).toEqual(['old-import'])
+    expect(planWasteLines(parsed, groups, null, existing, category5Groups).replaces).toEqual(['old-import'])
+  })
+
+  it('puts the lines at the chosen address, and only replaces imports at that address', () => {
+    const p = planWasteLines(parsed, groups, 'storetorv', [], category5Groups)
+    expect(p.lines.every((l) => l.locationId === 'storetorv')).toBe(true)
+    const existing = [
+      { id: 'same-address', group: 'k5-papir-gen', date: '2025-09-01', quantity: 1, locationId: 'storetorv', description: `${WASTE_IMPORT_PREFIX} Bølgepap (Genanvendelse), sep 2025` },
+      { id: 'other-address', group: 'k5-papir-gen', date: '2025-09-01', quantity: 1, locationId: 'lager', description: `${WASTE_IMPORT_PREFIX} Bølgepap (Genanvendelse), sep 2025` },
+      { id: 'no-address', group: 'k5-papir-gen', date: '2025-09-01', quantity: 1, description: `${WASTE_IMPORT_PREFIX} Bølgepap (Genanvendelse), sep 2025` },
+    ]
+    expect(planWasteLines(parsed, groups, 'storetorv', existing, category5Groups).replaces).toEqual(['same-address'])
+    expect(planWasteLines(parsed, groups, null, existing, category5Groups).replaces).toEqual(['no-address'])
   })
 
   it('splits the report between the two calendar years', () => {
-    const lines = planWasteLines(parsed, groups, [], category5Groups).lines.map((l, i) => ({ ...l, id: String(i) }))
+    const lines = planWasteLines(parsed, groups, null, [], category5Groups).lines.map((l, i) => ({ ...l, id: String(i) }))
     const y2025 = category5(lines, factors, { start: '2025-01-01', end: '2025-12-31' })
     const y2026 = category5(lines, factors, { start: '2026-01-01', end: '2026-12-31' })
     const tonnes = (s: typeof y2025) => s.lines.reduce((a, r) => a + (r.line.quantity ?? 0) * r.share, 0)

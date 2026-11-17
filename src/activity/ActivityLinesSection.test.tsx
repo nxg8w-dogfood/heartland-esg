@@ -43,3 +43,33 @@ describe('The Tilføj linje form under activity lines', () => {
     expect(html).not.toMatch(/<form id="[^"]*-form"[^>]*hidden/)
   })
 })
+
+describe('Activity lines folded behind a summary', () => {
+  const lines: ActivityLine[] = [{ ...line, locationId: 'loc-1' }, { ...line, id: 'l2', quantity: 50 }]
+  const html = renderToStaticMarkup(
+    <ActivityLinesSection
+      title="Affald"
+      groups={category4Groups as readonly ActivityGroup[]}
+      factors={factors}
+      summary={activitySummary(lines, category4Groups, factors, year2025)}
+      lines={lines}
+      setLines={noop}
+      defaultDate={year2025.start}
+      emptyText="Intet affald."
+      collapsible
+      locations={[{ id: 'loc-1', name: 'Storetorv 1' }]}
+    />,
+  )
+
+  it('is closed, with the line count and the total in its summary', () => {
+    expect(html).toMatch(/<details class="lines-details"><summary>2 linjer i perioden · I alt/)
+    expect(html.indexOf('<table')).toBeGreaterThan(html.indexOf('</summary>'))
+  })
+
+  it("shows each line's address, and a dash for one without", () => {
+    expect(html).toContain('<th scope="col">Adresse</th>')
+    expect(html).toContain('<td>Storetorv 1</td>')
+    expect(html).toContain('<td>—</td>')
+    expect(html).toContain('<th scope="row" colSpan="6">I alt</th>')
+  })
+})

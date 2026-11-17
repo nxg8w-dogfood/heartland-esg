@@ -195,9 +195,11 @@ export function Scope3Page(props: Props) {
           setLines={setCat5Lines}
           defaultDate={period.start}
           emptyText="Intet affald registreret i perioden."
+          collapsible
+          locations={locations}
         />
       )}
-      {subpage === 'kategori-5' && <WasteImport groups={category5Groups} lines={cat5Lines} setLines={setCat5Lines} />}
+      {subpage === 'kategori-5' && <WasteImport groups={category5Groups} locations={locations} lines={cat5Lines} setLines={setCat5Lines} />}
 
       {subpage === 'kategori-6' && (
         <ActivityLinesSection

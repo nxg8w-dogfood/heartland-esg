@@ -18,12 +18,84 @@ type Props = {
   setLines: Dispatch<SetStateAction<ActivityLine[]>>
   defaultDate: string
   emptyText: string
+  /** Shows the table folded away behind a one-line summary, for categories filled by an import */
+  collapsible?: boolean
+  /** When given, an Adresse column shows each line's location */
+  locations?: readonly { id: string; name: string }[]
 }
 
 /** Add, list and delete activity lines for one category: quantity × factor per row type. */
-export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText }: Props) {
+export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText, collapsible = false, locations }: Props) {
   const id = useId()
   const hiddenCount = lines.length - summary.lines.length
+  const locationName = (locationId: string | null | undefined) => locations?.find((l) => l.id === locationId)?.name
+  const columns = locations ? 8 : 7
+
+  const table = (
+    <div className="table-wrap">
+      <table>
+        <caption className="visually-hidden">{title}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Dato</th>
+            <th scope="col">Type</th>
+            {locations && <th scope="col">Adresse</th>}
+            <th scope="col">Beskrivelse</th>
+            <th scope="col" className="num">Mængde i perioden</th>
+            <th scope="col" className="num">Emissionsfaktor</th>
+            <th scope="col" className="num">tCO2e</th>
+            <th scope="col"><span className="visually-hidden">Handlinger</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {summary.lines.map((r) => (
+            <tr key={r.line.id}>
+              <td>
+                {formatDate(r.line.date)}
+                {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
+              </td>
+              <td>{r.group.label}</td>
+              {locations && <td>{locationName(r.line.locationId) ?? '—'}</td>}
+              <td>{r.line.description}</td>
+              <td className="num">
+                {r.quantityInPeriod === null ? '—' : `${formatNumber(r.quantityInPeriod, 2)} ${r.group.unit}`}
+                {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
+              </td>
+              <td className="num">
+                <FactorCell
+                  value={r.factorValue}
+                  factor={r.factor}
+                  custom={r.line.customFactor != null}
+                  choice={lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
+                />
+              </td>
+              <td className="num strong">
+                {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}
+                {r.warning && <span className="sub warning-text">{r.warning}</span>}
+              </td>
+              <td>
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))}
+                  aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}
+                >
+                  Slet
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colSpan={columns - 2}>I alt</th>
+            <td className="num strong">{formatNumber(summary.total, 3)}</td>
+            <td />
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -34,68 +106,16 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
         <div className="empty">
           <p>{emptyText}</p>
         </div>
+      ) : collapsible ? (
+        <details className="lines-details">
+          <summary>
+            {formatNumber(summary.lines.length, 0)} {summary.lines.length === 1 ? 'linje' : 'linjer'} i perioden · I alt{' '}
+            <strong>{formatNumber(summary.total, 3)} tCO2e</strong>
+          </summary>
+          {table}
+        </details>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <caption className="visually-hidden">{title}</caption>
-            <thead>
-              <tr>
-                <th scope="col">Dato</th>
-                <th scope="col">Type</th>
-                <th scope="col">Beskrivelse</th>
-                <th scope="col" className="num">Mængde i perioden</th>
-                <th scope="col" className="num">Emissionsfaktor</th>
-                <th scope="col" className="num">tCO2e</th>
-                <th scope="col"><span className="visually-hidden">Handlinger</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {summary.lines.map((r) => (
-                <tr key={r.line.id}>
-                  <td>
-                    {formatDate(r.line.date)}
-                    {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
-                  </td>
-                  <td>{r.group.label}</td>
-                  <td>{r.line.description}</td>
-                  <td className="num">
-                    {r.quantityInPeriod === null ? '—' : `${formatNumber(r.quantityInPeriod, 2)} ${r.group.unit}`}
-                    {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
-                  </td>
-                  <td className="num">
-                    <FactorCell
-                      value={r.factorValue}
-                      factor={r.factor}
-                      custom={r.line.customFactor != null}
-                      choice={lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
-                    />
-                  </td>
-                  <td className="num strong">
-                    {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}
-                    {r.warning && <span className="sub warning-text">{r.warning}</span>}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))}
-                      aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}
-                    >
-                      Slet
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <th scope="row" colSpan={5}>I alt</th>
-                <td className="num strong">{formatNumber(summary.total, 3)}</td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        table
       )}
       {summary.pendingCount > 0 && (
         <p className="warning">

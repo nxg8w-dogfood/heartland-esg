@@ -31,7 +31,7 @@ function richAccount(): AccountData {
     cat1Lines: [{ id: 'k1-a', group: 'k1-software', date: '2025-01-15', amount: 38_000, currency: 'EUR', factorId: 'f-exio-computer', description: 'Licenser' }],
     cat4Lines: [{ id: 'k4-a', group: 'k4-lastbil', date: '2025-04-01', quantity: 18_000 }],
     cat4SpendLines: [{ id: 'k4s-a', group: 'k4-kurer', date: '2025-05-01', amount: 12_500, currency: 'DKK' }],
-    cat5Lines: [{ id: 'k5-a', group: 'k5-papir-gen', date: '2025-06-15', quantity: 3.2 }],
+    cat5Lines: [{ id: 'k5-a', group: 'k5-papir-gen', date: '2025-06-15', quantity: 3.2, locationId: 'loc-1' }],
     cat6Lines: [{ id: 'k6-a', group: 'k6-hotel', factorId: 'f-hotel-de', date: '2025-03-12', quantity: 4 }],
     surveys: [{ id: 'sv-a', label: 'Pendling 2025', date: '2025-03-01', employees: 40, responses: 31, workWeeksPerYear: 46, modes: { 'k7-el': { respondents: 9, distanceKm: 28, officeDaysPerWeek: 3.5, factorId: 'f-c-el-dk' } } }],
     investments: [{ id: 'inv-a', date: '2025-06-30', company: 'Selskab A/S', ownershipPct: 25, accountingMethod: 'Ass.', climateMethod: 'PCAF', dataSource: 'Årsrapport', basis: 'CO2e', totalKgCO2e: 400_000, revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: 'Danmark' }],
@@ -100,6 +100,8 @@ describe('rows ⇄ group', () => {
     expect(rows.hlesg_ejerandel.has(naturalKey('c-1', 2000))).toBe(true)
     expect(rows.hlesg_faktorkilde.has(naturalKey('c-1', 'f-s2-fjernvarme-lokal'))).toBe(true)
     expect(rows.hlesg_linje.get('s2-a')).toMatchObject({ hlesg_lokationid: 'loc-1', hlesg_maengde: 120_000, hlesg_energiart: 748100001, hlesg_liste: 748100002 })
+    expect(rows.hlesg_linje.get('k5-a')).toMatchObject({ hlesg_lokationid: 'loc-1', hlesg_maengde: 3.2 })
+    expect(rows.hlesg_linje.get('k4-a')).toMatchObject({ hlesg_lokationid: null })
     expect(rows.hlesg_postering.get('p-b')).toMatchObject({ hlesg_importid: 'imp-a', hlesg_manuelhandling: 748100002, hlesg_manuelbegrundelse: 'Intern' })
     expect(rows.hlesg_regel.get('r-b')).toMatchObject({ hlesg_raekkefoelge: 1, hlesg_aktiv: false })
   })

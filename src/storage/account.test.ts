@@ -12,6 +12,7 @@ const sample = (): AccountData => {
       { id: 's1km', group: 's1-diesel' as const, date: '2025-04-01', quantity: null, vehicleId: 'car', distanceKm: 1200 },
     ],
     scope2Lines: [{ id: 'e1', locationId: loc.id, kind: 'electricity' as const, date: '2025-03-01', kWh: 1000 }],
+    cat5Lines: [{ id: 'w1', group: 'k5-papir-gen', date: '2025-03-01', dateTo: '2025-03-31', quantity: 0.08, locationId: loc.id }],
     cat6Lines: [{ id: 'h1', group: 'k6-hotel', factorId: 'f-hotel-de', date: '2025-03-01', quantity: 2 }],
     factorSources: { 'f-s2-el-residual-2025': { kind: 'publication', publicationId: 'energinet-generel-eldeklaration-2025' } },
   }
@@ -47,6 +48,12 @@ describe('parseAccount', () => {
     expect(r.ok && r.account.periods).toEqual([{ id: expect.any(String), name: String(lastYear), start: `${lastYear}-01-01`, end: `${lastYear}-12-31` }])
     expect(r.ok && r.account.category3Params).toEqual({ gridLoss: 0.07, wttRatio: 0.2419 })
     expect(r.ok && r.account.scope1Lines).toEqual([])
+  })
+
+  it("keeps a waste line whose location is gone, without the address", () => {
+    const a = sample()
+    const r = parseAccount({ ...a, cat5Lines: [{ ...a.cat5Lines[0], locationId: 'gone' }] })
+    expect(r.ok && r.account.cat5Lines).toEqual([{ id: 'w1', group: 'k5-papir-gen', date: '2025-03-01', dateTo: '2025-03-31', quantity: 0.08 }])
   })
 
   it('drops records the app could not use, and counts them', () => {
