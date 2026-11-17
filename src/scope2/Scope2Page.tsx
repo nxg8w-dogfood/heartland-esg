@@ -22,6 +22,8 @@ import { newId } from '../newId'
 import { Tile } from '../ui'
 import { defaultLocation } from './defaultLocation'
 import { UtilityImport } from './UtilityImport'
+import { Meters } from './Meters'
+import type { Meter } from '../utility/meters'
 import { useConfirm } from '../confirm'
 
 const kindLabel: Record<Scope2Kind, string> = { electricity: 'El', heating: 'Fjernvarme' }
@@ -34,9 +36,11 @@ type Props = {
   setLocations: Dispatch<SetStateAction<Location[]>>
   lines: Scope2Line[]
   setLines: Dispatch<SetStateAction<Scope2Line[]>>
+  meters: Meter[]
+  setMeters: Dispatch<SetStateAction<Meter[]>>
 }
 
-export function Scope2Page({ period, factors, locations, setLocations, lines, setLines }: Props) {
+export function Scope2Page({ period, factors, locations, setLocations, lines, setLines, meters, setMeters }: Props) {
   const { confirm, dialog } = useConfirm()
   const summary = useMemo(() => scope2Summary(locations, lines, factors, period), [locations, lines, factors, period])
   const shownCount = summary.locations.reduce((n, l) => n + l.electricity.length + l.heating.length, 0)
@@ -134,6 +138,7 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
         />
       )}
 
+      <Meters meters={meters} setMeters={setMeters} locations={locations} setLocations={setLocations} />
       {locations.length > 0 && <UtilityImport period={period} locations={locations} setLocations={setLocations} lines={lines} setLines={setLines} />}
 
       {summary.locations.length > 1 && <Consolidated summary={summary.locations} totals={summary} />}

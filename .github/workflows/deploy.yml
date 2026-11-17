@@ -23,6 +23,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # sign in to Azure for the utility sync, with no stored secret (OIDC)
     environment: ${{ inputs.environment || 'dev' }}
     concurrency:
       group: deploy-${{ inputs.environment || 'dev' }}
@@ -141,3 +144,44 @@ jobs:
           cp "deploy/$TARGET/power.config.json" power.config.json
           npx pa app push --non-interactive
           echo "Deployed \`${{ steps.commit.outputs.sha }}\` to **$TARGET**." >> "$GITHUB_STEP_SUMMARY"
+
+      # The nightly utility sync (ADR 0021): its Function code, to the Function App that
+      # infra/utility-sync/main.bicep created. Skipped, with a warning, until the environment has
+      # the variables (docs/deploy.md).
+      - if: steps.setup.outputs.ready == 'true'
+        name: Check the utility sync is set up
+        id: sync
+        env:
+          APP: ${{ vars.UTILITY_SYNC_APP }}
+          GROUP: ${{ vars.UTILITY_SYNC_RESOURCE_GROUP }}
+          SUBSCRIPTION: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          if [ -z "$APP" ] || [ -z "$GROUP" ] || [ -z "$SUBSCRIPTION" ]; then
+            echo "::warning::The utility sync isn't set up for $TARGET (UTILITY_SYNC_APP, UTILITY_SYNC_RESOURCE_GROUP, AZURE_SUBSCRIPTION_ID), so it wasn't deployed. See docs/deploy.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.sync.outputs.ready == 'true'
+        name: Build the utility sync
+        working-directory: functions/utility-sync
+        run: |
+          npm ci
+          npm run package
+
+      - if: steps.sync.outputs.ready == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.PA_CLI_SP_CLIENT_ID }}
+          tenant-id: ${{ vars.PA_CLI_SP_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - if: steps.sync.outputs.ready == 'true'
+        name: Deploy the utility sync to ${{ env.TARGET }}
+        env:
+          APP: ${{ vars.UTILITY_SYNC_APP }}
+          GROUP: ${{ vars.UTILITY_SYNC_RESOURCE_GROUP }}
+        run: |
+          az functionapp deployment source config-zip -g "$GROUP" -n "$APP" --src functions/utility-sync/released-package.zip
+          echo "Deployed the utility sync \`${{ steps.commit.outputs.sha }}\` to **$APP**." >> "$GITHUB_STEP_SUMMARY"

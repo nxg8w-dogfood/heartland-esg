@@ -73,6 +73,8 @@ const ansvarlig: Grant[] = [
     .map((n): Grant => [n, ['Create', 'Write', 'Delete', 'Append'], 'unit']),
   [t('import'), ['Delete'], 'unit'],
   [t('postering'), ['Delete'], 'unit'],
+  // Meters come from the nightly sync; the Ansvarlig picks each one's location, or removes it (ADR 0021).
+  [t('maaler'), ['Write', 'Delete', 'Append'], 'unit'],
 ]
 
 const koncernLaeser: Grant[] = read(tables.map((x) => x.name), 'group')
@@ -86,11 +88,27 @@ const koncernAnsvarlig: Grant[] = [
   [t('ejerandel'), ['Create', 'Write', 'Delete', 'Append'], 'group'],
 ]
 
+/**
+ * The nightly sync's application user (ADR 0021): reads every company's locations, meters and
+ * lines, records the meters it finds and adds Scope 2 lines. It never deletes. Assign lets it
+ * create each record owned by its company's owner team, so the company's users see it.
+ */
+const synkronisering: Grant[] = [
+  ...read([t('virksomhed'), t('lokation'), t('maaler'), t('linje')], 'group'),
+  [t('maaler'), ['Create', 'Write', 'Append', 'Assign'], 'group'],
+  [t('linje'), ['Create', 'Append', 'Assign'], 'group'],
+  [t('virksomhed'), ['AppendTo'], 'group'],
+  [t('lokation'), ['AppendTo'], 'group'],
+  // A line's car lookup stays empty, but Dataverse asks for AppendTo on every lookup target.
+  [t('koeretoej'), ['AppendTo'], 'group'],
+]
+
 export const roles: readonly Role[] = [
   { name: 'Klimaregnskab – Læser', description: 'Læser sin virksomheds klimaregnskab.', privileges: build(...laeser) },
   { name: 'Klimaregnskab – Bidragyder', description: 'Opretter, retter og sletter linjer, pendlerundersøgelser, investeringer og biler, og indlæser posteringer, i sin virksomhed.', privileges: build(...bidragyder) },
   { name: 'Klimaregnskab – Ansvarlig', description: 'Har også ansvaret for virksomhedens indstillinger, lokationer, faktorkilder, relevans, prisindeks og kontoregler, og kan slette importer.', privileges: build(...ansvarlig) },
   { name: 'Koncern – Læser', description: 'Læser alle virksomheders klimaregnskaber, til koncernoversigten.', privileges: build(...koncernLaeser) },
+  { name: 'Klimaregnskab – Synkronisering', description: 'Den natlige hentning af el og fjernvarme (ADR 0021): læser virksomheder, lokationer, målere og linjer, og opretter målere og Scope 2-linjer. Sletter intet. Kun til synkroniseringens applikationsbruger.', privileges: build(...synkronisering) },
   { name: 'Koncern – Ansvarlig', description: 'Opretter virksomheder og fastsætter koncernens ejerandele, som afgør koncerntotalen.', privileges: build(...koncernAnsvarlig) },
 ]
 

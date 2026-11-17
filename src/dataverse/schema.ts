@@ -180,6 +180,25 @@ export const tables: readonly Table[] = [
     ],
   },
   {
+    name: n('maaler'),
+    label: 'Måler',
+    pluralLabel: 'Målere',
+    description: 'En el- eller fjernvarmemåler, som den natlige synkronisering fandt med virksomhedens token. Dens måneder importeres, når den har en lokation (ADR 0021).',
+    primary: { name: n('adresse'), label: 'Adresse', maxLength: 300, required: true },
+    columns: [
+      company,
+      {
+        kind: 'choice', name: n('kilde'), label: 'Kilde', required: true,
+        options: [option(1, 'Eloverblik (el)', 'eloverblik'), option(2, 'Varmeoverblik (fjernvarme)', 'varmeoverblik')],
+      },
+      { kind: 'text', name: n('maalernummer'), label: 'Målernummer', maxLength: 100, required: true, description: 'Eloverbliks målepunkt-id eller Varmeoverbliks installationspunkt-id.' },
+      text('kommunekode', 'Kommunekode', 3, 'Fra målerens stamdata, når kilden har den (ADR 0012).'),
+      { kind: 'lookup', name: n('lokationid'), label: 'Lokation', target: n('lokation'), required: false, onDelete: 'RemoveLink', description: 'Hvor målerens måneder importeres. Tom: importeres ikke.' },
+      { kind: 'datetime', name: n('sidsthentet'), label: 'Sidst hentet' },
+      text('fejl', 'Fejl', 1000, 'Seneste kørsels problem med måleren; tom, når det gik godt.'),
+    ],
+  },
+  {
     name: n('linje'),
     label: 'Linje',
     pluralLabel: 'Linjer',
@@ -385,6 +404,7 @@ export const accountStorage: Record<keyof AccountData, { table: string; note?: s
   vehicles: { table: n('koeretoej') },
   scope1Lines: { table: n('linje') },
   locations: { table: n('lokation') },
+  meters: { table: n('maaler') },
   scope2Lines: { table: n('linje') },
   factorSources: { table: n('faktorkilde') },
   relevance: { table: n('relevans') },

@@ -4,11 +4,10 @@ import type { Location, Scope2Kind, Scope2Line } from '../calc/scope2'
 import { municipality } from '../data/municipalities'
 import { formatNumber } from '../format'
 import { newId } from '../newId'
-import { fetchElectricity } from '../utility/eloverblik'
+import { fetchMeters, type FetchedMeter } from '../utility/fetchMeters'
 import { completedMonths, monthLabel } from '../utility/months'
-import { matchingLocation, newLocationsFor, shareMunicipalities } from '../utility/newLocations'
-import { planImport, type MonthlyFigure } from '../utility/toLines'
-import { fetchHeating } from '../utility/varmeoverblik'
+import { matchingLocation, newLocationsFor } from '../utility/newLocations'
+import { planImport } from '../utility/toLines'
 import { defaultLocation } from './defaultLocation'
 
 type Props = {
@@ -17,17 +16,6 @@ type Props = {
   setLocations: Dispatch<SetStateAction<Location[]>>
   lines: Scope2Line[]
   setLines: Dispatch<SetStateAction<Scope2Line[]>>
-}
-
-type FetchedMeter = {
-  key: string
-  kind: Scope2Kind
-  source: string
-  label: string
-  address: string
-  municipalityCode: string | null
-  months: MonthlyFigure[]
-  error: string | null
 }
 
 const kindLabel: Record<Scope2Kind, string> = { electricity: 'El', heating: 'Fjernvarme' }
@@ -65,49 +53,9 @@ export function UtilityImport({ period, locations, setLocations, lines, setLines
     setStatus('Henter …')
     setMeters([])
     setWithoutData([])
-    const found: FetchedMeter[] = []
-    const problems: string[] = []
-    const doFetch: typeof fetch = (input, init) => fetch(input, init)
-    if (elToken.trim()) {
-      try {
-        for (const m of await fetchElectricity(doFetch, elToken.trim(), months)) {
-          found.push({
-            key: `el:${m.meteringPointId}`,
-            kind: 'electricity',
-            source: `Eloverblik · ${m.meteringPointId} · ${m.address}`,
-            label: `${m.address} (målepunkt ${m.meteringPointId})`,
-            address: m.address,
-            municipalityCode: m.municipalityCode,
-            months: m.months,
-            error: m.error,
-          })
-        }
-      } catch (err) {
-        problems.push(err instanceof Error ? err.message : String(err))
-      }
-    }
-    if (heatToken.trim()) {
-      try {
-        const heating = await fetchHeating(doFetch, heatToken.trim(), months)
-        for (const m of heating.meters) {
-          found.push({
-            key: `heat:${m.installationPointId}`,
-            kind: 'heating',
-            source: `Varmeoverblik · ${m.utility} · ${m.address}`,
-            label: `${m.address} (${m.utility})`,
-            address: m.address,
-            municipalityCode: null,
-            months: m.months,
-            error: null,
-          })
-        }
-        setWithoutData(heating.withoutData)
-      } catch (err) {
-        problems.push(err instanceof Error ? err.message : String(err))
-      }
-    }
-    // Heating meters borrow the municipality of an electricity meter at the same address.
-    const withMunicipality = shareMunicipalities(found)
+    const { meters: withMunicipality, withoutData: pending, problems } = await fetchMeters((input, init) => fetch(input, init), { eloverblik: elToken, varmeoverblik: heatToken }, months)
+    const found = withMunicipality
+    setWithoutData(pending)
     setMeters(withMunicipality)
     // A meter whose address is already a location's name goes there by default.
     setAssigned(Object.fromEntries(withMunicipality.flatMap((m) => {
