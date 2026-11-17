@@ -3,7 +3,8 @@
 // Ported from the original app.
 //
 // Emissions come either from the investee's reported total (kg CO2e), or from its revenue
-// converted to EUR × an emission factor per EUR of revenue.
+// converted to EUR × an emission factor per EUR of revenue. That factor is a spend factor from
+// the factor table (so a value entered there reaches every holding using it), or the holding's own.
 //
 // Investee figures are annual. Each holding stands for the calendar year it's dated in and
 // counts for the share of that year inside the reporting period, like commuting surveys.
@@ -11,7 +12,9 @@
 // holding dated in the period, however short the period.
 
 import { toDKK, type CurrencyRate } from '../data/currencies'
+import type { Factor } from '../data/factors'
 import { dayValue, yearShare, type Period } from './dates'
+import { findFactor } from './findFactor'
 
 export type InvestmentBasis = 'CO2e' | 'Revenue' | 'Investment'
 
@@ -33,7 +36,9 @@ export type Investment = {
   localCurrency: string
   /** DKK per unit of the local currency */
   rateLocalToDKK: number | null
-  /** kg CO2e per EUR of revenue (basis Revenue) */
+  /** The spend factor used (basis Revenue). Unset or null: the holding's own factorKgPerEUR. */
+  factorId?: string | null
+  /** kg CO2e per EUR of revenue (basis Revenue), when no factorId is chosen */
   factorKgPerEUR: number | null
   factorSource: string
   country: string
@@ -46,6 +51,10 @@ export type InvestmentResult = {
   /** Only holdings of 50 % or less count in category 15 */
   included: boolean
   revenueEUR: number | null
+  /** The factor table's factor, when the holding uses one */
+  factor: Factor | null
+  /** kg CO2e per EUR used: the chosen factor's value, or the holding's own; null when missing */
+  factorKgPerEUR: number | null
   /** The holding's share of the investee's emissions for a whole year */
   annualKgCO2e: number
   /** The calendar year the holding stands for, or null for an invalid date */
@@ -72,8 +81,17 @@ export type Category15 = {
 const finiteOrZero = (n: number | null | undefined): number =>
   typeof n === 'number' && Number.isFinite(n) ? n : 0
 
-export function investmentResult(investment: Investment, rates: readonly CurrencyRate[], period: Period): InvestmentResult {
+/** The factors a holding can use: spend factors per EUR, which is what revenue is converted to. */
+export const investmentFactors = (factors: readonly Factor[]): Factor[] =>
+  factors.filter((f) => f.method === 'spend' && f.unit === 'kg CO2e/EUR')
+
+export function investmentResult(investment: Investment, rates: readonly CurrencyRate[], period: Period, factors: readonly Factor[]): InvestmentResult {
   const { ownershipPct } = investment
+  const factor = investment.factorId ? findFactor(factors, investment.factorId, investment.date) : null
+  // A chosen factor that is gone, or isn't per EUR, counts as missing rather than as the own value.
+  const factorKgPerEUR = investment.factorId
+    ? (factor && factor.unit === 'kg CO2e/EUR' ? factor.value : null)
+    : investment.factorKgPerEUR
   const share = ownershipPct === null ? 0 : finiteOrZero(ownershipPct) / 100
   const included = ownershipPct !== null && ownershipPct <= 50
 
@@ -89,19 +107,19 @@ export function investmentResult(investment: Investment, rates: readonly Currenc
         ? finiteOrZero(investment.revenueDKK)
         : finiteOrZero(investment.revenueLocal) * finiteOrZero(investment.rateLocalToDKK)
     revenueEUR = revenueDKK / toDKK(rates, 'EUR')
-    annualKgCO2e = revenueEUR * finiteOrZero(investment.factorKgPerEUR) * share
-    pending = investment.factorKgPerEUR === null && revenueDKK !== 0
+    annualKgCO2e = revenueEUR * finiteOrZero(factorKgPerEUR) * share
+    pending = factorKgPerEUR === null && revenueDKK !== 0
   } else {
     pending = true
   }
   const day = dayValue(investment.date)
   const year = Number.isNaN(day) ? null : new Date(day).getUTCFullYear()
   const inPeriod = year === null ? 0 : yearShare(year, period)
-  return { investment, share, included, revenueEUR, annualKgCO2e, year, yearShare: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+  return { investment, share, included, revenueEUR, factor, factorKgPerEUR, annualKgCO2e, year, yearShare: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
 }
 
-export function category15(investments: readonly Investment[], rates: readonly CurrencyRate[], period: Period): Category15 {
-  const rows = investments.map((i) => investmentResult(i, rates, period)).filter((r) => r.yearShare > 0)
+export function category15(investments: readonly Investment[], rates: readonly CurrencyRate[], period: Period, factors: readonly Factor[]): Category15 {
+  const rows = investments.map((i) => investmentResult(i, rates, period, factors)).filter((r) => r.yearShare > 0)
   const seen = new Map<string, number>()
   for (const r of rows) {
     const company = r.investment.company.trim().toLowerCase()

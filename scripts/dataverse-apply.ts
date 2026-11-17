@@ -1,12 +1,14 @@
 // Applies the Dataverse schema and security roles (src/dataverse/schema.ts and roles.ts) to an
 // environment (docs/adr/0007):
 //
-//   npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com [--dry-run]
+//   npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com [--dry-run] [--no-roles]
 //
 // - Publisher, solution, tables, columns and lookups: created when missing. Nothing that exists
 //   is changed or deleted; an existing column of another type is reported, not touched.
 // - Security roles: created when missing, and their hlesg_ privileges set to exactly what
 //   roles.ts says, since the roles belong to this app. Other privileges are left alone.
+//   `--no-roles` leaves the roles untouched: on a shared environment where an unmerged branch
+//   has added a table, setting the roles from this branch would take that table's privileges away.
 //
 // Signs in through the Azure CLI (`az login --tenant <tenant>` first).
 
@@ -15,7 +17,8 @@ import { depth, privilegeName, roles, type Operation } from '../src/dataverse/ro
 import { PUBLISHER, SOLUTION, tables, type Column } from '../src/dataverse/schema.ts'
 import { client, environment, type Json } from './lib/dataverse.ts'
 
-const { org, dryRun } = environment('npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com [--dry-run]')
+const { org, dryRun } = environment('npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com [--dry-run] [--no-roles]')
+const skipRoles = process.argv.includes('--no-roles')
 const { call, get, find, values, createdId, q } = client(org, SOLUTION.uniqueName)
 
 const done: string[] = []
@@ -36,7 +39,8 @@ async function main() {
 
   await publisherAndSolution()
   await schema(lcid)
-  await securityRoles()
+  if (skipRoles) console.log('Security roles are left as they are (--no-roles).')
+  else await securityRoles()
 
   if (!dryRun && done.length) {
     await call('POST', 'PublishAllXml', {})

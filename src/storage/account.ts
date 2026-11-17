@@ -177,7 +177,8 @@ export function parseAccount(input: unknown): LoadResult {
       typeof locationId === 'string' && locationIds.has(locationId) ? { ...l, locationId } : l),
     cat6Lines: list(input.cat6Lines, groupIn(category6Groups)),
     surveys: list(input.surveys, (s) => isObject(s.modes)),
-    investments: list(input.investments),
+    // A factor id that isn't text is dropped, so the holding falls back to its own factor.
+    investments: list<Investment>(input.investments).map(({ factorId, ...i }) => (typeof factorId === 'string' && factorId ? { ...i, factorId } : i)),
     deflation: isObject(input.deflation) && Array.isArray(input.deflation.series)
       ? { ...noDeflation, ...(input.deflation as Partial<Deflation>) }
       : base.deflation,

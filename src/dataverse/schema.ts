@@ -248,6 +248,7 @@ export const tables: readonly Table[] = [
       decimal('faktorpreur', 'Faktor (kg CO2e pr. EUR)'),
       text('faktorkilde', 'Faktorkilde', 200),
       text('land', 'Land', 100),
+      text('faktorid', 'Faktor', 100, 'Spendfaktoren fra faktortabellen. Tom: investeringens egen faktor (kg CO2e pr. EUR).'),
     ],
   },
   {

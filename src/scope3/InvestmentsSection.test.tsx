@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { category15, type Investment } from '../calc/investments'
 import { currencyRates } from '../data/currencies'
+import { factors } from '../data/factors'
 import { InvestmentsSection } from './InvestmentsSection'
 
 const period = { start: '2026-01-01', end: '2026-12-31' }
@@ -13,8 +14,9 @@ const holding = (patch: Partial<Investment>): Investment => ({
 })
 
 const render = (investments: Investment[]) => renderToStaticMarkup(
-  <InvestmentsSection cat15={category15(investments, currencyRates, period)} investments={investments} setInvestments={() => {}} period={period} />,
+  <InvestmentsSection cat15={category15(investments, currencyRates, period, factors)} investments={investments} setInvestments={() => {}} period={period} factors={factors} />,
 )
+const onRevenue = (patch: Partial<Investment> = {}) => holding({ basis: 'Revenue', totalKgCO2e: null, revenueDKK: 7_460_400, ...patch })
 
 describe('InvestmentsSection', () => {
   it('folds each holding to one line with its name, year, ownership and tCO2e', () => {
@@ -24,7 +26,30 @@ describe('InvestmentsSection', () => {
   })
 
   it('says in the folded line what is missing', () => {
-    expect(render([holding({ basis: 'Revenue', totalKgCO2e: null, revenueDKK: 5_000_000 })])).toMatch(/<summary>.*· Mangler data<\/span><\/summary>/)
+    expect(render([onRevenue()])).toMatch(/<summary>.*· Faktor mangler<\/span><\/summary>/)
+  })
+
+  it('offers the spend factors per EUR, and a factor of its own', () => {
+    const html = render([onRevenue()])
+    expect(html).toContain('>Egen faktor</option>')
+    expect(html).toContain('<option value="f-exio-obs-se">Other business services (Sverige) · 0,0768</option>')
+    expect(html).not.toContain('kg CO2e/GBP')
+    expect(html).toContain('Egen faktor (kg CO2e pr. EUR)')
+  })
+
+  it('counts with the chosen factor, and points to the Faktorer page when its value is missing', () => {
+    // 7.460.400 DKK = 1.000.000 EUR × 0,0768 × 40 % = 30,72 t for the whole year
+    expect(render([onRevenue({ factorId: 'f-exio-obs-se' })])).toContain('30,720 tCO2e</span></summary>')
+    const missing = render([onRevenue({ factorId: 'f-exio-computer' })])
+    expect(missing).toContain('Faktor mangler')
+    expect(missing).toContain('Faktorens værdi mangler — angiv den på Faktorer-siden')
+  })
+
+  it('offers one factor for every holding on revenue without one', () => {
+    const html = render([onRevenue({ id: 'a' }), onRevenue({ id: 'b' }), onRevenue({ id: 'c', factorId: 'f-exio-obs-se' }), holding({ id: 'd' })])
+    expect(html).toContain('Faktor til investeringer uden faktor')
+    expect(html).toContain('Brug på 2 investeringer')
+    expect(render([holding({})])).not.toContain('Faktor til investeringer uden faktor')
   })
 
   it('opens a new, empty holding so it can be filled in', () => {
