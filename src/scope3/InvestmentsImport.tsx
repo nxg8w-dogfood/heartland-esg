@@ -5,7 +5,7 @@
 
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
-  CONSOLIDATED_ABOVE_PCT, GroupExportError, measureLabels, parseGroupExport, periodEndDate, planInvestments,
+  CONSOLIDATED_ABOVE_PCT, GroupExportError, importedBasis, measureLabels, parseGroupExport, periodEndDate, planInvestments,
   planStatusLabels, type GroupExport, type PlanRow,
 } from '../calc/groupExport'
 import { ImportFileError, readSheets } from '../calc/importFile'
@@ -41,7 +41,7 @@ export function InvestmentsImport({ investments, setInvestments }: {
     [exports, periodLabel, investments],
   )
   const importable = plan.filter((r) => r.status === 'new' || r.status === 'update')
-  const withoutRevenue = importable.filter((r) => r.revenueDKK === null).length
+  const withoutBasis = importable.filter((r) => r.revenueDKK === null && importedBasis(r) === 'Revenue').length
   const isYtd = files.some((f) => f.export.settings.some((s) => /time calculations/i.test(s.label) && /ytd/i.test(s.value)))
 
   async function add(file: File) {
@@ -89,12 +89,14 @@ export function InvestmentsImport({ investments, setInvestments }: {
       const updates = new Map(importable.filter((r) => r.existingId).map((r) => [r.existingId!, r]))
       const kept = current.map((inv) => {
         const r = updates.get(inv.id)
-        return r ? { ...inv, ownershipPct: r.ownershipPct, revenueDKK: r.revenueDKK ?? inv.revenueDKK, dataSource: source } : inv
+        return r
+          ? { ...inv, ownershipPct: r.ownershipPct, revenueDKK: r.revenueDKK ?? inv.revenueDKK, investmentDKK: r.investmentDKK ?? inv.investmentDKK, dataSource: source }
+          : inv
       })
       const created: Investment[] = importable.filter((r) => !r.existingId).map((r) => ({
         id: newId(), date, company: r.name, ownershipPct: r.ownershipPct,
         accountingMethod: 'Other investments', climateMethod: 'Investment-specific method', dataSource: source,
-        basis: 'Revenue', totalKgCO2e: null, revenueDKK: r.revenueDKK, revenueLocal: null, localCurrency: 'DKK',
+        basis: importedBasis(r), totalKgCO2e: null, revenueDKK: r.revenueDKK, investmentDKK: r.investmentDKK, revenueLocal: null, localCurrency: 'DKK',
         rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: '',
       }))
       return [...kept, ...created]
@@ -167,10 +169,11 @@ export function InvestmentsImport({ investments, setInvestments }: {
               dækker hele året, eller ret omsætningen bagefter.
             </p>
           )}
-          {withoutRevenue > 0 && (
+          {withoutBasis > 0 && (
             <p className="warning">
-              {formatNumber(withoutRevenue, 0)} {withoutRevenue === 1 ? 'selskab har' : 'selskaber har'} ingen omsætning for {periodLabel} og tæller først med, når
-              omsætning eller udledning er udfyldt. Mangler du <strong>Net Turnover</strong>-filen?
+              {formatNumber(withoutBasis, 0)} {withoutBasis === 1 ? 'selskab har' : 'selskaber har'} hverken investeringsbeløb eller omsætning for {periodLabel} og
+              tæller først med, når et af dem eller udledningen er udfyldt. Mangler du <strong>Investment Amount</strong>- eller{' '}
+              <strong>Net Turnover</strong>-filen?
             </p>
           )}
 
@@ -214,7 +217,7 @@ function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string
                 <td className="num">{r.ownershipPct === null ? '—' : `${formatNumber(r.ownershipPct, 2)} %`}</td>
                 <td className="num">{r.revenueDKK === null ? <span className="pending">Mangler</span> : formatNumber(r.revenueDKK, 2)}</td>
                 <td className="num">{r.investmentDKK === null ? '—' : formatNumber(r.investmentDKK, 2)}</td>
-                <td>{planStatusLabels[r.status]}</td>
+                <td>{planStatusLabels[r.status]}{r.status === 'new' && (importedBasis(r) === 'Investment' ? ' · investeringsbeløb' : ' · omsætning')}</td>
               </tr>
             ))}
           </tbody>

@@ -19,7 +19,7 @@ const builtin = () => factors
 const holding = (o: Partial<Investment>): Investment => ({
   id: 'i1', date: '2025-06-30', company: 'Datter ApS', ownershipPct: 30, accountingMethod: 'Ass.', climateMethod: '', dataSource: '',
   basis: 'CO2e', totalKgCO2e: 100_000, revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null,
-  factorKgPerEUR: null, factorSource: '', country: 'Danmark', ...o,
+  investmentDKK: null, factorKgPerEUR: null, factorSource: '', country: 'Danmark', ...o,
 })
 
 describe('yearSlices', () => {

@@ -55,7 +55,9 @@ Alfa Holding        1,00          1,00
    resulting percentage, so a wrong reading is visible before anything is imported. A share
    that rounds to 0,0000 % or below, which is what's left of a sold holding, counts as no
    holding.
-8. **Investment Amount is shown but not calculated from.** The app's `Investment` basis has
+8. **Investment Amount is shown but not calculated from.** *Superseded 2026-11-17 by ADR 0022:
+   the amount is now stored, and a holding with one is estimated as amount × sector factor, as the
+   data manual says.* The app's `Investment` basis has
    never been calculated (`src/calc/investments.ts`): the GHG Protocol's investment-specific
    method needs the investee's own emissions, or revenue × a factor. Using the amount itself
    would be a new method and needs its own decision.
@@ -76,7 +78,8 @@ Alfa Holding        1,00          1,00
   file says which entities are subsidiaries, so the Koncern page could be built from it. That
   changes the structure of the whole group — each company carries a climate account — so it
   waits until this import has been tried on real data.
-- **Importing Investment Amount as the basis for emissions (rejected).** See decision 8.
+- **Importing Investment Amount as the basis for emissions (rejected, then adopted).** See
+  decision 8 and ADR 0022.
 
 ## Consequences
 

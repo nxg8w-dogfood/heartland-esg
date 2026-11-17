@@ -245,6 +245,7 @@ export const tables: readonly Table[] = [
       decimal('omsaetninglokal', 'Omsætning (lokal valuta)'),
       text('lokalvaluta', 'Lokal valuta', 3),
       decimal('kurs', 'Kurs (DKK pr. enhed)'),
+      decimal('investeringdkk', 'Investeringsbeløb (DKK)', 'Beløbet investeret i selskabet (grundlag Investering).'),
       decimal('faktorpreur', 'Faktor (kg CO2e pr. EUR)'),
       text('faktorkilde', 'Faktorkilde', 200),
       text('land', 'Land', 100),

@@ -181,6 +181,13 @@
           "x-ms-schema-name": "hlesg_Klimametode",
           "maxLength": 200
         },
+        "hlesg_investeringdkk": {
+          "type": "string",
+          "title": "Investeringsbeløb (DKK)",
+          "x-ms-dataverse-attribute": "hlesg_investeringdkk",
+          "x-ms-dataverse-type": "DecimalType",
+          "x-ms-schema-name": "hlesg_Investeringdkk"
+        },
         "hlesg_kurs": {
           "type": "string",
           "title": "Kurs (DKK pr. enhed)",

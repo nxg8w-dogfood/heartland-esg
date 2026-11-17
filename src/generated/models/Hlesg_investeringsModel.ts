@@ -32,6 +32,7 @@ export interface Hlesg_investeringsBase {
   hlesg_faktorkilde?: string;
   hlesg_faktorpreur?: number;
   hlesg_grundlag?: Hlesg_investeringshlesg_grundlag;
+  hlesg_investeringdkk?: number;
   hlesg_investeringid: string;
   hlesg_klimametode?: string;
   hlesg_kurs?: number;

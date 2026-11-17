@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GroupExportError, measureOf, ownershipScale, parseGroupExport, parsePeriodLabel, periodEndDate, planInvestments, turnoverToRevenue } from './groupExport'
+import { GroupExportError, importedBasis, measureOf, ownershipScale, parseGroupExport, parsePeriodLabel, periodEndDate, planInvestments, turnoverToRevenue } from './groupExport'
 import { parseCsvGrid, type CellValue } from './ledger'
 import { readXlsxSheets } from './readXlsx'
 import { makeWorkbook } from './testing/xlsx'
@@ -230,5 +230,14 @@ describe('a workbook with one sheet per measure', () => {
     expect(parseGroupExport(sheets[0].grid).measure).toBe('ownership')
     expect(parseGroupExport(sheets[1].grid).measure).toBe('turnover')
     expect(() => parseGroupExport(sheets[2].grid)).toThrow(GroupExportError)
+  })
+})
+
+describe('importedBasis', () => {
+  it("uses the data manual's investment amount when the export has a positive one, else revenue", () => {
+    expect(importedBasis({ investmentDKK: 30_756_800 })).toBe('Investment')
+    expect(importedBasis({ investmentDKK: null })).toBe('Revenue')
+    expect(importedBasis({ investmentDKK: 0 })).toBe('Revenue')
+    expect(importedBasis({ investmentDKK: -6_766_896 })).toBe('Revenue')
   })
 })

@@ -13,7 +13,7 @@ import { InvestmentsImport } from './InvestmentsImport'
 const blank = (date: string): Investment => ({
   id: newId(), date, company: '', ownershipPct: null, accountingMethod: 'Other investments', climateMethod: 'Investment-specific method',
   dataSource: '', basis: 'CO2e', totalKgCO2e: null, revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null,
-  factorKgPerEUR: null, factorSource: '', country: '',
+  investmentDKK: null, factorKgPerEUR: null, factorSource: '', country: '',
 })
 
 type Props = {
@@ -28,8 +28,8 @@ type Props = {
 /** "Other business services (Sverige) · 0,0768" — what a factor is and its value, in a list. */
 const optionLabel = (f: Factor) => `${factorLabel(f)} · ${f.value === null ? 'værdi mangler' : formatFactor(f.value)}`
 
-/** A holding on revenue with no factor of any kind: what the bulk choice fills in. */
-const withoutFactor = (i: Investment) => i.basis === 'Revenue' && !i.factorId && i.factorKgPerEUR === null
+/** A holding estimated with a factor that has none of any kind: what the bulk choice fills in. */
+const withoutFactor = (i: Investment) => i.basis !== 'CO2e' && !i.factorId && i.factorKgPerEUR === null
 
 export function InvestmentsSection({ cat15, investments, setInvestments, period, factors }: Props) {
   const defaultDate = period.end
@@ -54,10 +54,11 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
         onApply={(factorId) => setInvestments((is) => is.map((i) => (withoutFactor(i) ? { ...i, factorId } : i)))}
       />
       <p className="muted">
-        Den forholdsmæssige andel af investeringernes udledninger: selskabets udledning × ejerandel.
-        Kun ejerandele på højst 50 % tæller med; større ejerandele er konsolideret i Scope 1 og 2.
-        Udledningen er enten selskabets rapporterede tal i kg CO2e, eller et skøn ud fra omsætning i
-        EUR × en faktor pr. EUR. Tallene er årstal: hver investering gælder for det kalenderår, den er
+        Den forholdsmæssige andel af investeringernes udledninger. Kun ejerandele på højst 50 % tæller med;
+        større ejerandele er konsolideret i Scope 1 og 2. Har selskabet et klimaregnskab, bruges dets
+        udledning i kg CO2e × ejerandel. Ellers skønnes udledningen som investeringsbeløbet i EUR × en
+        branchefaktor pr. EUR, som datamanualen foreskriver — eller, som i den oprindelige app, omsætning i
+        EUR × faktor × ejerandel. Tallene er årstal: hver investering gælder for det kalenderår, den er
         dateret i, og tæller med for den del af året, der ligger i perioden.
       </p>
 
@@ -146,8 +147,9 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
       : !result.included
         ? '> 50 % — konsolideret i Scope 1 og 2, tæller ikke med her'
         : result.pending
-          ? inv.basis === 'Investment' ? 'Datagrundlaget "Investment" beregnes ikke — vælg CO2e eller omsætning'
-            : inv.basis === 'Revenue' && result.factorKgPerEUR === null ? 'Faktor mangler' : 'Mangler data'
+          ? inv.basis === 'Investment' && inv.investmentDKK === null ? 'Investeringsbeløb mangler'
+            : inv.basis === 'Investment' && inv.investmentDKK! < 0 ? 'Investeringsbeløbet er negativt — tæller ikke med'
+              : inv.basis !== 'CO2e' && result.factorKgPerEUR === null ? 'Faktor mangler' : 'Mangler data'
           : null
 
   // Folded to one line, so an import of a hundred holdings stays readable. A new, empty one
@@ -186,7 +188,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
           <select id={`${id}-basis`} value={inv.basis} onChange={(e) => onChange({ basis: e.target.value as InvestmentBasis })}>
             <option value="CO2e">Rapporteret CO2e</option>
             <option value="Revenue">Omsætning × faktor</option>
-            <option value="Investment">Investment (beregnes ikke)</option>
+            <option value="Investment">Investeringsbeløb × faktor</option>
           </select>
         </div>
         <div className="field end">
@@ -211,6 +213,13 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
               </select>
             </div>
             <NumberField label="Kurs (DKK pr. enhed)" value={inv.rateLocalToDKK} onCommit={(v) => onChange({ rateLocalToDKK: v })} />
+          </>
+        )}
+        {inv.basis === 'Investment' && (
+          <NumberField label="Investeringsbeløb (DKK)" value={inv.investmentDKK} onCommit={(v) => onChange({ investmentDKK: v })} />
+        )}
+        {inv.basis !== 'CO2e' && (
+          <>
             <div className="field">
               <label htmlFor={`${id}-factor`}>Faktor</label>
               <select id={`${id}-factor`} value={inv.factorId ?? ''} onChange={(e) => onChange({ factorId: e.target.value || null })}>
@@ -246,6 +255,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
 
       <p className={status ? 'warning' : 'muted'}>
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
+        {inv.basis === 'Investment' && result.investmentEUR !== null && <>Investeret {formatNumber(result.investmentEUR, 0)} EUR · </>}
         Ejerandel {formatNumber(result.share * 100, 1)} % · hele {result.year ?? 'året'}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
         {' '}· {formatNumber(result.yearShare * 100, 1)} % af året i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
         {status && <> — <strong>{status}</strong></>}

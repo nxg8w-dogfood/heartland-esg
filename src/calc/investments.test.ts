@@ -7,7 +7,7 @@ const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 const holding = (o: Partial<Investment> = {}): Investment => ({
   id: '1', date: '2025-06-30', company: 'Selskab A/S', ownershipPct: 25, accountingMethod: 'Ass.', climateMethod: '', dataSource: '',
   basis: 'CO2e', totalKgCO2e: 400_000, revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null,
-  factorKgPerEUR: null, factorSource: '', country: 'Danmark', ...o,
+  investmentDKK: null, factorKgPerEUR: null, factorSource: '', country: 'Danmark', ...o,
 })
 
 describe('toDKK', () => {
@@ -62,10 +62,27 @@ describe('investmentResult', () => {
     expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 0 }), currencyRates, year2025, []).pending).toBe(false)
   })
 
-  it('never calculates the "Investment" basis', () => {
-    const r = investmentResult(holding({ basis: 'Investment' }), currencyRates, year2025, [])
-    expect(r.kgCO2e).toBe(0)
-    expect(r.pending).toBe(true)
+  it("calculates the data manual's method: the amount invested in EUR × the factor, without the ownership share", () => {
+    const eur = toDKK(currencyRates, 'EUR')
+    const r = investmentResult(holding({ basis: 'Investment', ownershipPct: 25, investmentDKK: eur * 2_000_000, factorKgPerEUR: 0.1 }), currencyRates, year2025, [])
+    expect(r.investmentEUR).toBeCloseTo(2_000_000, 6)
+    expect(r.annualKgCO2e).toBeCloseTo(200_000, 6)
+    expect(r.kgCO2e).toBeCloseTo(200_000, 6)
+    expect(r.included).toBe(true)
+    expect(r.pending).toBe(false)
+  })
+
+  it('still leaves out a holding over 50 % on the investment amount', () => {
+    expect(investmentResult(holding({ basis: 'Investment', ownershipPct: 60, investmentDKK: 1_000_000, factorKgPerEUR: 0.1 }), currencyRates, year2025, []).included).toBe(false)
+  })
+
+  it('is pending on the investment amount without an amount, without a factor, or with a negative amount', () => {
+    const on = (o: Partial<Investment>) => investmentResult(holding({ basis: 'Investment', investmentDKK: 1_000_000, factorKgPerEUR: 0.1, ...o }), currencyRates, year2025, [])
+    for (const r of [on({ investmentDKK: null }), on({ factorKgPerEUR: null }), on({ investmentDKK: -6_766_896 })]) {
+      expect(r.pending).toBe(true)
+      expect(r.kgCO2e).toBe(0)
+    }
+    expect(on({ investmentDKK: 0, factorKgPerEUR: null }).pending).toBe(false)
   })
 })
 

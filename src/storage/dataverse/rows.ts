@@ -170,7 +170,8 @@ function investmentRow(company: string, i: Investment): Row {
     [c('klimametode')]: s(i.climateMethod), [c('datakilde')]: s(i.dataSource),
     [c('grundlag')]: toChoice(c('investering'), c('grundlag'), i.basis),
     [c('udledningkg')]: n(i.totalKgCO2e), [c('omsaetningdkk')]: n(i.revenueDKK), [c('omsaetninglokal')]: n(i.revenueLocal),
-    [c('lokalvaluta')]: s(i.localCurrency), [c('kurs')]: n(i.rateLocalToDKK), [c('faktorpreur')]: n(i.factorKgPerEUR),
+    [c('lokalvaluta')]: s(i.localCurrency), [c('kurs')]: n(i.rateLocalToDKK), [c('investeringdkk')]: n(i.investmentDKK),
+    [c('faktorpreur')]: n(i.factorKgPerEUR),
     [c('faktorkilde')]: s(i.factorSource), [c('land')]: s(i.country), [c('faktorid')]: s(i.factorId),
   }
 }
@@ -398,7 +399,8 @@ function investmentFrom(id: string, r: Row): Investment {
     climateMethod: str(r[c('klimametode')]), dataSource: str(r[c('datakilde')]),
     basis: (fromChoice(c('investering'), c('grundlag'), r[c('grundlag')]) ?? 'CO2e') as Investment['basis'],
     totalKgCO2e: num(r[c('udledningkg')]), revenueDKK: num(r[c('omsaetningdkk')]), revenueLocal: num(r[c('omsaetninglokal')]),
-    localCurrency: str(r[c('lokalvaluta')]), rateLocalToDKK: num(r[c('kurs')]), factorKgPerEUR: num(r[c('faktorpreur')]),
+    localCurrency: str(r[c('lokalvaluta')]), rateLocalToDKK: num(r[c('kurs')]), investmentDKK: num(r[c('investeringdkk')]),
+    factorKgPerEUR: num(r[c('faktorpreur')]),
     factorSource: str(r[c('faktorkilde')]), country: str(r[c('land')]),
     ...(str(r[c('faktorid')]) ? { factorId: str(r[c('faktorid')]) } : {}),
   }
