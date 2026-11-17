@@ -1010,3 +1010,23 @@ ul.plain {
 @media (prefers-reduced-motion: reduce) {
   .save-spinner { animation-duration: 3s; }
 }
+
+/* The company overview's split of the market-based total across the three scopes. The table
+   below it carries the numbers; the bar and its keys are decoration. */
+.share-bar {
+  display: flex;
+  height: 14px;
+  margin: var(--hl-sp-4) 0;
+  background: var(--hl-surface-sunken);
+}
+
+.share-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--hl-sp-2);
+}
+
+.share-scope1 { background: var(--hl-moss); }
+.share-scope2 { background: var(--hl-bark); }
+.share-scope3 { background: var(--hl-sage); }

@@ -57,7 +57,7 @@ export function GroupPage({ group, setGroup, period }: Props) {
     })
   }
 
-  // A link to the company's Scope 1 page, which also makes it the active company.
+  // A link to the company's overview, which also makes it the active company.
   const openCompany = (c: Company) => setGroup((g) => withActiveCompany(g, c.id))
 
   const issueCount = summary.companies.reduce((n, c) => n + c.issues.length, 0) + differences.length
@@ -114,7 +114,7 @@ export function GroupPage({ group, setGroup, period }: Props) {
               {summary.companies.map((s) => (
                 <tr key={s.company.id}>
                   <th scope="row">
-                    <a href="#/scope1" onClick={() => openCompany(s.company)}>{s.company.name || 'Uden navn'}</a>
+                    <a href="#/oversigt" onClick={() => openCompany(s.company)}>{s.company.name || 'Uden navn'}</a>
                   </th>
                   <td>{ownershipText(s.ownership)}</td>
                   <TotalsCells totals={s.share} />

@@ -56,7 +56,7 @@ describe('Scope 3 addresses', () => {
     expect(pageFromHash('#/scope3/kategori-7')).toBe('scope3')
     expect(pageFromHash('#/scope3/indstillinger')).toBe('scope3')
     expect(pageFromHash('#/scope2')).toBe('scope2')
-    expect(pageFromHash('')).toBe('scope1')
+    expect(pageFromHash('')).toBe('oversigt')
   })
 
   it('reads the sub-page, and falls back to the overview', () => {
