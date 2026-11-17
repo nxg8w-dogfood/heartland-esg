@@ -101,10 +101,19 @@ export function measureOf(accountInternal: string): GroupMeasure {
 export class GroupExportError extends Error {}
 
 /**
+ * Rows the cube adds that aren't entities: "Not Available" collects values with no entity, and
+ * "(Transactions on …)" is a parent's own postings in the hierarchy.
+ */
+const isPlaceholder = (name: string) => /^(group\s+)?not available$/i.test(name) || /^\(transactions on /i.test(name)
+
+/**
  * Reads one export. Throws GroupExportError when the layout isn't one, so the UI can say what's
  * wrong instead of importing nonsense.
  */
-export function parseGroupExport(grid: readonly (readonly CellValue[])[]): GroupExport {
+export function parseGroupExport(sheet: readonly (readonly CellValue[])[]): GroupExport {
+  // An export saved from the Excel add-in starts at C3, not A1: drop the empty columns in front.
+  const first = Math.min(...sheet.map((row) => { const i = row.findIndex((v) => text(v) !== ''); return i === -1 ? Infinity : i }))
+  const grid = Number.isFinite(first) && first > 0 ? sheet.map((row) => row.slice(first)) : sheet
   // The header row is the first row with a label in the first cell and at least one period after
   // it. The header block is everything above; the entities everything below.
   let headerAt = -1
@@ -141,6 +150,7 @@ export function parseGroupExport(grid: readonly (readonly CellValue[])[]): Group
   for (let r = headerAt + 1; r < grid.length; r++) {
     const name = text(grid[r][0])
     if (!name) continue
+    if (isPlaceholder(name)) { skipped++; continue }
     const values = valueColumns.map((c) => parseLedgerAmount(grid[r][c] ?? null))
     if (values.every((v) => v === null || v === 0)) { skipped++; continue }
     rows.push({ name, values })
@@ -152,10 +162,13 @@ export function parseGroupExport(grid: readonly (readonly CellValue[])[]): Group
 
 /**
  * Ownership as a percentage. The system writes a share (1,00 for a wholly owned company), but
- * an export set to percent writes 100. Everything at or below 1 is read as a share.
+ * an export set to percent writes 100. The export is read as shares when most values are at
+ * most 1, so one odd row (a total, say) can't turn every 100 % holding into 1 %.
  */
 export function ownershipScale(values: readonly (number | null)[]): { factor: 1 | 100; asShare: boolean } {
-  const asShare = values.every((v) => v === null || Math.abs(v) <= 1)
+  const known = values.filter((v): v is number => v !== null)
+  const atMostOne = known.filter((v) => Math.abs(v) <= 1).length
+  const asShare = atMostOne >= known.length - atMostOne
   return { factor: asShare ? 100 : 1, asShare }
 }
 
@@ -220,7 +233,8 @@ export function planInvestments(
 
   return names.map((name) => {
     const share = valueOf('ownership', name)
-    const ownershipPct = share === null ? null : share * factor
+    // What's left of a sold holding can be a rounding residue, even below zero: no holding.
+    const ownershipPct = share === null || Math.round(share * factor * 1e4) <= 0 ? null : share * factor
     const turnover = valueOf('turnover', name)
     const row = {
       name,

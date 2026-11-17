@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { GroupExportError, measureOf, ownershipScale, parseGroupExport, parsePeriodLabel, periodEndDate, planInvestments, turnoverToRevenue } from './groupExport'
 import { parseCsvGrid, type CellValue } from './ledger'
+import { readXlsxSheets } from './readXlsx'
+import { makeWorkbook } from './testing/xlsx'
 
 // The layout the consolidation system exports. The company names and amounts are invented: the
 // group's own entity names and figures are not committed. "01.01.20 Ltd." is there because a
@@ -114,6 +116,25 @@ describe('parseGroupExport', () => {
     expect(e.rows).toEqual([{ name: 'Selskabet af 1.1.2000', values: [1_000_000, 1_000_000] }])
   })
 
+  it('reads an export that starts further in, as the Excel add-in saves it (at C3)', () => {
+    const atC3 = parseCsvGrid(ownershipCsv).map((row) => ['', '', ...row]) as CellValue[][]
+    expect(parseGroupExport([[], [], ...atC3])).toEqual(read(ownershipCsv))
+  })
+
+  it('passes over the rows the cube adds that are not entities', () => {
+    const e = read([
+      'Account Internal;Ownership Percentage (CL);',
+      ';Year-Month;',
+      'FriendlyName;July 2025',
+      'Not Available;45,45',
+      'Group Not Available;45,45',
+      '(Transactions on Alfa Holding);0,10',
+      'Delejet ApS;0,40',
+    ].join('\n'))
+    expect(e.rows.map((r) => r.name)).toEqual(['Delejet ApS'])
+    expect(e.skipped).toBe(3)
+  })
+
   it('says what is wrong instead of importing nonsense', () => {
     expect(() => read('Konto;Beløb\n6100;100')).toThrow(GroupExportError)
     expect(() => read('Konto;Beløb\n6100;100')).toThrow(/periodekolonner/)
@@ -126,6 +147,11 @@ describe('ownershipScale', () => {
   it('reads a share as a percentage, and a percentage as itself', () => {
     expect(ownershipScale([1, 0.4, null])).toEqual({ factor: 100, asShare: true })
     expect(ownershipScale([100, 40])).toEqual({ factor: 1, asShare: false })
+  })
+
+  it('goes by most values, so one odd row cannot turn 100 % into 1 %', () => {
+    expect(ownershipScale([1, 0.4, 1, 45.45])).toEqual({ factor: 100, asShare: true })
+    expect(ownershipScale([100, 40, 0.5])).toEqual({ factor: 1, asShare: false })
   })
 })
 
@@ -167,6 +193,17 @@ describe('planInvestments', () => {
     expect(plan('July 2027').every((r) => r.ownershipPct === null && r.revenueDKK === null)).toBe(true)
   })
 
+  it('treats a zero, negative or residual share as no holding', () => {
+    const sold = read(['Account Internal;Ownership Percentage (CL);', ';Year-Month;', 'FriendlyName;July 2025',
+      'Solgt A/S;-0,000002', 'Rest ApS;0,0000001', 'Lille AB;0,000003', 'Delejet ApS;0,40'].join('\n'))
+    expect(planInvestments([sold], 'July 2025', []).map((r) => [r.name, r.status])).toEqual([
+      ['Solgt A/S', 'unknownShare'],
+      ['Rest ApS', 'unknownShare'],
+      ['Lille AB', 'new'],
+      ['Delejet ApS', 'new'],
+    ])
+  })
+
   it('reads an export written in percent as percent', () => {
     const pct = read(['Account Internal;Ownership Percentage;', ';Year-Month;', 'FriendlyName;July 2025', 'Delejet ApS;40,00'].join('\n'))
     expect(planInvestments([pct], 'July 2025', [])[0]).toMatchObject({ ownershipPct: 40, status: 'new' })
@@ -177,5 +214,21 @@ describe('periodEndDate', () => {
   it('dates a holding on the last day of its period', () => {
     expect(periodEndDate({ label: 'July 2025', year: 2025, month: 7 })).toBe('2025-07-31')
     expect(periodEndDate({ label: 'February 2024', year: 2024, month: 2 })).toBe('2024-02-29')
+  })
+})
+
+describe('a workbook with one sheet per measure', () => {
+  it('reads every sheet, so each can be parsed as its own export', async () => {
+    const grid = (csv: string) => parseCsvGrid(csv).map((row) => row.map((v) => (v === '' ? null : v)))
+    const book = makeWorkbook([
+      { name: 'Ejerandel', rows: grid(ownershipCsv) },
+      { name: 'Revenue', rows: grid(turnoverCsv) },
+      { name: 'XLCubedFormats', rows: [['Basic Grid Format']] },
+    ])
+    const sheets = await readXlsxSheets(book.buffer as ArrayBuffer)
+    expect(sheets.map((s) => s.name)).toEqual(['Ejerandel', 'Revenue', 'XLCubedFormats'])
+    expect(parseGroupExport(sheets[0].grid).measure).toBe('ownership')
+    expect(parseGroupExport(sheets[1].grid).measure).toBe('turnover')
+    expect(() => parseGroupExport(sheets[2].grid)).toThrow(GroupExportError)
   })
 })

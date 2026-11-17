@@ -21,14 +21,25 @@ const isXlsxName = (file: File) =>
  * when an Excel file is chosen.
  */
 export async function readGrid(file: File): Promise<CellValue[][]> {
+  checkType(file)
+  if (!isXlsxName(file)) return parseCsvGrid(await readText(file))
+  const { readXlsxSheet } = await import('./readXlsx')
+  return readXlsxSheet(file)
+}
+
+/** Every sheet of an .xlsx file, or a CSV as one sheet named after the file. */
+export async function readSheets(file: File): Promise<{ name: string; grid: CellValue[][] }[]> {
+  checkType(file)
+  if (!isXlsxName(file)) return [{ name: file.name, grid: parseCsvGrid(await readText(file)) }]
+  const { readXlsxSheets } = await import('./readXlsx')
+  return readXlsxSheets(file)
+}
+
+function checkType(file: File) {
   if (/\.xls$/i.test(file.name)) {
     throw new ImportFileError('Gamle Excel-filer (XLS, Excel 97–2003) understøttes ikke. Gem filen som XLSX eller CSV og prøv igen.')
   }
-  const isXlsx = isXlsxName(file)
-  if (!isXlsx && !/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
+  if (!isXlsxName(file) && !/\.csv$/i.test(file.name) && file.type !== 'text/csv') {
     throw new ImportFileError('Vælg en CSV- eller XLSX-fil.')
   }
-  if (!isXlsx) return parseCsvGrid(await readText(file))
-  const { readXlsxSheet } = await import('./readXlsx')
-  return readXlsxSheet(file)
 }
