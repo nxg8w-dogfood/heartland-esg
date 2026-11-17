@@ -42,7 +42,11 @@ export function InvestmentsImport({ investments, setInvestments }: {
   )
   const importable = plan.filter((r) => r.status === 'new' || r.status === 'update')
   const withoutBasis = importable.filter((r) => r.revenueDKK === null && importedBasis(r) === 'Revenue').length
+  // Year to date at July is the group's whole fiscal year (August–July), so only other months
+  // are short of a year.
   const isYtd = files.some((f) => f.export.settings.some((s) => /time calculations/i.test(s.label) && /ytd/i.test(s.value)))
+  const chosen = exports.flatMap((e) => e.periods).find((p) => p.label === periodLabel)
+  const shortYtd = isYtd && chosen !== undefined && chosen.month !== 7
 
   async function add(file: File) {
     setReading(true)
@@ -163,10 +167,10 @@ export function InvestmentsImport({ investments, setInvestments }: {
             </select>
           </div>
 
-          {isYtd && (
+          {shortYtd && (
             <p className="warning">
-              Eksporten er år til dato (YTD). Kategori 15 regner omsætningen som et helt år, så vælg en periode, der
-              dækker hele året, eller ret omsætningen bagefter.
+              Eksporten er år til dato (YTD), og {periodLabel} er ikke regnskabsårets sidste måned (juli). Hver investering
+              regnes som 12 måneder, så vælg juli, eller ret tallene bagefter.
             </p>
           )}
           {withoutBasis > 0 && (

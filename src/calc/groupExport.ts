@@ -193,7 +193,7 @@ export type PlanRow = {
   revenueDKK: number | null
   /** DKK, the amount invested: the data manual's basis (docs/adr/0022) */
   investmentDKK: number | null
-  /** The investment this updates: the same company, dated in the same year */
+  /** The investment this updates: the same company, on the same date */
   existingId: string | null
   status: PlanStatus
 }
@@ -213,8 +213,11 @@ export function planInvestments(
   periodLabel: string,
   existing: readonly { id: string; company: string; date: string }[],
 ): PlanRow[] {
-  // Each holding stands for a calendar year, so a company already in another year is a new row.
-  const year = exports.flatMap((e) => e.periods).find((p) => p.label === periodLabel)?.year ?? null
+  // A holding covers the 12 months up to its date (docs/adr/0023), and an imported one is dated
+  // at the end of its period. The same company on the same date is the same holding; any other
+  // date is a new row, and an overlap is flagged in category 15.
+  const period = exports.flatMap((e) => e.periods).find((p) => p.label === periodLabel)
+  const date = period ? periodEndDate(period) : null
   const valueOf = (measure: GroupMeasure, name: string): number | null => {
     for (const e of exports) {
       if (e.measure !== measure) continue
@@ -241,7 +244,7 @@ export function planInvestments(
       ownershipPct,
       revenueDKK: turnover === null ? null : turnoverToRevenue(turnover),
       investmentDKK: valueOf('investment', name),
-      existingId: existing.find((i) => sameCompany(i.company, name) && i.date.startsWith(`${year}-`))?.id ?? null,
+      existingId: existing.find((i) => sameCompany(i.company, name) && i.date === date)?.id ?? null,
     }
     if (ownershipPct === null) return { ...row, status: 'unknownShare' as const }
     if (ownershipPct > CONSOLIDATED_ABOVE_PCT) return { ...row, status: 'consolidated' as const }

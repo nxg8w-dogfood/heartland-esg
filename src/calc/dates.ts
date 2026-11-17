@@ -55,6 +55,24 @@ export function yearShare(year: number, period: Period): number {
   return to < from ? 0 : daysBetween(from, to) / daysBetween(yearStart, yearEnd)
 }
 
+const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+
+/**
+ * The 12 months that end on a date, for an annual figure stated as of that date: 31.07.2026 is
+ * 01.08.2025–31.07.2026, a fiscal year from August, and 31.12.2025 is the calendar year 2025.
+ * Null for an invalid date.
+ */
+export function twelveMonthsTo(date: string): Period | null {
+  const end = dayValue(date)
+  if (Number.isNaN(end)) return null
+  const d = new Date(end)
+  const year = d.getUTCFullYear() - 1
+  const month = d.getUTCMonth()
+  // The same day a year before (the 28th for 29 February), and the day after it.
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return { start: isoDay(Date.UTC(year, month, Math.min(d.getUTCDate(), lastDay)) + DAY_MS), end: isoDay(end) }
+}
+
 /** The calendar years a period touches. */
 export function periodYearsList(period: Period): number[] {
   const start = dayValue(period.start)

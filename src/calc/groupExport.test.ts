@@ -180,8 +180,13 @@ describe('planInvestments', () => {
   })
 
   it('updates a company that is already in category 15, matching the name loosely', () => {
-    expect(plan('July 2025', [{ id: 'inv-1', company: ' delejet aps ', date: '2025-12-31' }]).find((r) => r.name === 'Delejet ApS'))
+    expect(plan('July 2025', [{ id: 'inv-1', company: ' delejet aps ', date: '2025-07-31' }]).find((r) => r.name === 'Delejet ApS'))
       .toMatchObject({ status: 'update', existingId: 'inv-1' })
+  })
+
+  it('adds a new row for a holding on another date, even in the same year', () => {
+    expect(plan('July 2025', [{ id: 'inv-1', company: 'Delejet ApS', date: '2025-12-31' }]).find((r) => r.name === 'Delejet ApS'))
+      .toMatchObject({ status: 'new', existingId: null })
   })
 
   it('adds a new row for another year, so each year keeps its own figures', () => {

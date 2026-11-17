@@ -12,14 +12,15 @@
 // The factor is a spend factor from the factor table (so a value entered there reaches every
 // holding using it), or the holding's own.
 //
-// Investee figures are annual. Each holding stands for the calendar year it's dated in and
-// counts for the share of that year inside the reporting period, like commuting surveys.
-// This deliberately differs from the original, which counted the whole annual figure for any
-// holding dated in the period, however short the period.
+// Investee figures are annual. Each holding covers the 12 months up to and including its date,
+// and counts for the share of those months inside the reporting period (docs/adr/0023). Dated
+// 31 July, it covers Heartland's fiscal year from August, as the data manual reports it; dated
+// 31 December, the calendar year. This deliberately differs from the original, which counted the
+// whole annual figure for any holding dated in the period, however short the period.
 
 import { toDKK, type CurrencyRate } from '../data/currencies'
 import type { Factor } from '../data/factors'
-import { dayValue, yearShare, type Period } from './dates'
+import { periodShare, twelveMonthsTo, type Period } from './dates'
 import { findFactor } from './findFactor'
 
 export type InvestmentBasis = 'CO2e' | 'Revenue' | 'Investment'
@@ -67,11 +68,11 @@ export type InvestmentResult = {
   factorKgPerEUR: number | null
   /** The holding's share of the investee's emissions for a whole year */
   annualKgCO2e: number
-  /** The calendar year the holding stands for, or null for an invalid date */
-  year: number | null
-  /** Share of that year inside the period, 0 to 1 */
-  yearShare: number
-  /** For the period: annual × year share */
+  /** The 12 months the holding covers, ending on its date; null for an invalid date */
+  covers: Period | null
+  /** Share of those months inside the period, 0 to 1 */
+  shareInPeriod: number
+  /** For the period: annual × share in period */
   kgCO2e: number
   /** The data needed for this basis is missing, or the amount invested is negative */
   pending: boolean
@@ -84,8 +85,8 @@ export type Category15 = {
   /** Holdings over 50 %, left out because they're consolidated */
   consolidatedCount: number
   pendingCount: number
-  /** Company and year pairs entered more than once, which would count that year twice */
-  duplicates: { company: string; year: number }[]
+  /** Companies with holdings whose months overlap, which would count those months twice */
+  duplicates: { company: string; covers: string }[]
 }
 
 const finiteOrZero = (n: number | null | undefined): number =>
@@ -127,27 +128,34 @@ export function investmentResult(investment: Investment, rates: readonly Currenc
     annualKgCO2e = investmentEUR !== null && investmentEUR > 0 ? investmentEUR * finiteOrZero(factorKgPerEUR) : 0
     pending = amount === null || amount < 0 || (factorKgPerEUR === null && amount !== 0)
   }
-  const day = dayValue(investment.date)
-  const year = Number.isNaN(day) ? null : new Date(day).getUTCFullYear()
-  const inPeriod = year === null ? 0 : yearShare(year, period)
-  return { investment, share, included, revenueEUR, investmentEUR, factor, factorKgPerEUR, annualKgCO2e, year, yearShare: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+  const covers = twelveMonthsTo(investment.date)
+  const inPeriod = covers === null ? 0 : periodShare({ date: covers.start, dateTo: covers.end }, period)
+  return { investment, share, included, revenueEUR, investmentEUR, factor, factorKgPerEUR, annualKgCO2e, covers, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+}
+
+/** "2025" for a calendar year, "2025/26" for a year that runs across New Year. */
+export function coverLabel(covers: Period | null): string {
+  if (!covers) return 'uden dato'
+  const from = covers.start.slice(0, 4)
+  const to = covers.end.slice(0, 4)
+  return from === to ? from : `${from}/${to.slice(2)}`
 }
 
 export function category15(investments: readonly Investment[], rates: readonly CurrencyRate[], period: Period, factors: readonly Factor[]): Category15 {
-  const rows = investments.map((i) => investmentResult(i, rates, period, factors)).filter((r) => r.yearShare > 0)
-  const seen = new Map<string, number>()
+  const rows = investments.map((i) => investmentResult(i, rates, period, factors)).filter((r) => r.shareInPeriod > 0)
+  // Two holdings of one company whose 12 months overlap count those months twice. ISO dates
+  // compare as text.
+  const duplicates: Category15['duplicates'] = []
+  const byCompany = new Map<string, InvestmentResult[]>()
   for (const r of rows) {
     const company = r.investment.company.trim().toLowerCase()
-    if (!company) continue
-    const key = `${company}|${r.year}`
-    seen.set(key, (seen.get(key) ?? 0) + 1)
+    if (company) byCompany.set(company, [...(byCompany.get(company) ?? []), r])
   }
-  const duplicates = [...seen]
-    .filter(([, n]) => n > 1)
-    .map(([key]) => {
-      const r = rows.find((x) => `${x.investment.company.trim().toLowerCase()}|${x.year}` === key)!
-      return { company: r.investment.company.trim(), year: r.year! }
-    })
+  for (const holdings of byCompany.values()) {
+    const sorted = holdings.map((r) => r.covers!).sort((a, b) => a.start.localeCompare(b.start))
+    const overlap = sorted.find((c, i) => i > 0 && c.start <= sorted[i - 1].end)
+    if (overlap) duplicates.push({ company: holdings[0].investment.company.trim(), covers: coverLabel(overlap) })
+  }
   return {
     rows,
     total: rows.filter((r) => r.included).reduce((t, r) => t + r.kgCO2e, 0) / 1000,

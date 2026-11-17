@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { currencyRates, toDKK } from '../data/currencies'
 import type { Factor } from '../data/factors'
-import { category15, investmentFactors, investmentResult, type Investment } from './investments'
+import { category15, coverLabel, investmentFactors, investmentResult, type Investment } from './investments'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 const holding = (o: Partial<Investment> = {}): Investment => ({
-  id: '1', date: '2025-06-30', company: 'Selskab A/S', ownershipPct: 25, accountingMethod: 'Ass.', climateMethod: '', dataSource: '',
+  id: '1', date: '2025-12-31', company: 'Selskab A/S', ownershipPct: 25, accountingMethod: 'Ass.', climateMethod: '', dataSource: '',
   basis: 'CO2e', totalKgCO2e: 400_000, revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null,
   investmentDKK: null, factorKgPerEUR: null, factorSource: '', country: 'Danmark', ...o,
 })
@@ -99,14 +99,14 @@ describe('category15', () => {
     expect(c.pendingCount).toBe(1)
   })
 
-  it('only includes holdings whose year overlaps the period', () => {
+  it('only includes holdings whose 12 months overlap the period', () => {
     const c = category15([holding({ id: 'a' }), holding({ id: 'b', date: '2024-12-31' })], currencyRates, year2025, [])
     expect(c.rows.map((r) => r.investment.id)).toEqual(['a'])
   })
 
   it('scales the annual figure to a period shorter than a year', () => {
     const q2 = category15([holding()], currencyRates, { start: '2025-04-01', end: '2025-06-30' }, [])
-    expect(q2.rows[0].yearShare).toBe(91 / 365)
+    expect(q2.rows[0].shareInPeriod).toBe(91 / 365)
     expect(q2.total).toBeCloseTo((100 * 91) / 365, 9)
     expect(q2.rows[0].annualKgCO2e).toBe(100_000)
   })
@@ -117,11 +117,11 @@ describe('category15', () => {
     expect(c.total).toBeCloseTo((100 * 184) / 365 + (200 * 181) / 365, 9)
   })
 
-  it("counts a holding dated outside the period when its year overlaps it", () => {
+  it("counts a holding dated outside the period when its 12 months overlap it", () => {
     // Dated 31 Dec 2025, the period is the first half of 2025.
     const c = category15([holding({ date: '2025-12-31' })], currencyRates, { start: '2025-01-01', end: '2025-06-30' }, [])
     expect(c.rows).toHaveLength(1)
-    expect(c.rows[0].yearShare).toBe(181 / 365)
+    expect(c.rows[0].shareInPeriod).toBe(181 / 365)
   })
 
   it('counts each year once in a two-year period', () => {
@@ -131,9 +131,17 @@ describe('category15', () => {
     expect(c.duplicates).toEqual([])
   })
 
-  it('flags the same company entered twice for one year', () => {
+  it('flags the same company with holdings whose months overlap', () => {
+    // 15.01.2025 covers 16.01.2024–15.01.2025, which overlaps the calendar year 2025.
     const c = category15([holding({ id: 'a' }), holding({ id: 'b', company: ' selskab a/s ', date: '2025-01-15' })], currencyRates, year2025, [])
-    expect(c.duplicates).toEqual([{ company: 'Selskab A/S', year: 2025 }])
+    expect(c.duplicates).toEqual([{ company: 'Selskab A/S', covers: '2025' }])
+  })
+
+  it('does not flag consecutive fiscal years of one company', () => {
+    const twoYears = { start: '2024-08-01', end: '2026-07-31' }
+    const c = category15([holding({ id: 'a', date: '2025-07-31' }), holding({ id: 'b', date: '2026-07-31' })], currencyRates, twoYears, [])
+    expect(c.duplicates).toEqual([])
+    expect(c.total).toBeCloseTo(200, 9)
   })
 })
 
@@ -167,5 +175,38 @@ describe('a factor from the factor table', () => {
 
   it('offers only spend factors per EUR', () => {
     expect(investmentFactors([...table, { ...spend('activity', 1), method: undefined }]).map((f) => f.id)).toEqual(['obs', 'blank'])
+  })
+})
+
+describe('the 12 months a holding covers', () => {
+  const fy2526 = { start: '2025-08-01', end: '2026-07-31' }
+
+  it('counts a holding dated 31 July fully in the fiscal year August–July it closes', () => {
+    const r = investmentResult(holding({ date: '2026-07-31' }), currencyRates, fy2526, [])
+    expect(r.covers).toEqual({ start: '2025-08-01', end: '2026-07-31' })
+    expect(r.shareInPeriod).toBe(1)
+    expect(r.kgCO2e).toBe(100_000)
+  })
+
+  it('counts the previous fiscal year not at all', () => {
+    expect(investmentResult(holding({ date: '2025-07-31' }), currencyRates, fy2526, []).shareInPeriod).toBe(0)
+  })
+
+  it('splits a fiscal-year holding over the calendar years it touches', () => {
+    // 01.08.2025–31.07.2026 has 153 days in 2025 and 212 in 2026.
+    expect(investmentResult(holding({ date: '2026-07-31' }), currencyRates, year2025, []).shareInPeriod).toBe(153 / 365)
+    expect(investmentResult(holding({ date: '2026-07-31' }), currencyRates, { start: '2026-01-01', end: '2026-12-31' }, []).shareInPeriod).toBe(212 / 365)
+  })
+
+  it('leaves out a holding with an invalid date', () => {
+    const r = investmentResult(holding({ date: 'ukendt' }), currencyRates, year2025, [])
+    expect(r.covers).toBeNull()
+    expect(r.shareInPeriod).toBe(0)
+  })
+
+  it('names a calendar year by its year and a fiscal year by both', () => {
+    expect(coverLabel({ start: '2025-01-01', end: '2025-12-31' })).toBe('2025')
+    expect(coverLabel({ start: '2025-08-01', end: '2026-07-31' })).toBe('2025/26')
+    expect(coverLabel(null)).toBe('uden dato')
   })
 })

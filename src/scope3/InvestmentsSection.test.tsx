@@ -5,7 +5,8 @@ import { currencyRates } from '../data/currencies'
 import { factors } from '../data/factors'
 import { InvestmentsSection } from './InvestmentsSection'
 
-const period = { start: '2026-01-01', end: '2026-12-31' }
+// Heartland's fiscal year; the holdings are dated on its last day, as the import dates them.
+const period = { start: '2025-08-01', end: '2026-07-31' }
 const holding = (patch: Partial<Investment>): Investment => ({
   id: 'inv-1', date: '2026-07-31', company: 'Delejet ApS', ownershipPct: 40, accountingMethod: 'Other investments',
   climateMethod: 'Investment-specific method', dataSource: 'Koncernsystem, July 2026', basis: 'CO2e', totalKgCO2e: 1_000_000,
@@ -23,7 +24,7 @@ describe('InvestmentsSection', () => {
   it('folds each holding to one line with its name, year, ownership and tCO2e', () => {
     const html = render([holding({})])
     expect(html).toContain('<details class="card investment-details">')
-    expect(html).toMatch(/<summary><span class="investment-name">Delejet ApS<\/span><span class="muted"> · 2026 · 40,00 % · 400,000 tCO2e<\/span><\/summary>/)
+    expect(html).toMatch(/<summary><span class="investment-name">Delejet ApS<\/span><span class="muted"> · 2025\/26 · 40,00 % · 400,000 tCO2e<\/span><\/summary>/)
   })
 
   it('says in the folded line what is missing', () => {
