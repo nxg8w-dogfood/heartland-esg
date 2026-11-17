@@ -1011,22 +1011,136 @@ ul.plain {
   .save-spinner { animation-duration: 3s; }
 }
 
-/* The company overview's split of the market-based total across the three scopes. The table
-   below it carries the numbers; the bar and its keys are decoration. */
-.share-bar {
+/* The company overview's drill-down: a bar per part in a table, and the selected figure month
+   by month. One hue: the bars are one series. A part that doesn't count is the neutral sage. */
+.method-toggle {
   display: flex;
-  height: 14px;
-  margin: var(--hl-sp-4) 0;
-  background: var(--hl-surface-sunken);
+  flex-wrap: wrap;
+  gap: var(--hl-sp-4);
+  margin: 0 0 var(--hl-sp-4);
+  padding: 0;
+  border: 0;
 }
 
-.share-key {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
+.method-toggle legend {
+  float: left;
   margin-right: var(--hl-sp-2);
+  font-weight: var(--hl-fw-bold);
 }
 
-.share-scope1 { background: var(--hl-moss); }
-.share-scope2 { background: var(--hl-bark); }
-.share-scope3 { background: var(--hl-sage); }
+.method-toggle label {
+  display: inline-flex;
+  gap: var(--hl-sp-2);
+  align-items: center;
+}
+
+.drill-path ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hl-sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.drill-path li + li::before {
+  content: '›';
+  margin-right: var(--hl-sp-2);
+  color: var(--hl-text-muted);
+}
+
+.drill-path [aria-current] {
+  font-weight: var(--hl-fw-bold);
+}
+
+.drill-figure {
+  margin: var(--hl-sp-2) 0 var(--hl-sp-4);
+  font-variant-numeric: tabular-nums;
+}
+
+.drill-figure strong {
+  font-size: var(--hl-fs-lg);
+}
+
+.drill-bars .bar-cell {
+  width: 40%;
+  min-width: 6rem;
+}
+
+.drill-bars .bar {
+  display: block;
+  height: 14px;
+  min-width: 0;
+  background: var(--hl-moss);
+  border-radius: 0 4px 4px 0;
+}
+
+.drill-bars tr.excluded .bar {
+  background: var(--hl-sage);
+}
+
+.month-chart {
+  margin: var(--hl-sp-6) 0 0;
+}
+
+.month-readout {
+  margin: var(--hl-sp-1) 0 var(--hl-sp-2);
+  min-height: 1.6em;
+  font-variant-numeric: tabular-nums;
+}
+
+.month-columns {
+  display: flex;
+  gap: 2px;
+  height: 180px;
+  border-bottom: var(--hl-rule-w) solid var(--hl-rule);
+}
+
+.month {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: default;
+}
+
+.month:focus-visible {
+  outline: 2px solid var(--hl-focus);
+  outline-offset: 2px;
+}
+
+.month .column-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.month .column {
+  display: block;
+  width: 100%;
+  max-width: 24px;
+  background: var(--hl-moss);
+  border-radius: 4px 4px 0 0;
+}
+
+.month.active .column {
+  background: var(--hl-moss-700);
+}
+
+.month-label {
+  position: relative;
+  top: calc(var(--hl-sp-1) + 1px);
+  height: 0;
+  font-size: var(--hl-fs-xs);
+  line-height: var(--hl-lh-xs);
+  color: var(--hl-text-muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.month-chart {
+  padding-bottom: 2.4em;
+}

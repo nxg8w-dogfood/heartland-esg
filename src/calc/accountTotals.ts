@@ -37,7 +37,14 @@ export type AccountTotals = {
   issues: string[]
 }
 
+/** The totals, and each part's own summary, for the overview's drill-down */
+export type AccountDetails = ReturnType<typeof accountDetails>
+
 export function accountTotals(account: AccountData, factors: readonly Factor[], period: Period): AccountTotals {
+  return accountDetails(account, factors, period).totals
+}
+
+export function accountDetails(account: AccountData, factors: readonly Factor[], period: Period) {
   // The same lines as on the Scope 1 and Scope 3 pages: a line in km gets its litres from the car.
   const s1 = scope1Summary(account.scope1Lines, factors, period, account.vehicles)
   const scope1Litres = resolveScope1Lines(account.scope1Lines, account.vehicles)
@@ -77,7 +84,7 @@ export function accountTotals(account: AccountData, factors: readonly Factor[], 
   const noReason = scope3Categories.filter((c) => !account.relevance[c.nr]?.reason.trim())
   if (noReason.length) issues.push(`Scope 3-kategori ${noReason.map((c) => c.nr).join(', ')} mangler en begrundelse for relevansen`)
 
-  return {
+  const totals: AccountTotals = {
     scope1: s1.total,
     scope2Location: s2.locationTotal,
     scope2Market: s2.marketTotal,
@@ -86,4 +93,5 @@ export function accountTotals(account: AccountData, factors: readonly Factor[], 
     cat15,
     issues,
   }
+  return { totals, s1, s2, cat1, cat2, cat3, cat4, cat5, cat6, cat6Spend, cat7, cat15 }
 }
