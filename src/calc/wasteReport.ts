@@ -135,7 +135,7 @@ export function wasteGroupFor(wasteType: string, treatment: string): string | nu
   return RULES.find((r) => r.type.test(wasteType) && r.treatment.test(treatment))?.group ?? null
 }
 
-/** Stamped on every imported line, so a later report for the same months replaces it. */
+/** Stamped on every imported line, so a later report for the same months and address replaces it. */
 export const WASTE_IMPORT_PREFIX = 'Affaldsrapport:'
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -146,7 +146,7 @@ export const monthLabel = (m: WasteMonth) => `${MONTHS[m.month - 1]} ${m.year}`
 export type WastePlan = {
   /** The lines to add, without ids */
   lines: Omit<ActivityLine, 'id'>[]
-  /** Ids of earlier imported lines in the same months, replaced by these */
+  /** Ids of earlier imported lines in the same months at the same address, replaced by these */
   replaces: string[]
   /** Report rows (by index) that have quantities but no group yet */
   unassigned: number[]
@@ -154,12 +154,13 @@ export type WastePlan = {
 
 /**
  * The lines a report becomes: one per row and month with a quantity, from kg to tonnes, covering the
- * calendar month. `groups` is the chosen group per row (index-aligned); rows without one are
- * left out and listed as unassigned.
+ * calendar month, at the chosen address. `groups` is the chosen group per row (index-aligned);
+ * rows without one are left out and listed as unassigned.
  */
 export function planWasteLines(
   report: WasteReport,
   groups: readonly (string | null)[],
+  locationId: string | null,
   existing: readonly ActivityLine[],
   validGroups: readonly ActivityGroup[],
 ): WastePlan {
@@ -182,6 +183,7 @@ export function planWasteLines(
         dateTo: monthEnd(month),
         quantity: v / 1000,
         description: `${WASTE_IMPORT_PREFIX} ${row.wasteType} (${row.treatment}), ${monthLabel(month)}`,
+        ...(locationId ? { locationId } : {}),
       })
     })
   })
@@ -189,7 +191,7 @@ export function planWasteLines(
   const from = monthStart(report.months[0])
   const to = monthEnd(report.months[report.months.length - 1])
   const replaces = existing
-    .filter((l) => l.description?.startsWith(WASTE_IMPORT_PREFIX) && l.date >= from && l.date <= to)
+    .filter((l) => l.description?.startsWith(WASTE_IMPORT_PREFIX) && l.date >= from && l.date <= to && (l.locationId ?? null) === locationId)
     .map((l) => l.id)
   return { lines, replaces, unassigned }
 }

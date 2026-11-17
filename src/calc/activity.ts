@@ -30,6 +30,8 @@ export type ActivityLine = {
   /** kg CO2e per unit, overriding the table factor */
   customFactor?: number | null
   description?: string
+  /** The location (address) the line belongs to, when it has one; category 5 waste uses it */
+  locationId?: string | null
 }
 
 export type ActivityResult<G extends ActivityGroup = ActivityGroup, L extends ActivityLine = ActivityLine> = LineResult & {

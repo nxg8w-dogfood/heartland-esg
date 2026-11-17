@@ -172,7 +172,9 @@ export function parseAccount(input: unknown): LoadResult {
     cat1Lines: list(input.cat1Lines, groupIn(category1Groups)),
     cat4Lines: list(input.cat4Lines, groupIn(category4Groups)),
     cat4SpendLines: list(input.cat4SpendLines, groupIn(category4SpendGroups)),
-    cat5Lines: list(input.cat5Lines, groupIn(category5Groups)),
+    // A waste line keeps its address only while the location exists.
+    cat5Lines: list<ActivityLine>(input.cat5Lines, groupIn(category5Groups)).map(({ locationId, ...l }) =>
+      typeof locationId === 'string' && locationIds.has(locationId) ? { ...l, locationId } : l),
     cat6Lines: list(input.cat6Lines, groupIn(category6Groups)),
     surveys: list(input.surveys, (s) => isObject(s.modes)),
     investments: list(input.investments),

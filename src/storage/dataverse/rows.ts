@@ -135,7 +135,7 @@ function lineRow(company: string, list: number, l: AnyLine): Row {
     [c('faktorid')]: 'factorId' in l ? s(l.factorId) : null,
     [c('egenfaktor')]: n(l.customFactor),
     [c('beskrivelse')]: s(l.description),
-    [c('lokationid')]: scope2 ? scope2.locationId : null,
+    [c('lokationid')]: scope2 ? scope2.locationId : 'locationId' in l ? s(l.locationId) : null,
     [c('energiart')]: scope2 ? toChoice(c('linje'), c('energiart'), scope2.kind) : null,
     [c('koeretoejid')]: 'vehicleId' in l ? s(l.vehicleId) : null,
     [c('km')]: 'distanceKm' in l ? n(l.distanceKm) : null,
@@ -365,7 +365,8 @@ function lineFrom(list: string, id: string, r: Row): AnyLine {
     const km = num(r[c('km')]) !== null ? { distanceKm: num(r[c('km')]) } : {}
     return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]), ...car, ...km } as Scope1Line
   }
-  return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]) } as ActivityLine
+  const location = optStr(r[c('lokationid')]) ? { locationId: str(r[c('lokationid')]) } : {}
+  return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]), ...location } as ActivityLine
 }
 
 function vehicleFrom(id: string, r: Row): Vehicle {

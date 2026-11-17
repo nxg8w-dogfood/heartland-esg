@@ -956,6 +956,20 @@ ul.plain {
   margin-top: var(--hl-sp-4);
 }
 
+/* A category's lines, folded behind a summary when an import fills them (category 5). */
+.lines-details {
+  margin-bottom: var(--hl-sp-4);
+}
+
+.lines-details > summary {
+  cursor: pointer;
+  padding: var(--hl-sp-2) 0;
+}
+
+.lines-details[open] > summary {
+  margin-bottom: var(--hl-sp-3);
+}
+
 /* Saving, fixed in the corner so it's visible from anywhere on a long page (an import saves
    thousands of records). */
 .save-indicator {

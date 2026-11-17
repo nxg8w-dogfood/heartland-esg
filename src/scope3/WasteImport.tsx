@@ -1,8 +1,10 @@
 // Category 5 from the waste hauler's quantity report (src/calc/wasteReport.ts). Nothing changes
-// until the preview is accepted; a new report for the same months replaces the earlier import.
+// until the preview is accepted. The lines go to the address the user picks, and a new report for
+// the same months and address replaces the earlier import.
 
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import type { ActivityGroup, ActivityLine } from '../calc/activity'
+import type { Location } from '../calc/scope2'
 import { ImportFileError, readGrid } from '../calc/importFile'
 import {
   monthLabel, parseWasteReport, planWasteLines, wasteGroupFor, WasteReportError, type WasteReport,
@@ -12,8 +14,10 @@ import { newId } from '../newId'
 
 type Loaded = { fileName: string; report: WasteReport }
 
-export function WasteImport({ groups, lines, setLines }: {
+export function WasteImport({ groups, locations, lines, setLines }: {
   groups: readonly ActivityGroup[]
+  /** The company's addresses (Scope 2 locations); the import asks which one the report is for */
+  locations: readonly Location[]
   lines: ActivityLine[]
   setLines: Dispatch<SetStateAction<ActivityLine[]>>
 }) {
@@ -23,10 +27,16 @@ export function WasteImport({ groups, lines, setLines }: {
   const [error, setError] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
   const [done, setDone] = useState<string | null>(null)
+  const [picked, setPicked] = useState('')
+
+  // With one address it's preselected; with several the user must pick; with none the lines have none.
+  const locationId = locations.some((l) => l.id === picked) ? picked : locations.length === 1 ? locations[0].id : ''
+  const needsLocation = locations.length > 0 && !locationId
+  const location = locations.find((l) => l.id === locationId)
 
   const plan = useMemo(
-    () => (loaded ? planWasteLines(loaded.report, chosen, lines, groups) : null),
-    [loaded, chosen, lines, groups],
+    () => (loaded ? planWasteLines(loaded.report, chosen, locationId || null, lines, groups) : null),
+    [loaded, chosen, locationId, lines, groups],
   )
 
   async function read(file: File) {
@@ -63,6 +73,7 @@ export function WasteImport({ groups, lines, setLines }: {
     const tonnes = added.reduce((s, l) => s + (l.quantity ?? 0), 0)
     setDone(
       `${formatNumber(added.length, 0)} linjer (${formatNumber(tonnes, 3)} tons) importeret for ${loaded.report.periodLabel}` +
+      (location ? ` til ${location.name}` : '') +
       (replaced.size > 0 ? `; ${formatNumber(replaced.size, 0)} linjer fra en tidligere import er erstattet.` : '.'),
     )
     cancel()
@@ -77,7 +88,7 @@ export function WasteImport({ groups, lines, setLines }: {
       <p className="muted">
         Læg mængderapporten pr. affaldstype ind (fx fra Marius Pedersen) — én række pr. affaldstype og
         behandlingsform, én kolonne pr. måned, i kg. Hver måned bliver en linje, så en rapport, der går over et årsskifte,
-        fordeles på de rigtige år. En ny rapport for de samme måneder erstatter den forrige import.
+        fordeles på de rigtige år. En ny rapport for de samme måneder og den samme adresse erstatter den forrige import.
       </p>
 
       <div className="field wide">
@@ -105,6 +116,18 @@ export function WasteImport({ groups, lines, setLines }: {
             {formatNumber(report.rows.length, 0)} affaldstyper
           </p>
 
+          {locations.length > 0 && (
+            <div className="field">
+              <label htmlFor={`${id}-location`}>Adresse (lokation)</label>
+              <select id={`${id}-location`} value={locationId} onChange={(e) => setPicked(e.target.value)}>
+                {!locationId && <option value="">Vælg adresse …</option>}
+                {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
+          )}
+          {locations.length === 0 && (
+            <p className="muted">Virksomheden har ingen lokationer endnu, så linjerne får ingen adresse. Lokationer oprettes under Scope 2.</p>
+          )}
 
           {report.totalMismatches.length > 0 && (
             <p className="warning">
@@ -155,12 +178,12 @@ export function WasteImport({ groups, lines, setLines }: {
 
           {plan.replaces.length > 0 && (
             <p className="muted">
-              {formatNumber(plan.replaces.length, 0)} linjer fra en tidligere import i de samme måneder bliver erstattet.
+              {formatNumber(plan.replaces.length, 0)} linjer fra en tidligere import i de samme måneder{location ? ` til ${location.name}` : ''} bliver erstattet.
             </p>
           )}
 
           <div className="actions">
-            <button type="button" disabled={plan.lines.length === 0} onClick={apply}>
+            <button type="button" disabled={plan.lines.length === 0 || needsLocation} onClick={apply}>
               Importér {formatNumber(plan.lines.length, 0)} linjer
             </button>{' '}
             <button type="button" className="secondary" onClick={cancel}>Annullér</button>

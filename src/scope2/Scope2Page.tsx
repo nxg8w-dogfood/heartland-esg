@@ -34,9 +34,12 @@ type Props = {
   setLocations: Dispatch<SetStateAction<Location[]>>
   lines: Scope2Line[]
   setLines: Dispatch<SetStateAction<Scope2Line[]>>
+  /** Waste lines (category 5) that point at a location; deleting the location clears their address */
+  wasteLines?: readonly { locationId?: string | null }[]
+  onLocationDeleted?: (locationId: string) => void
 }
 
-export function Scope2Page({ period, factors, locations, setLocations, lines, setLines }: Props) {
+export function Scope2Page({ period, factors, locations, setLocations, lines, setLines, wasteLines = [], onLocationDeleted }: Props) {
   const { confirm, dialog } = useConfirm()
   const summary = useMemo(() => scope2Summary(locations, lines, factors, period), [locations, lines, factors, period])
   const shownCount = summary.locations.reduce((n, l) => n + l.electricity.length + l.heating.length, 0)
@@ -46,12 +49,15 @@ export function Scope2Page({ period, factors, locations, setLocations, lines, se
     setLocations((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)))
   const deleteLocation = async (location: Location) => {
     const count = lines.filter((l) => l.locationId === location.id).length
-    const message = count
+    const waste = wasteLines.filter((l) => l.locationId === location.id).length
+    const message = (count
       ? `Slet ${location.name} og dens ${count} ${count === 1 ? 'linje' : 'linjer'}?`
-      : `Slet ${location.name}?`
+      : `Slet ${location.name}?`) +
+      (waste ? ` ${waste} ${waste === 1 ? 'affaldslinje' : 'affaldslinjer'} i Scope 3 beholdes, men mister adressen.` : '')
     if (!(await confirm(message, 'Slet lokation'))) return
     setLocations((ls) => ls.filter((l) => l.id !== location.id))
     setLines((ls) => ls.filter((l) => l.locationId !== location.id))
+    onLocationDeleted?.(location.id)
   }
 
   return (

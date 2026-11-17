@@ -263,6 +263,8 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChan
           setLocations={setLocations}
           lines={scope2Lines}
           setLines={setScope2Lines}
+          wasteLines={cat5Lines}
+          onLocationDeleted={(id) => setCat5Lines((ls) => ls.map((l) => (l.locationId === id ? { ...l, locationId: null } : l)))}
         />
       )}
       {page === 'scope3' && (
