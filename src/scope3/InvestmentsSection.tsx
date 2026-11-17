@@ -1,4 +1,4 @@
-import { useId, type Dispatch, type SetStateAction } from 'react'
+import { useId, useState, type Dispatch, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
 import type { Period } from '../calc/dates'
 import { investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
@@ -102,8 +102,20 @@ function InvestmentCard({ result, counted, onChange, onDelete }: { result: Inves
           ? inv.basis === 'Investment' ? 'Datagrundlaget "Investment" beregnes ikke — vælg CO2e eller omsætning' : 'Mangler data'
           : null
 
+  // Folded to one line, so an import of a hundred holdings stays readable. A new, empty one
+  // opens, since it has to be filled in.
+  const [open, setOpen] = useState(inv.company === '')
+
   return (
-    <article className="card" aria-labelledby={`${id}-name-label`}>
+    <details className="card investment-details" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>
+        <span className="investment-name">{inv.company || 'Ny investering'}</span>
+        <span className="muted">
+          {' '}· {result.year ?? 'uden dato'} · {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
+          {' '}· {formatNumber(result.kgCO2e / 1000, 3)} tCO2e
+        </span>
+        {status && <span className="pending"> · {status}</span>}
+      </summary>
       <div className="location-settings">
         <div className="field">
           <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Selskab</label>
@@ -170,6 +182,6 @@ function InvestmentCard({ result, counted, onChange, onDelete }: { result: Inves
         {' '}· {formatNumber(result.yearShare * 100, 1)} % af året i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
         {status && <> — <strong>{status}</strong></>}
       </p>
-    </article>
+    </details>
   )
 }
