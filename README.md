@@ -160,6 +160,10 @@ npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com --dry-run
 npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com
 ```
 
+Dev is shared with branches that aren't merged yet. If the dry run would remove privileges on a
+table that a branch added, apply only the tables and columns with `--no-roles`, so that branch's
+access stays.
+
 The app selects every column in the schema when it loads, so an environment that is behind the
 code fails to load entirely. The deploy checks for that before it publishes and stops if anything
 is missing (ADR 0020). To ask the same question yourself, without changing anything:

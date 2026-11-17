@@ -105,6 +105,14 @@
           "x-ms-dataverse-type": "DecimalType",
           "x-ms-schema-name": "hlesg_Ejerandel"
         },
+        "hlesg_faktorid": {
+          "type": "string",
+          "title": "Faktor",
+          "x-ms-dataverse-attribute": "hlesg_faktorid",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "hlesg_Faktorid",
+          "maxLength": 100
+        },
         "hlesg_faktorkilde": {
           "type": "string",
           "title": "Faktorkilde",

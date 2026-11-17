@@ -1,8 +1,10 @@
 import { useId, useState, type Dispatch, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
+import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
-import { investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
-import { formatNumber } from '../format'
+import { investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
+import { factorLabel } from '../factors/label'
+import { formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
 import { useConfirm } from '../confirm'
@@ -19,11 +21,20 @@ type Props = {
   investments: Investment[]
   setInvestments: Dispatch<SetStateAction<Investment[]>>
   period: Period
+  /** The company's factor table: the spend factors per EUR are offered for revenue */
+  factors: readonly Factor[]
 }
 
-export function InvestmentsSection({ cat15, investments, setInvestments, period }: Props) {
+/** "Other business services (Sverige) · 0,0768" — what a factor is and its value, in a list. */
+const optionLabel = (f: Factor) => `${factorLabel(f)} · ${f.value === null ? 'værdi mangler' : formatFactor(f.value)}`
+
+/** A holding on revenue with no factor of any kind: what the bulk choice fills in. */
+const withoutFactor = (i: Investment) => i.basis === 'Revenue' && !i.factorId && i.factorKgPerEUR === null
+
+export function InvestmentsSection({ cat15, investments, setInvestments, period, factors }: Props) {
   const defaultDate = period.end
   const id = useId()
+  const options = investmentFactors(factors)
   const counted = new Set(cat15.rows.map((r) => r.investment.id))
   const update = (invId: string, patch: Partial<Investment>) =>
     setInvestments((is) => is.map((i) => (i.id === invId ? { ...i, ...patch } : i)))
@@ -37,6 +48,11 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period 
         <button type="button" onClick={() => setInvestments((is) => [...is, blank(defaultDate)])}>Ny investering</button>
       </div>
       <InvestmentsImport investments={investments} setInvestments={setInvestments} />
+      <BulkFactor
+        count={investments.filter(withoutFactor).length}
+        options={options}
+        onApply={(factorId) => setInvestments((is) => is.map((i) => (withoutFactor(i) ? { ...i, factorId } : i)))}
+      />
       <p className="muted">
         Den forholdsmæssige andel af investeringernes udledninger: selskabets udledning × ejerandel.
         Kun ejerandele på højst 50 % tæller med; større ejerandele er konsolideret i Scope 1 og 2.
@@ -68,7 +84,8 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period 
       {investments.map((inv) => (
         <InvestmentCard
           key={inv.id}
-          result={investmentResult(inv, currencyRates, period)}
+          result={investmentResult(inv, currencyRates, period, factors)}
+          options={options}
           counted={counted.has(inv.id)}
           onChange={(patch) => update(inv.id, patch)}
           onDelete={async () => {
@@ -89,7 +106,37 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period 
   )
 }
 
-function InvestmentCard({ result, counted, onChange, onDelete }: { result: InvestmentResult; counted: boolean; onChange: (patch: Partial<Investment>) => void; onDelete: () => void }) {
+/**
+ * One factor for every holding on revenue that has none: an import brings in dozens at once, and
+ * most get the same EXIOBASE sector. Each can be changed on its own afterwards.
+ */
+function BulkFactor({ count, options, onApply }: { count: number; options: readonly Factor[]; onApply: (factorId: string) => void }) {
+  const id = useId()
+  const [factorId, setFactorId] = useState('')
+  if (count === 0 || options.length === 0) return null
+  return (
+    <div className="bulk-factor">
+      <div className="field">
+        <label htmlFor={`${id}-factor`}>Faktor til investeringer uden faktor</label>
+        <select id={`${id}-factor`} value={factorId} onChange={(e) => setFactorId(e.target.value)}>
+          <option value="">Vælg faktor …</option>
+          {options.map((f) => <option key={f.id} value={f.id}>{optionLabel(f)}</option>)}
+        </select>
+      </div>
+      <button type="button" disabled={!factorId} onClick={() => { onApply(factorId); setFactorId('') }}>
+        Brug på {formatNumber(count, 0)} {count === 1 ? 'investering' : 'investeringer'}
+      </button>
+    </div>
+  )
+}
+
+function InvestmentCard({ result, options, counted, onChange, onDelete }: {
+  result: InvestmentResult
+  options: readonly Factor[]
+  counted: boolean
+  onChange: (patch: Partial<Investment>) => void
+  onDelete: () => void
+}) {
   const id = useId()
   const inv = result.investment
   const status = !counted
@@ -99,7 +146,8 @@ function InvestmentCard({ result, counted, onChange, onDelete }: { result: Inves
       : !result.included
         ? '> 50 % — konsolideret i Scope 1 og 2, tæller ikke med her'
         : result.pending
-          ? inv.basis === 'Investment' ? 'Datagrundlaget "Investment" beregnes ikke — vælg CO2e eller omsætning' : 'Mangler data'
+          ? inv.basis === 'Investment' ? 'Datagrundlaget "Investment" beregnes ikke — vælg CO2e eller omsætning'
+            : inv.basis === 'Revenue' && result.factorKgPerEUR === null ? 'Faktor mangler' : 'Mangler data'
           : null
 
   // Folded to one line, so an import of a hundred holdings stays readable. A new, empty one
@@ -163,11 +211,31 @@ function InvestmentCard({ result, counted, onChange, onDelete }: { result: Inves
               </select>
             </div>
             <NumberField label="Kurs (DKK pr. enhed)" value={inv.rateLocalToDKK} onCommit={(v) => onChange({ rateLocalToDKK: v })} />
-            <NumberField label="Faktor (kg CO2e pr. EUR)" value={inv.factorKgPerEUR} onCommit={(v) => onChange({ factorKgPerEUR: v })} />
             <div className="field">
-              <label htmlFor={`${id}-fsrc`}>Faktorkilde</label>
-              <input id={`${id}-fsrc`} value={inv.factorSource} onChange={(e) => onChange({ factorSource: e.target.value })} />
+              <label htmlFor={`${id}-factor`}>Faktor</label>
+              <select id={`${id}-factor`} value={inv.factorId ?? ''} onChange={(e) => onChange({ factorId: e.target.value || null })}>
+                <option value="">Egen faktor</option>
+                {/* A factor that is no longer offered stays chosen, so nothing changes silently. */}
+                {inv.factorId && !options.some((f) => f.id === inv.factorId) && <option value={inv.factorId}>{factorLabel(result.factor) || inv.factorId}</option>}
+                {options.map((f) => <option key={f.id} value={f.id}>{optionLabel(f)}</option>)}
+              </select>
             </div>
+            {inv.factorId ? (
+              <p className="field">
+                {result.factorKgPerEUR === null
+                  ? <span className="pending">Faktorens værdi mangler — angiv den på Faktorer-siden</span>
+                  : <>{formatFactor(result.factorKgPerEUR)} kg CO2e pr. EUR</>}
+                {result.factor && <span className="sub">{result.factor.source}</span>}
+              </p>
+            ) : (
+              <>
+                <NumberField label="Egen faktor (kg CO2e pr. EUR)" value={inv.factorKgPerEUR} onCommit={(v) => onChange({ factorKgPerEUR: v })} />
+                <div className="field">
+                  <label htmlFor={`${id}-fsrc`}>Faktorkilde</label>
+                  <input id={`${id}-fsrc`} value={inv.factorSource} onChange={(e) => onChange({ factorSource: e.target.value })} />
+                </div>
+              </>
+            )}
           </>
         )}
         <div className="field">

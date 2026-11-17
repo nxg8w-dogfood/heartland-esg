@@ -956,6 +956,15 @@ ul.plain {
   margin-top: var(--hl-sp-4);
 }
 
+/* One factor for every category 15 holding without one: the field and its button on a line. */
+.bulk-factor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--hl-sp-4);
+  margin-bottom: var(--hl-sp-5);
+}
+
 /* A category 15 holding, folded to one line: name, year, ownership, tCO2e and what's missing. */
 .investment-details > summary {
   cursor: pointer;
