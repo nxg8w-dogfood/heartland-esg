@@ -956,6 +956,19 @@ ul.plain {
   margin-top: var(--hl-sp-4);
 }
 
+/* A category 15 holding, folded to one line: name, year, ownership, tCO2e and what's missing. */
+.investment-details > summary {
+  cursor: pointer;
+}
+
+.investment-details[open] > summary {
+  margin-bottom: var(--hl-sp-4);
+}
+
+.investment-name {
+  font-weight: var(--hl-fw-bold);
+}
+
 /* A category's lines, folded behind a summary when an import fills them (category 5). */
 .lines-details {
   margin-bottom: var(--hl-sp-4);
