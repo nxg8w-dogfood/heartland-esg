@@ -78,7 +78,7 @@ export function accountDetails(account: AccountData, factors: readonly Factor[],
   if (relevant(7) && cat7.yearsWithoutSurvey.length) issues.push(`Kategori 7 mangler en pendlerundersøgelse for ${cat7.yearsWithoutSurvey.join(', ')}`)
   if (relevant(7) && cat7.duplicateYears.length) issues.push(`Kategori 7 har flere undersøgelser for ${cat7.duplicateYears.join(', ')}`)
   if (relevant(15) && cat15.pendingCount) issues.push(`${cat15.pendingCount} investeringer i kategori 15 mangler data`)
-  if (relevant(15) && cat15.duplicates.length) issues.push(`Kategori 15 har den samme investering flere gange for samme år`)
+  if (relevant(15) && cat15.duplicates.length) issues.push(`Kategori 15 har den samme investering flere gange for de samme måneder`)
   const notCalculated = scope3Categories.filter((c) => relevant(c.nr) && !(calculatedCategories as readonly number[]).includes(c.nr))
   if (notCalculated.length) issues.push(`Scope 3-kategori ${notCalculated.map((c) => c.nr).join(', ')} er markeret relevant, men beregnes ikke i appen endnu`)
   const noReason = scope3Categories.filter((c) => !account.relevance[c.nr]?.reason.trim())

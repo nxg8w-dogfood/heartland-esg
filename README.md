@@ -68,11 +68,15 @@ header block the system writes (`Account Internal` says which measure the file h
 | --- | --- |
 | Ownership Percentage | Ejerandel (%), and which holdings are category 15 at all |
 | Net Turnover | Omsætning (DKK); the credit is negated |
-| Investment Amount | Shown in the preview only — see ADR 0017, decision 8 |
+| Investment Amount | Investering (DKK), the basis for amount × sector factor (ADR 0022) |
 
 Add the files one at a time, pick the period, and check the preview before importing. Only
 holdings of 50 % or less are imported; the rest are consolidated in Scope 1 and 2. Imported
 holdings stay *Mangler data* until a factor (kg CO2e per EUR) is chosen.
+
+Each holding is dated on the last day of the period and covers the 12 months up to that date
+(ADR 0023). Pick **July** for Heartland's fiscal year August–July; a YTD export of another month
+covers less than 12 months and is flagged.
 
 ### Update the exchange rates
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayValue, periodShare } from './dates'
+import { dayValue, periodShare, twelveMonthsTo } from './dates'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 
@@ -59,5 +59,23 @@ describe('dayValue', () => {
   it('is NaN for empty input', () => {
     expect(dayValue('')).toBeNaN()
     expect(dayValue(null)).toBeNaN()
+  })
+})
+
+describe('twelveMonthsTo', () => {
+  it('is the 12 months that end on the date', () => {
+    expect(twelveMonthsTo('2026-07-31')).toEqual({ start: '2025-08-01', end: '2026-07-31' })
+    expect(twelveMonthsTo('2025-12-31')).toEqual({ start: '2025-01-01', end: '2025-12-31' })
+    expect(twelveMonthsTo('2025-06-30')).toEqual({ start: '2024-07-01', end: '2025-06-30' })
+  })
+
+  it('handles leap days on either side', () => {
+    expect(twelveMonthsTo('2024-02-29')).toEqual({ start: '2023-03-01', end: '2024-02-29' })
+    expect(twelveMonthsTo('2025-02-28')).toEqual({ start: '2024-02-29', end: '2025-02-28' })
+  })
+
+  it('is null for an invalid date', () => {
+    expect(twelveMonthsTo('')).toBeNull()
+    expect(twelveMonthsTo('ukendt')).toBeNull()
   })
 })

@@ -47,7 +47,9 @@ Alfa Holding        1,00          1,00
    ownership, revenue and investment amount that would be written, and whether it's new or an
    update.
 5. **A company already in the same calendar year is updated; another year is a new row,**
-   because each holding stands for the calendar year it's dated in.
+   because each holding stands for the calendar year it's dated in. *Superseded 2026-11-17 by
+   ADR 0023: a holding covers the 12 months up to its date, and the import updates the same
+   company on the same date.*
 6. **Net Turnover is negated.** Income is a credit in the source system, so it arrives negative.
 7. **Ownership is read as a share (1,00 = 100 %)** when most values are at most 1, and as a
    percentage otherwise. It was "every value" until 2026-11-17, when a real export's
@@ -90,6 +92,7 @@ Alfa Holding        1,00          1,00
 - Imported holdings don't count until a factor is chosen, so the category 15 total stays 0 until
   the ESG owner has been through them.
 - YTD exports are flagged: category 15 treats revenue as an annual figure, so a year-to-date
-  column understates a full year.
+  column understates a full year. Since ADR 0023 the flag is shown only when the period isn't
+  July, the last month of the fiscal year.
 - This ADR stays **Proposed** until the ESG owner has run it on a real export and @mortengad has
   accepted the mapping.

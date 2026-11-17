@@ -2,7 +2,7 @@ import { useId, useState, type Dispatch, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
-import { investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
+import { coverLabel, investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
 import { factorLabel } from '../factors/label'
 import { formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
@@ -58,15 +58,16 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
         større ejerandele er konsolideret i Scope 1 og 2. Har selskabet et klimaregnskab, bruges dets
         udledning i kg CO2e × ejerandel. Ellers skønnes udledningen som investeringsbeløbet i EUR × en
         branchefaktor pr. EUR, som datamanualen foreskriver — eller, som i den oprindelige app, omsætning i
-        EUR × faktor × ejerandel. Tallene er årstal: hver investering gælder for det kalenderår, den er
-        dateret i, og tæller med for den del af året, der ligger i perioden.
+        EUR × faktor × ejerandel. Tallene er årstal: hver investering dækker de 12 måneder til og med dens
+        dato — 31. juli for regnskabsåret august–juli, 31. december for et kalenderår — og tæller med for
+        den del, der ligger i perioden.
       </p>
 
       {cat15.duplicates.length > 0 && (
         <p className="warning">
-          <strong>Samme selskab flere gange for samme år:</strong>{' '}
-          {cat15.duplicates.map((d) => `${d.company} (${d.year})`).join(', ')}. Hver linje tæller med, så
-          året tælles dobbelt.
+          <strong>Samme selskab flere gange for de samme måneder:</strong>{' '}
+          {cat15.duplicates.map((d) => `${d.company} (${d.covers})`).join(', ')}. Hver linje tæller med, så
+          de måneder, der overlapper, tælles dobbelt.
         </p>
       )}
       {cat15.pendingCount > 0 && (
@@ -141,7 +142,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
   const id = useId()
   const inv = result.investment
   const status = !counted
-    ? `${result.year ?? 'Datoens år'} ligger uden for perioden — tæller ikke med`
+    ? `${coverLabel(result.covers)} ligger uden for perioden — tæller ikke med`
     : inv.ownershipPct === null
       ? 'Angiv ejerandel'
       : !result.included
@@ -161,7 +162,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
       <summary>
         <span className="investment-name">{inv.company || 'Ny investering'}</span>
         <span className="muted">
-          {' '}· {result.year ?? 'uden dato'} · {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
+          {' '}· {coverLabel(result.covers)} · {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
           {' '}· {formatNumber(result.kgCO2e / 1000, 3)} tCO2e
         </span>
         {status && <span className="pending"> · {status}</span>}
@@ -172,7 +173,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
           <input id={`${id}-name`} value={inv.company} onChange={(e) => onChange({ company: e.target.value })} />
         </div>
         <div className="field">
-          <label htmlFor={`${id}-date`}>Dato</label>
+          <label htmlFor={`${id}-date`}>Opgjort til og med<span className="optional"> (dækker 12 mdr.)</span></label>
           <input id={`${id}-date`} type="date" value={inv.date} onChange={(e) => onChange({ date: e.target.value })} />
         </div>
         <NumberField label="Ejerandel (%)" value={inv.ownershipPct} onCommit={(v) => onChange({ ownershipPct: v })} />
@@ -256,8 +257,8 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
       <p className={status ? 'warning' : 'muted'}>
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
         {inv.basis === 'Investment' && result.investmentEUR !== null && <>Investeret {formatNumber(result.investmentEUR, 0)} EUR · </>}
-        Ejerandel {formatNumber(result.share * 100, 1)} % · hele {result.year ?? 'året'}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
-        {' '}· {formatNumber(result.yearShare * 100, 1)} % af året i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
+        Ejerandel {formatNumber(result.share * 100, 1)} % · hele {coverLabel(result.covers)}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
+        {' '}· {formatNumber(result.shareInPeriod * 100, 1)} % af de 12 måneder i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
         {status && <> — <strong>{status}</strong></>}
       </p>
     </details>

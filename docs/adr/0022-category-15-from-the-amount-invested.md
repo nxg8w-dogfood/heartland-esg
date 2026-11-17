@@ -61,5 +61,5 @@ The manual names no database or list.
   OrganizationID.
 - `hlesg_investeringdkk` has to be applied to each environment (ADR 0007) before this ships
   there. The deploy stops if it's missing (ADR 0020).
-- The fiscal-year question (the manual reports 1 August – 31 July, while the app counts a holding
-  for the calendar year it's dated in) is still open, and is decided separately.
+- The fiscal-year question (the manual reports 1 August – 31 July, while the app counted a
+  holding for the calendar year it's dated in) is decided in ADR 0023.

@@ -17,7 +17,7 @@ const company = (name: string, account: AccountData, ownership = [{ fromYear: 20
 const groupOf = (...companies: Company[]): GroupData => ({ version: GROUP_VERSION, name: 'G', companies, activeCompanyId: companies[0].id, activePeriodId: companies[0].account.periods[0].id })
 const builtin = () => factors
 const holding = (o: Partial<Investment>): Investment => ({
-  id: 'i1', date: '2025-06-30', company: 'Datter ApS', ownershipPct: 30, accountingMethod: 'Ass.', climateMethod: '', dataSource: '',
+  id: 'i1', date: '2025-12-31', company: 'Datter ApS', ownershipPct: 30, accountingMethod: 'Ass.', climateMethod: '', dataSource: '',
   basis: 'CO2e', totalKgCO2e: 100_000, revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null,
   investmentDKK: null, factorKgPerEUR: null, factorSource: '', country: 'Danmark', ...o,
 })
