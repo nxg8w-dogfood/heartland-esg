@@ -33,9 +33,13 @@ Alfa Holding        1,00          1,00
    reshaped file. `Account Internal` says which measure the file holds, the first row with a
    label and at least one period heading is the header row, and everything below it is an
    entity. The rest of the header block is kept and shown, so the user can check what they
-   picked in the source system.
-2. **One file per measure, joined on the entity name.** The ESG owner adds the files one at a
-   time; a second file for the same measure replaces the first.
+   picked in the source system. Empty columns in front are dropped, because the Excel add-in
+   saves the grid at C3 (added 2026-11-17). The cube's own rows that aren't entities,
+   *Not Available* and *(Transactions on …)*, are skipped.
+2. **One export per measure, joined on the entity name.** The ESG owner adds the files one at a
+   time; a second export of the same measure replaces the first. A workbook can hold every
+   measure, one per sheet. Each sheet is read, and sheets that aren't exports (the add-in's
+   *XLCubedFormats*) are passed over (added 2026-11-17).
 3. **Only holdings of 50 % or less become category 15 rows.** Larger ones are consolidated into
    Scope 1 and 2, as ADR 0006 and `src/calc/investments.ts` already say. They're listed in the
    preview as *Konsolideret — ikke kategori 15*, not imported.
@@ -45,9 +49,12 @@ Alfa Holding        1,00          1,00
 5. **A company already in the same calendar year is updated; another year is a new row,**
    because each holding stands for the calendar year it's dated in.
 6. **Net Turnover is negated.** Income is a credit in the source system, so it arrives negative.
-7. **Ownership is read as a share (1,00 = 100 %)** when every value is at most 1, and as a
-   percentage otherwise. The preview shows the resulting percentage, so a wrong reading is
-   visible before anything is imported.
+7. **Ownership is read as a share (1,00 = 100 %)** when most values are at most 1, and as a
+   percentage otherwise. It was "every value" until 2026-11-17, when a real export's
+   *Not Available* row (45,45) turned every 100 % holding into 1 %. The preview shows the
+   resulting percentage, so a wrong reading is visible before anything is imported. A share
+   that rounds to 0,0000 % or below, which is what's left of a sold holding, counts as no
+   holding.
 8. **Investment Amount is shown but not calculated from.** The app's `Investment` basis has
    never been calculated (`src/calc/investments.ts`): the GHG Protocol's investment-specific
    method needs the investee's own emissions, or revenue × a factor. Using the amount itself

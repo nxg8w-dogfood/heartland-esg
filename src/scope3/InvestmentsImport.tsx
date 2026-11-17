@@ -1,17 +1,19 @@
 // Category 15 from the group's consolidation system (docs/adr/0017). The ESG owner exports one
 // sheet per measure — ownership percentage, net turnover, investment amount — and drops them in
-// here. Nothing changes until the preview is accepted.
+// here, as separate files or as sheets of one workbook. Nothing changes until the preview is
+// accepted.
 
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
   CONSOLIDATED_ABOVE_PCT, GroupExportError, measureLabels, parseGroupExport, periodEndDate, planInvestments,
   planStatusLabels, type GroupExport, type PlanRow,
 } from '../calc/groupExport'
-import { ImportFileError, readGrid } from '../calc/importFile'
+import { ImportFileError, readSheets } from '../calc/importFile'
 import type { Investment } from '../calc/investments'
 import { formatNumber } from '../format'
 import { newId } from '../newId'
 
+/** One measure, from a file or from one sheet of a workbook */
 type Loaded = { fileName: string; export: GroupExport }
 
 const PREVIEW = 10
@@ -46,10 +48,27 @@ export function InvestmentsImport({ investments, setInvestments }: {
     setReading(true)
     setDone(null)
     try {
-      const parsed = parseGroupExport(await readGrid(file))
+      // A workbook can hold every measure, one per sheet, next to sheets that are no export at
+      // all (the Excel add-in's own formats). Those are passed over; the file fails only when no
+      // sheet is an export, with the reason the first sheet gave.
+      const sheets = await readSheets(file)
+      const loaded: Loaded[] = []
+      let firstError: unknown = null
+      for (const sheet of sheets) {
+        try {
+          const parsed = parseGroupExport(sheet.grid)
+          if (!loaded.some((l) => l.export.measureText === parsed.measureText)) {
+            loaded.push({ fileName: sheets.length > 1 ? `${file.name} › ${sheet.name}` : file.name, export: parsed })
+          }
+        } catch (err) {
+          if (!(err instanceof GroupExportError)) throw err
+          firstError ??= err
+        }
+      }
+      if (loaded.length === 0) throw firstError ?? new GroupExportError('Filen indeholder ingen ark.')
       setError(null)
-      setFiles((fs) => [...fs.filter((f) => f.export.measureText !== parsed.measureText), { fileName: file.name, export: parsed }])
-      setPeriodLabel((p) => p || parsed.periods[0]?.label || '')
+      setFiles((fs) => [...fs.filter((f) => !loaded.some((l) => l.export.measureText === f.export.measureText)), ...loaded])
+      setPeriodLabel((p) => p || loaded[0].export.periods[0]?.label || '')
     } catch (err) {
       setError(
         err instanceof GroupExportError || err instanceof ImportFileError
@@ -96,7 +115,8 @@ export function InvestmentsImport({ investments, setInvestments }: {
       <p className="muted">
         Eksportér ét nøgletal ad gangen fra koncernsystemet — <strong>Ownership Percentage</strong>,{' '}
         <strong>Net Turnover</strong> og eventuelt <strong>Investment Amount</strong> — med selskaberne som rækker og
-        perioder som kolonner. Læg filerne ind her én ad gangen; de samles på selskabsnavnet. Kun ejerandele på højst{' '}
+        perioder som kolonner. Læg filerne ind her én ad gangen, eller én projektmappe med et ark pr. nøgletal; de
+        samles på selskabsnavnet. Kun ejerandele på højst{' '}
         {CONSOLIDATED_ABOVE_PCT} % oprettes som kategori 15.
       </p>
 
