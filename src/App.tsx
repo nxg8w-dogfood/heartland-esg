@@ -14,6 +14,7 @@ import { factorPublications } from './data/factorPublications'
 import { factors as baseFactors } from './data/factors'
 import { FactorsPage } from './factors/FactorsPage'
 import { GroupPage } from './group/GroupPage'
+import { CompanyOverviewPage } from './overview/CompanyOverviewPage'
 import { LedgerPage } from './ledger/LedgerPage'
 import type { LedgerState } from './ledger/state'
 import { Scope1Header } from './scope1/Scope1Header'
@@ -248,6 +249,7 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChan
 
   return (
     <>
+      {page === 'oversigt' && <CompanyOverviewPage account={account} factors={factors} period={period} />}
       {page === 'scope1' && (
         <>
           <Scope1Header subpage={scope1Subpage} />

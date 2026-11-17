@@ -10,7 +10,6 @@ describe('Scope 1 addresses', () => {
   it('keeps Scope 1 as the page for every sub-page', () => {
     expect(pageFromHash('#/scope1')).toBe('scope1')
     expect(pageFromHash('#/scope1/bilpark')).toBe('scope1')
-    expect(pageFromHash('')).toBe('scope1')
   })
 
   it('reads the sub-page, and falls back to the emission lines', () => {
@@ -33,7 +32,7 @@ describe('Scope 1 addresses', () => {
 describe('Bilpark under Scope 1', () => {
   it('is no longer a page of its own in the header', () => {
     expect(pages.map((p) => p.id)).not.toContain('bilpark')
-    expect(pages.map((p) => p.id)).toEqual(['koncern', 'scope1', 'scope2', 'scope3', 'kontoplan', 'faktorer'])
+    expect(pages.map((p) => p.id)).toEqual(['koncern', 'oversigt', 'scope1', 'scope2', 'scope3', 'kontoplan', 'faktorer'])
   })
 
   it('sends the old address, and anything below it, to its new one', () => {

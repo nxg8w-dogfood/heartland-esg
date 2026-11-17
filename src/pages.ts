@@ -1,6 +1,7 @@
 /** The app's top-level pages, in the order of the header navigation. */
 export const pages = [
   { id: 'koncern', label: 'Koncern' },
+  { id: 'oversigt', label: 'Oversigt' },
   { id: 'scope1', label: 'Scope 1' },
   { id: 'scope2', label: 'Scope 2' },
   { id: 'scope3', label: 'Scope 3' },
@@ -10,10 +11,10 @@ export const pages = [
 export type PageId = (typeof pages)[number]['id']
 export type CompanyPageId = Exclude<PageId, 'koncern'>
 
-/** The page `#/<page>` or `#/<page>/<sub-page>` points at; Scope 1 when it points at none. */
+/** The page `#/<page>` or `#/<page>/<sub-page>` points at; the company overview when it points at none. */
 export const pageFromHash = (hash: string): PageId => {
   const [id] = hash.replace(/^#\/?/, '').split('/')
-  return pages.some((p) => p.id === id) ? (id as PageId) : 'scope1'
+  return pages.some((p) => p.id === id) ? (id as PageId) : 'oversigt'
 }
 
 /** Addresses that moved, by their old first part: Bilpark became a page under Scope 1. */
