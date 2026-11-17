@@ -5,7 +5,7 @@ import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 're
 import type { ActivityGroup, ActivityLine } from '../calc/activity'
 import { ImportFileError, readGrid } from '../calc/importFile'
 import {
-  monthLabel, parseWasteReport, planWasteLines, wasteGroupFor, WasteReportError, type WasteReport, type WasteUnit,
+  monthLabel, parseWasteReport, planWasteLines, wasteGroupFor, WasteReportError, type WasteReport,
 } from '../calc/wasteReport'
 import { formatNumber } from '../format'
 import { newId } from '../newId'
@@ -20,14 +20,13 @@ export function WasteImport({ groups, lines, setLines }: {
   const id = useId()
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const [chosen, setChosen] = useState<(string | null)[]>([])
-  const [unit, setUnit] = useState<WasteUnit>('kg')
   const [error, setError] = useState<string | null>(null)
   const [reading, setReading] = useState(false)
   const [done, setDone] = useState<string | null>(null)
 
   const plan = useMemo(
-    () => (loaded ? planWasteLines(loaded.report, chosen, unit, lines, groups) : null),
-    [loaded, chosen, unit, lines, groups],
+    () => (loaded ? planWasteLines(loaded.report, chosen, lines, groups) : null),
+    [loaded, chosen, lines, groups],
   )
 
   async function read(file: File) {
@@ -77,7 +76,7 @@ export function WasteImport({ groups, lines, setLines }: {
       <summary>Importér mængderapport fra affaldsleverandøren</summary>
       <p className="muted">
         Læg mængderapporten pr. affaldstype ind (fx fra Marius Pedersen) — én række pr. affaldstype og
-        behandlingsform, én kolonne pr. måned. Hver måned bliver en linje, så en rapport, der går over et årsskifte,
+        behandlingsform, én kolonne pr. måned, i kg. Hver måned bliver en linje, så en rapport, der går over et årsskifte,
         fordeles på de rigtige år. En ny rapport for de samme måneder erstatter den forrige import.
       </p>
 
@@ -106,16 +105,6 @@ export function WasteImport({ groups, lines, setLines }: {
             {formatNumber(report.rows.length, 0)} affaldstyper
           </p>
 
-          <fieldset className="field">
-            <legend>Enhed i rapporten</legend>
-            <label>
-              <input type="radio" name={`${id}-unit`} checked={unit === 'kg'} onChange={() => setUnit('kg')} /> kg
-            </label>{' '}
-            <label>
-              <input type="radio" name={`${id}-unit`} checked={unit === 'tonne'} onChange={() => setUnit('tonne')} /> tons
-            </label>
-            <p className="muted">Rapporten skriver ikke enheden. Spørg leverandøren, hvis I er i tvivl.</p>
-          </fieldset>
 
           {report.totalMismatches.length > 0 && (
             <p className="warning">
@@ -137,7 +126,7 @@ export function WasteImport({ groups, lines, setLines }: {
                 <tr>
                   <th scope="col">Affaldstype</th>
                   <th scope="col">Behandlingsform</th>
-                  <th scope="col" className="num">I alt ({unit === 'kg' ? 'kg' : 'tons'})</th>
+                  <th scope="col" className="num">I alt (kg)</th>
                   <th scope="col">Type i kategori 5</th>
                 </tr>
               </thead>

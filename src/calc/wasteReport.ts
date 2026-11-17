@@ -10,8 +10,8 @@
 //   …
 //   Hovedtotal                     650  680  760 …   710
 //
-// The report states no unit. Quantities are in kg as far as we know (an office's ~8 t a year),
-// so the import asks for the unit and defaults to kg. Each non-empty cell becomes one activity
+// The report states no unit, but it is always kg (confirmed by Heartland 2026-11-16), so quantities
+// are divided by 1,000 into the groups' tonnes. Each non-empty cell becomes one activity
 // line covering its calendar month, so a report that spans two years splits correctly.
 
 import type { ActivityGroup, ActivityLine } from './activity'
@@ -125,6 +125,8 @@ const RULES: readonly { type: RegExp; treatment: RegExp; group: string }[] = [
   { type: /plast/i, treatment: /genanv/i, group: 'k5-plast-gen' },
   { type: /plast/i, treatment: /forbr/i, group: 'k5-plast-forbr' },
   { type: /elektron|weee/i, treatment: /genanv/i, group: 'k5-andet-gen' },
+  // "Restaffald (Småt brændbart)" was renamed "Småt brændbart affald" in March 2026: the same waste type
+  // (confirmed by Heartland 2026-11-16), so both go here.
   { type: /rest|brændbar/i, treatment: /forbr/i, group: 'k5-erhverv-forbr' },
 ]
 
@@ -135,8 +137,6 @@ export function wasteGroupFor(wasteType: string, treatment: string): string | nu
 
 /** Stamped on every imported line, so a later report for the same months replaces it. */
 export const WASTE_IMPORT_PREFIX = 'Affaldsrapport:'
-
-export type WasteUnit = 'kg' | 'tonne'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const monthStart = (m: WasteMonth) => `${m.year}-${pad(m.month)}-01`
@@ -153,14 +153,13 @@ export type WastePlan = {
 }
 
 /**
- * The lines a report becomes: one per row and month with a quantity, in tonnes, covering the
+ * The lines a report becomes: one per row and month with a quantity, from kg to tonnes, covering the
  * calendar month. `groups` is the chosen group per row (index-aligned); rows without one are
  * left out and listed as unassigned.
  */
 export function planWasteLines(
   report: WasteReport,
   groups: readonly (string | null)[],
-  unit: WasteUnit,
   existing: readonly ActivityLine[],
   validGroups: readonly ActivityGroup[],
 ): WastePlan {
@@ -181,7 +180,7 @@ export function planWasteLines(
         group,
         date: monthStart(month),
         dateTo: monthEnd(month),
-        quantity: unit === 'kg' ? v / 1000 : v,
+        quantity: v / 1000,
         description: `${WASTE_IMPORT_PREFIX} ${row.wasteType} (${row.treatment}), ${monthLabel(month)}`,
       })
     })
