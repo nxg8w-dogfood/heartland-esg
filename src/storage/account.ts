@@ -4,6 +4,7 @@
 // many, rather than failing or crashing later.
 
 import type { ActivityLine } from '../calc/activity'
+import type { ImportBatch } from '../calc/ledger'
 import type { Survey } from '../calc/commuting'
 import { defaultPeriod, periodError, periodFromRange, sortPeriods, type FiscalPeriod } from '../calc/periods'
 import type { Investment } from '../calc/investments'
@@ -52,6 +53,8 @@ export type AccountData = {
   investments: Investment[]
   deflation: Deflation
   ledger: LedgerState
+  /** Waste reports imported into category 5; each line from one points to it with importId */
+  wasteImports: ImportBatch[]
 }
 
 export function emptyAccount(): AccountData {
@@ -74,6 +77,7 @@ export function emptyAccount(): AccountData {
     investments: [],
     deflation: noDeflation,
     ledger: emptyLedger,
+    wasteImports: [],
   }
 }
 
@@ -117,6 +121,8 @@ export function parseAccount(input: unknown): LoadResult {
         .map((l) => (l.heatingSharePercent != null && !(typeof l.heatingSharePercent === 'number' && l.heatingSharePercent >= 0 && l.heatingSharePercent <= 100) ? { ...l, heatingSharePercent: null } : l))
     : base.locations
   const locationIds = new Set(locations.map((l) => l.id))
+  const wasteImports = list<ImportBatch>(input.wasteImports, (b) => typeof b.fileName === 'string')
+  const wasteImportIds = new Set(wasteImports.map((b) => b.id))
   const ledgerIn = isObject(input.ledger) ? input.ledger : {}
   const postings = list<LedgerState['postings'][number]>(ledgerIn.postings)
   const postingIds = new Set(postings.map((p) => p.id))
@@ -172,9 +178,12 @@ export function parseAccount(input: unknown): LoadResult {
     cat1Lines: list(input.cat1Lines, groupIn(category1Groups)),
     cat4Lines: list(input.cat4Lines, groupIn(category4Groups)),
     cat4SpendLines: list(input.cat4SpendLines, groupIn(category4SpendGroups)),
-    // A waste line keeps its address only while the location exists.
-    cat5Lines: list<ActivityLine>(input.cat5Lines, groupIn(category5Groups)).map(({ locationId, ...l }) =>
-      typeof locationId === 'string' && locationIds.has(locationId) ? { ...l, locationId } : l),
+    // A waste line keeps its address only while the location exists, and its file only while that exists.
+    cat5Lines: list<ActivityLine>(input.cat5Lines, groupIn(category5Groups)).map(({ locationId, importId, ...l }) => ({
+      ...l,
+      ...(typeof locationId === 'string' && locationIds.has(locationId) ? { locationId } : {}),
+      ...(typeof importId === 'string' && wasteImportIds.has(importId) ? { importId } : {}),
+    })),
     cat6Lines: list(input.cat6Lines, groupIn(category6Groups)),
     surveys: list(input.surveys, (s) => isObject(s.modes)),
     investments: list(input.investments),
@@ -193,6 +202,7 @@ export function parseAccount(input: unknown): LoadResult {
         .map((e) => [e.ruleId, { ...e, reason: typeof e.reason === 'string' ? e.reason : '', editedOn: typeof e.editedOn === 'string' ? e.editedOn : '' }] as const)).values()],
       manual: manual as LedgerState['manual'],
     },
+    wasteImports,
   }
   return { ok: true, account, dropped, notes }
 }

@@ -89,6 +89,37 @@
           "x-ms-dataverse-type": "IntegerType",
           "x-ms-schema-name": "hlesg_Antal"
         },
+        "hlesg_art": {
+          "type": "string",
+          "title": "Art",
+          "x-ms-dataverse-attribute": "hlesg_art",
+          "x-ms-dataverse-type": "PicklistType",
+          "x-ms-schema-name": "hlesg_Art",
+          "enum": [
+            "Kontoplan",
+            "Affaldsrapport"
+          ],
+          "x-ms-enum-values": [
+            748100001,
+            748100002
+          ],
+          "Color": [
+            null,
+            null
+          ],
+          "x-ms-isGlobal": false,
+          "x-ms-optionsetdisplayname": "Art",
+          "x-ms-optionSetType": "Picklist"
+        },
+        "hlesg_artname": {
+          "type": "string",
+          "title": "hlesg_artname",
+          "x-ms-dataverse-attribute": "hlesg_artname",
+          "x-ms-dataverse-type": "VirtualType",
+          "x-ms-schema-name": "hlesg_ArtName",
+          "x-ms-dataverse-attribute-of": "hlesg_art",
+          "x-ms-read-only": true
+        },
         "hlesg_filnavn": {
           "type": "string",
           "title": "Filnavn",

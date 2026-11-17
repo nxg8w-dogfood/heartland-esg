@@ -15,7 +15,7 @@
 // line covering its calendar month, so a report that spans two years splits correctly.
 
 import type { ActivityGroup, ActivityLine } from './activity'
-import type { CellValue } from './ledger'
+import type { CellValue, ImportBatch } from './ledger'
 import { parseNumber } from './parseNumber'
 
 export class WasteReportError extends Error {}
@@ -194,4 +194,47 @@ export function planWasteLines(
     .filter((l) => l.description?.startsWith(WASTE_IMPORT_PREFIX) && l.date >= from && l.date <= to && (l.locationId ?? null) === locationId)
     .map((l) => l.id)
   return { lines, replaces, unassigned }
+}
+
+/** An imported report as the file list shows it: the file and what's left of its lines. */
+export type WasteFile = {
+  /** The import; null for lines imported before files were kept (2026-11) */
+  batch: ImportBatch | null
+  lineIds: string[]
+  tonnes: number
+  /** First and last day its lines cover; empty when it has none left */
+  from: string
+  to: string
+  locationIds: string[]
+}
+
+/**
+ * The imported reports with their lines, newest first. Lines imported before files were kept
+ * (stamped with the prefix but without a file) are gathered in one entry with no batch, so they
+ * can be deleted too.
+ */
+export function wasteFiles(imports: readonly ImportBatch[], lines: readonly ActivityLine[]): WasteFile[] {
+  const summary = (batch: ImportBatch | null, own: readonly ActivityLine[]): WasteFile => {
+    const dates = own.flatMap((l) => [l.date, l.dateTo ?? l.date]).sort()
+    return {
+      batch,
+      lineIds: own.map((l) => l.id),
+      tonnes: own.reduce((s, l) => s + (l.quantity ?? 0), 0),
+      from: dates[0] ?? '',
+      to: dates[dates.length - 1] ?? '',
+      locationIds: [...new Set(own.map((l) => l.locationId).filter((x): x is string => !!x))],
+    }
+  }
+  const files = [...imports]
+    .sort((x, y) => y.importedAt.localeCompare(x.importedAt) || x.id.localeCompare(y.id))
+    .map((b) => summary(b, lines.filter((l) => l.importId === b.id)))
+  const known = new Set(imports.map((b) => b.id))
+  const legacy = lines.filter((l) => l.description?.startsWith(WASTE_IMPORT_PREFIX) && !(l.importId && known.has(l.importId)))
+  return legacy.length ? [...files, summary(null, legacy)] : files
+}
+
+/** The imports that still have lines, after the lines have changed (a report replaced, a file deleted). */
+export const importsInUse = (imports: readonly ImportBatch[], lines: readonly ActivityLine[]): ImportBatch[] => {
+  const used = new Set(lines.map((l) => l.importId).filter(Boolean))
+  return imports.filter((b) => used.has(b.id))
 }

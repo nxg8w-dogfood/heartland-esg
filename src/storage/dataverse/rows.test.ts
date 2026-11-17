@@ -31,7 +31,10 @@ function richAccount(): AccountData {
     cat1Lines: [{ id: 'k1-a', group: 'k1-software', date: '2025-01-15', amount: 38_000, currency: 'EUR', factorId: 'f-exio-computer', description: 'Licenser' }],
     cat4Lines: [{ id: 'k4-a', group: 'k4-lastbil', date: '2025-04-01', quantity: 18_000 }],
     cat4SpendLines: [{ id: 'k4s-a', group: 'k4-kurer', date: '2025-05-01', amount: 12_500, currency: 'DKK' }],
-    cat5Lines: [{ id: 'k5-a', group: 'k5-papir-gen', date: '2025-06-15', quantity: 3.2, locationId: 'loc-1' }],
+    cat5Lines: [
+      { id: 'k5-a', group: 'k5-papir-gen', date: '2025-06-15', quantity: 3.2, locationId: 'loc-1' },
+      { id: 'k5-b', group: 'k5-mad-bio', date: '2025-08-01', dateTo: '2025-08-31', quantity: 0.17, locationId: 'loc-1', importId: 'imp-w', description: 'Affaldsrapport: Organisk affald (Genanvendelse), aug 2025' },
+    ],
     cat6Lines: [{ id: 'k6-a', group: 'k6-hotel', factorId: 'f-hotel-de', date: '2025-03-12', quantity: 4 }],
     surveys: [{ id: 'sv-a', label: 'Pendling 2025', date: '2025-03-01', employees: 40, responses: 31, workWeeksPerYear: 46, modes: { 'k7-el': { respondents: 9, distanceKm: 28, officeDaysPerWeek: 3.5, factorId: 'f-c-el-dk' } } }],
     investments: [{ id: 'inv-a', date: '2025-06-30', company: 'Selskab A/S', ownershipPct: 25, accountingMethod: 'Ass.', climateMethod: 'PCAF', dataSource: 'Årsrapport', basis: 'CO2e', totalKgCO2e: 400_000, revenueDKK: null, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: 'Danmark' }],
@@ -64,6 +67,7 @@ function richAccount(): AccountData {
       ],
       manual: { 'p-b': { postingId: 'p-b', type: 'exclude', factorId: null, category: null, reason: 'Intern' } },
     },
+    wasteImports: [{ id: 'imp-w', fileName: 'mariuspedersen.xlsx', importedAt: '2026-11-17T09:00:00.000Z', count: 1 }],
   }
 }
 
@@ -101,9 +105,27 @@ describe('rows ⇄ group', () => {
     expect(rows.hlesg_faktorkilde.has(naturalKey('c-1', 'f-s2-fjernvarme-lokal'))).toBe(true)
     expect(rows.hlesg_linje.get('s2-a')).toMatchObject({ hlesg_lokationid: 'loc-1', hlesg_maengde: 120_000, hlesg_energiart: 748100001, hlesg_liste: 748100002 })
     expect(rows.hlesg_linje.get('k5-a')).toMatchObject({ hlesg_lokationid: 'loc-1', hlesg_maengde: 3.2 })
-    expect(rows.hlesg_linje.get('k4-a')).toMatchObject({ hlesg_lokationid: null })
+    expect(rows.hlesg_linje.get('k4-a')).toMatchObject({ hlesg_lokationid: null, hlesg_importid: null })
+    expect(rows.hlesg_linje.get('k5-b')).toMatchObject({ hlesg_importid: 'imp-w' })
+    expect(rows.hlesg_import.get('imp-w')).toMatchObject({ hlesg_filnavn: 'mariuspedersen.xlsx', hlesg_antal: 1, hlesg_art: 748100002 })
+    expect(rows.hlesg_import.get('imp-a')?.hlesg_art).toBeUndefined()
     expect(rows.hlesg_postering.get('p-b')).toMatchObject({ hlesg_importid: 'imp-a', hlesg_manuelhandling: 748100002, hlesg_manuelbegrundelse: 'Intern' })
     expect(rows.hlesg_regel.get('r-b')).toMatchObject({ hlesg_raekkefoelge: 1, hlesg_aktiv: false })
+  })
+
+  it('reads an import without a type as a ledger file, and a waste report into the waste imports', () => {
+    const rows = toRows(group(company('c-1', 'Heartland A/S', richAccount())))
+    const back = fromRows(rows).companies[0].account
+    expect(back.ledger.imports.map((b) => b.id)).toEqual(['imp-a'])
+    expect(back.wasteImports.map((b) => b.id)).toEqual(['imp-w'])
+    expect(back.cat5Lines.find((l) => l.id === 'k5-b')?.importId).toBe('imp-w')
+  })
+
+  it("deletes a waste report's lines before the report", () => {
+    const before = toRows(group(company('c-1', 'Heartland A/S', richAccount())))
+    const a = richAccount()
+    const after = toRows(group(company('c-1', 'Heartland A/S', { ...a, wasteImports: [], cat5Lines: a.cat5Lines.filter((l) => !l.importId) })))
+    expect(diff(before, after).map((o) => `${o.kind} ${o.table} ${o.key}`)).toEqual(['delete hlesg_linje k5-b', 'delete hlesg_import imp-w'])
   })
 
   it('keeps the built-in table out of Dataverse: only chosen factor sources get a row', () => {
@@ -150,6 +172,7 @@ describe('diff', () => {
     expect(at('hlesg_virksomhed')).toBeLessThan(at('hlesg_lokation'))
     expect(at('hlesg_lokation')).toBeLessThan(at('hlesg_linje'))
     expect(at('hlesg_import')).toBeLessThan(at('hlesg_postering'))
+    expect(at('hlesg_import')).toBeLessThan(at('hlesg_linje'))
   })
 
   it('sends only the changed columns of a changed line', () => {
@@ -235,7 +258,9 @@ function richAccount2(): AccountData {
     vehicles: re(a.vehicles),
     scope1Lines: re(a.scope1Lines).map((l) => (l.vehicleId ? { ...l, vehicleId: `${l.vehicleId}-2` } : l)),
     scope2Lines: re(a.scope2Lines).map((l) => ({ ...l, locationId: 'loc-1-2' })),
-    cat1Lines: re(a.cat1Lines), cat4Lines: re(a.cat4Lines), cat4SpendLines: re(a.cat4SpendLines), cat5Lines: re(a.cat5Lines), cat6Lines: re(a.cat6Lines),
+    cat1Lines: re(a.cat1Lines), cat4Lines: re(a.cat4Lines), cat4SpendLines: re(a.cat4SpendLines), cat6Lines: re(a.cat6Lines),
+    cat5Lines: re(a.cat5Lines).map((l) => ({ ...l, locationId: 'loc-1-2', ...(l.importId ? { importId: 'imp-w-2' } : {}) })),
+    wasteImports: re(a.wasteImports),
     surveys: re(a.surveys), investments: re(a.investments),
     ledger: { imports: re(a.ledger.imports), postings: re(a.ledger.postings).map((p) => ({ ...p, importId: 'imp-a-2' })), rules: re(a.ledger.rules), ruleEdits: re(a.ledger.ruleEdits), manual: {} },
   }

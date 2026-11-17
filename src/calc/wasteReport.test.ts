@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { factors } from '../data/factors'
 import { category5, category5Groups } from './scope3'
-import { parseWasteReport, planWasteLines, wasteGroupFor, WasteReportError, WASTE_IMPORT_PREFIX } from './wasteReport'
+import { importsInUse, parseWasteReport, planWasteLines, wasteFiles, wasteGroupFor, WasteReportError, WASTE_IMPORT_PREFIX } from './wasteReport'
+import type { ActivityLine } from './activity'
 import type { CellValue } from './ledger'
 import { readXlsxSheet } from './readXlsx'
 import { makeXlsx } from './testing/xlsx'
@@ -161,5 +162,35 @@ describe('planWasteLines', () => {
     expect(tonnes(y2025)).toBeCloseTo(3.24, 9) // aug–dec 2025
     expect(tonnes(y2026)).toBeCloseTo(4.71, 9) // jan–jul 2026
     expect(y2025.total + y2026.total).toBeGreaterThan(0)
+  })
+})
+
+describe('wasteFiles', () => {
+  const batch = (id: string, importedAt: string) => ({ id, fileName: `${id}.xlsx`, importedAt, count: 0 })
+  const line = (id: string, extra: Partial<ActivityLine>): ActivityLine => ({ id, group: 'k5-papir-gen', date: '2025-08-01', dateTo: '2025-08-31', quantity: 0.1, description: `${WASTE_IMPORT_PREFIX} Bølgepap (Genanvendelse), aug 2025`, ...extra })
+
+  it('lists each file with its lines, newest first, and old imports without a file last', () => {
+    const lines = [
+      line('a1', { importId: 'old', locationId: 'storetorv' }),
+      line('b1', { importId: 'new', date: '2026-01-01', dateTo: '2026-01-31' }),
+      line('b2', { importId: 'new', date: '2025-12-01', dateTo: '2025-12-31', quantity: 0.25 }),
+      line('legacy', {}),
+      line('manual', { description: 'Ekstra container' }),
+    ]
+    const files = wasteFiles([batch('old', '2026-11-16T10:00:00Z'), batch('new', '2026-11-17T10:00:00Z')], lines)
+    expect(files.map((f) => f.batch?.id ?? null)).toEqual(['new', 'old', null])
+    expect(files[0]).toMatchObject({ lineIds: ['b1', 'b2'], from: '2025-12-01', to: '2026-01-31' })
+    expect(files[0].tonnes).toBeCloseTo(0.35, 9)
+    expect(files[1].locationIds).toEqual(['storetorv'])
+    expect(files[2].lineIds).toEqual(['legacy'])
+  })
+
+  it('lists a file with no lines left, so it can still be deleted', () => {
+    expect(wasteFiles([batch('empty', '2026-11-17T10:00:00Z')], [])).toMatchObject([{ lineIds: [], from: '', to: '' }])
+  })
+
+  it('keeps only the imports that still have lines', () => {
+    const imports = [batch('a', '2026-11-16T10:00:00Z'), batch('b', '2026-11-17T10:00:00Z')]
+    expect(importsInUse(imports, [line('x', { importId: 'b' })]).map((b) => b.id)).toEqual(['b'])
   })
 })

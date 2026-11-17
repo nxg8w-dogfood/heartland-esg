@@ -111,6 +111,9 @@ export function toRows(group: GroupData): Rows {
       put(c('prisaar'), naturalKey(id, factorId), { [COMPANY]: id, [c('faktorid')]: factorId, [c('basisaar')]: f.baseYear ?? null, [c('serie')]: f.seriesId ?? null })
     }
     for (const b of a.ledger.imports) put(c('import'), b.id, { [COMPANY]: id, [c('filnavn')]: b.fileName, [c('importeret')]: b.importedAt, [c('antal')]: b.count })
+    for (const b of a.wasteImports) {
+      put(c('import'), b.id, { [COMPANY]: id, [c('filnavn')]: b.fileName, [c('importeret')]: b.importedAt, [c('antal')]: b.count, [c('art')]: toChoice(c('import'), c('art'), 'waste') })
+    }
     for (const p of a.ledger.postings) put(c('postering'), p.id, postingRow(p, a.ledger.manual[p.id]))
     a.ledger.rules.forEach((r, i) => put(c('regel'), r.id, ruleRow(id, r, i)))
     for (const e of a.ledger.ruleEdits) put(c('regel'), e.id, ruleEditRow(id, e))
@@ -139,6 +142,7 @@ function lineRow(company: string, list: number, l: AnyLine): Row {
     [c('energiart')]: scope2 ? toChoice(c('linje'), c('energiart'), scope2.kind) : null,
     [c('koeretoejid')]: 'vehicleId' in l ? s(l.vehicleId) : null,
     [c('km')]: 'distanceKm' in l ? n(l.distanceKm) : null,
+    [c('importid')]: 'importId' in l ? s(l.importId) : null,
   }
 }
 
@@ -233,7 +237,11 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePer
       const base = emptyAccount()
       const settings = rows[c('klimaregnskab')]?.get(id)
       const lines = (list: string) => byDate(of(c('linje'), id).filter(([, r]) => fromListValue(r[c('liste')]) === list).map(([key, r]) => lineFrom(list, key, r)))
-      const imports = of(c('import'), id).map(([key, r]): ImportBatch => ({ id: key, fileName: str(r[c('filnavn')]), importedAt: str(r[c('importeret')]), count: num(r[c('antal')]) ?? 0 }))
+      // An import without a type is a ledger file: those came before waste reports.
+      const isWaste = (r: Row) => fromChoice(c('import'), c('art'), r[c('art')]) === 'waste'
+      const batch = ([key, r]: [string, Row]): ImportBatch => ({ id: key, fileName: str(r[c('filnavn')]), importedAt: str(r[c('importeret')]), count: num(r[c('antal')]) ?? 0 })
+      const imports = of(c('import'), id).filter(([, r]) => !isWaste(r)).map(batch)
+      const wasteImports = of(c('import'), id).filter(([, r]) => isWaste(r)).map(batch).sort((x, y) => x.importedAt.localeCompare(y.importedAt) || x.id.localeCompare(y.id))
       const importIds = new Set(imports.map((b) => b.id))
       const postingRows = all(c('postering')).filter(([, r]) => importIds.has(str(r[c('importid')])))
       const manual: Record<string, ManualAction> = {}
@@ -282,6 +290,7 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePer
           })),
           factorSettings: Object.fromEntries(of(c('prisaar'), id).map(([, r]) => [str(r[c('faktorid')]), { baseYear: num(r[c('basisaar')]), seriesId: optStr(r[c('serie')]) ?? null }])),
         },
+        wasteImports,
         ledger: {
           imports,
           postings: postingRows.map(([key, r]): Posting => ({
@@ -366,7 +375,8 @@ function lineFrom(list: string, id: string, r: Row): AnyLine {
     return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]), ...car, ...km } as Scope1Line
   }
   const location = optStr(r[c('lokationid')]) ? { locationId: str(r[c('lokationid')]) } : {}
-  return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]), ...location } as ActivityLine
+  const file = optStr(r[c('importid')]) ? { importId: str(r[c('importid')]) } : {}
+  return { ...common, ...factorId, group: str(r[c('gruppe')]), quantity: num(r[c('maengde')]), ...location, ...file } as ActivityLine
 }
 
 function vehicleFrom(id: string, r: Row): Vehicle {
@@ -417,7 +427,7 @@ export type Operation =
   | { kind: 'delete'; table: string; key: string }
 
 /** Parents before children when creating, children before parents when deleting. */
-const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('regnskabsperiode'), c('lokation'), c('koeretoej'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('import'), c('postering'), c('regel')]
+const ORDER = [c('koncern'), c('virksomhed'), c('ejerandel'), c('klimaregnskab'), c('regnskabsperiode'), c('lokation'), c('koeretoej'), c('import'), c('linje'), c('pendling'), c('investering'), c('faktorkilde'), c('relevans'), c('indekspunkt'), c('prisaar'), c('postering'), c('regel')]
 
 const same = (x: Value | undefined, y: Value | undefined) => (x ?? null) === (y ?? null)
 

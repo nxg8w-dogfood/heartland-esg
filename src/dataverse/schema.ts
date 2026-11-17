@@ -203,6 +203,7 @@ export const tables: readonly Table[] = [
       },
       { kind: 'lookup', name: n('koeretoejid'), label: 'Bil', target: n('koeretoej'), required: false, onDelete: 'Restrict', description: 'Scope 1-linjer for en bestemt bil.' },
       decimal('km', 'Kørte km', 'Scope 1-linjer angivet i km; mængden i liter regnes ud fra bilens km/l.'),
+      { kind: 'lookup', name: n('importid'), label: 'Import', target: n('import'), required: false, onDelete: 'RemoveLink', description: 'Kategori 5-linjer fra en affaldsrapport: filen, de kom fra.' },
     ],
   },
   {
@@ -313,12 +314,17 @@ export const tables: readonly Table[] = [
     name: n('import'),
     label: 'Import',
     pluralLabel: 'Importer',
-    description: 'En indlæst fil med posteringer fra kontoplanen.',
+    description: 'En indlæst fil: posteringer fra kontoplanen eller en affaldsrapport (kategori 5).',
     primary: { name: n('filnavn'), label: 'Filnavn', maxLength: 260, required: false },
     columns: [
       company,
       { kind: 'datetime', name: n('importeret'), label: 'Importeret' },
-      { kind: 'integer', name: n('antal'), label: 'Antal posteringer', min: 0, max: 10_000_000 },
+      { kind: 'integer', name: n('antal'), label: 'Antal posteringer', min: 0, max: 10_000_000, description: 'Posteringer, eller linjer for en affaldsrapport.' },
+      {
+        kind: 'choice', name: n('art'), label: 'Art', required: false,
+        description: 'Hvad filen indeholdt. Tom er kontoplan (importer fra før affaldsrapporter).',
+        options: [option(1, 'Kontoplan', 'ledger'), option(2, 'Affaldsrapport', 'waste')],
+      },
     ],
   },
   {
@@ -398,4 +404,5 @@ export const accountStorage: Record<keyof AccountData, { table: string; note?: s
   investments: { table: n('investering') },
   deflation: { table: n('klimaregnskab'), note: 'active and series on the account; values in hlesg_indekspunkt, base years in hlesg_prisaar' },
   ledger: { table: n('postering'), note: 'with hlesg_import and hlesg_regel' },
+  wasteImports: { table: n('import'), note: 'Art = Affaldsrapport; its lines point to it with hlesg_importid' },
 }

@@ -6,7 +6,7 @@ import type { ActivityLine } from '../calc/activity'
 import { category7, type Survey } from '../calc/commuting'
 import { category15, type Investment } from '../calc/investments'
 import type { Deflation, SpendLine } from '../calc/spend'
-import { classifyLedger, ledgerSpendLines } from '../calc/ledger'
+import { classifyLedger, ledgerSpendLines, type ImportBatch } from '../calc/ledger'
 import type { LedgerState } from '../ledger/state'
 import { LedgerPostingsSection } from '../ledger/LedgerPostingsSection'
 import { currencyRates } from '../data/currencies'
@@ -44,6 +44,9 @@ type Props = {
   setCat4SpendLines: Dispatch<SetStateAction<SpendLine[]>>
   cat5Lines: ActivityLine[]
   setCat5Lines: Dispatch<SetStateAction<ActivityLine[]>>
+  /** Waste reports imported into category 5 */
+  wasteImports: ImportBatch[]
+  setWasteImports: Dispatch<SetStateAction<ImportBatch[]>>
   cat6Lines: ActivityLine[]
   setCat6Lines: Dispatch<SetStateAction<ActivityLine[]>>
   surveys: Survey[]
@@ -66,7 +69,7 @@ const spendFactorsUsed = (cat1: ReturnType<typeof category1>): Factor[] =>
 const pendingNote = (n: number) => (n === 0 ? undefined : n === 1 ? '1 linje afventer faktor' : `${n} linjer afventer faktor`)
 
 export function Scope3Page(props: Props) {
-  const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledger, setLedger } = props
+  const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, wasteImports, setWasteImports, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledger, setLedger } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
   const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, appRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
@@ -199,7 +202,7 @@ export function Scope3Page(props: Props) {
           locations={locations}
         />
       )}
-      {subpage === 'kategori-5' && <WasteImport groups={category5Groups} locations={locations} lines={cat5Lines} setLines={setCat5Lines} />}
+      {subpage === 'kategori-5' && <WasteImport groups={category5Groups} locations={locations} lines={cat5Lines} setLines={setCat5Lines} imports={wasteImports} setImports={setWasteImports} />}
 
       {subpage === 'kategori-6' && (
         <ActivityLinesSection

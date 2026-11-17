@@ -37,6 +37,7 @@ export interface Hlesg_linjesBase {
   hlesg_faktorid?: string;
   hlesg_gruppe?: string;
   hlesg_km?: number;
+  "hlesg_Importid@odata.bind"?: string;
   "hlesg_Koeretoejid@odata.bind"?: string;
   hlesg_linjeid: string;
   hlesg_liste: Hlesg_linjeshlesg_liste;
@@ -66,6 +67,8 @@ export interface Hlesg_linjes extends Hlesg_linjesBase {
   _createdby_value?: string;
   createdonbehalfby?: object;
   _createdonbehalfby_value?: string;
+  hlesg_importid?: object;
+  _hlesg_importid_value?: string;
   hlesg_koeretoejid?: object;
   _hlesg_koeretoejid_value?: string;
   hlesg_lokationid?: object;

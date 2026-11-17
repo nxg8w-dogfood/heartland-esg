@@ -161,6 +161,26 @@
           "x-ms-schema-name": "hlesg_Gruppe",
           "maxLength": 100
         },
+        "hlesg_importid": {
+          "type": "string",
+          "title": "Import",
+          "x-ms-dataverse-attribute": "hlesg_importid",
+          "x-ms-dataverse-type": "LookupType",
+          "x-ms-schema-name": "hlesg_Importid",
+          "x-ms-dataverse-navigation-properties": [
+            "hlesg_Importid"
+          ]
+        },
+        "hlesg_importidname": {
+          "type": "string",
+          "title": "hlesg_importidname",
+          "x-ms-dataverse-attribute": "hlesg_importidname",
+          "x-ms-dataverse-type": "StringType",
+          "x-ms-schema-name": "hlesg_ImportidName",
+          "x-ms-dataverse-attribute-of": "hlesg_importid",
+          "x-ms-read-only": true,
+          "maxLength": 850
+        },
         "hlesg_km": {
           "type": "string",
           "title": "Kørte km",
