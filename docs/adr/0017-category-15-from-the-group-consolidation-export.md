@@ -72,6 +72,8 @@ Alfa Holding        1,00          1,00
 - **A reshaped file (one row per company, named columns), like the ledger import (rejected).**
   It would reuse the existing import, but the ESG owner would have to rebuild the export by hand
   every time, which is the work this removes.
+- **The cube's company table, keyed by OrganizationID (adopted 2026-11-18).** See ADR 0025: it
+  replaces the name as the key wherever the export has one.
 - **Reading the consolidation system over its API or an MCP server (not chosen now).** It would
   remove the file step, but the system is reachable only by the ESG owner, a code app can't call
   another host until an admin allows it (ADR 0011), and nothing is agreed about credentials.

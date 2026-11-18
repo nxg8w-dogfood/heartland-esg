@@ -27,6 +27,11 @@ describe('InvestmentsSection', () => {
     expect(html).toMatch(/<summary><span class="investment-name">Delejet ApS<\/span><span class="muted"> · 2025\/26 · 40,00 % · 400,000 tCO2e<\/span><\/summary>/)
   })
 
+  it('shows an imported holding’s OrganizationID and business area', () => {
+    expect(render([holding({ organizationId: '401_464', businessArea: 'Apparel' })])).toContain('<p class="muted">OrganizationID 401_464 · Forretningsområde: Apparel</p>')
+    expect(render([holding({})])).not.toContain('Forretningsområde:')
+  })
+
   it('says in the folded line what is missing', () => {
     expect(render([onRevenue()])).toMatch(/<summary>.*· Faktor mangler<\/span><\/summary>/)
   })

@@ -182,6 +182,11 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
         <div className="field">
           <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Selskab</label>
           <input id={`${id}-name`} value={inv.company} onChange={(e) => onChange({ company: e.target.value })} />
+          {(inv.organizationId || inv.businessArea) && (
+            <p className="muted">
+              {[inv.organizationId && `OrganizationID ${inv.organizationId}`, inv.businessArea && `Forretningsområde: ${inv.businessArea}`].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
         <div className="field">
           <label htmlFor={`${id}-date`}>Opgjort til og med<span className="optional"> (dækker 12 mdr.)</span></label>

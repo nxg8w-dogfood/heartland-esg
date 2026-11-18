@@ -70,6 +70,12 @@ header block the system writes (`Account Internal` says which measure the file h
 | Net Turnover | Omsætning (DKK); the credit is negated |
 | Investment Amount | Investering (DKK), the basis for amount × sector factor (ADR 0022) |
 
+The cube's **company table** works too (ADR 0025): one row per company with an `OrganizationID`
+column, and a column per measure whose heading names the month (`Revenue juli 2026 (DKK)`,
+`Ejerandel juli 2026`, `Investment Amount juli 2026 (DKK)`). Companies are matched on
+OrganizationID, revenue is taken as positive, and each holding keeps its OrganizationID and
+BusinessArea. A workbook with a summary sheet and one sheet per measure can be added as it is.
+
 Add the files one at a time, pick the period, and check the preview before importing. Only
 holdings of 50 % or less are imported; the rest are consolidated in Scope 1 and 2. Imported
 holdings stay *Mangler data* until a factor (kg CO2e per EUR) is chosen.

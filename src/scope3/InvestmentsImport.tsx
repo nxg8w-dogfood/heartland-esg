@@ -1,11 +1,12 @@
 // Category 15 from the group's consolidation system (docs/adr/0017). The ESG owner exports one
 // sheet per measure — ownership percentage, net turnover, investment amount — and drops them in
-// here, as separate files or as sheets of one workbook. Nothing changes until the preview is
-// accepted.
+// here, as separate files or as sheets of one workbook, or the cube's company table with every
+// measure by OrganizationID (docs/adr/0025). Nothing changes until the preview is accepted.
 
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
-  CONSOLIDATED_ABOVE_PCT, GroupExportError, IMPORT_SOURCE_PREFIX, importedBasis, measureLabels, parseGroupExport, periodEndDate, planInvestments,
+  CONSOLIDATED_ABOVE_PCT, GroupExportError, IMPORT_SOURCE_PREFIX, importedAccountingMethod, importedBasis, measureLabels, parseGroupExports,
+  periodEndDate, planInvestments,
   planStatusLabels, type GroupExport, type PlanRow,
 } from '../calc/groupExport'
 import { ImportFileError, readSheets } from '../calc/importFile'
@@ -53,16 +54,20 @@ export function InvestmentsImport({ investments, setInvestments }: {
     setDone(null)
     try {
       // A workbook can hold every measure, one per sheet, next to sheets that are no export at
-      // all (the Excel add-in's own formats). Those are passed over; the file fails only when no
-      // sheet is an export, with the reason the first sheet gave.
+      // all (the Excel add-in's own formats, notes). Those are passed over; the file fails only
+      // when no sheet is an export, with the reason the first sheet gave. A measure found on two
+      // sheets (a summary that looks up the others) is read from the one with more companies, in
+      // case the summary's lookups weren't calculated.
       const sheets = await readSheets(file)
       const loaded: Loaded[] = []
       let firstError: unknown = null
       for (const sheet of sheets) {
         try {
-          const parsed = parseGroupExport(sheet.grid)
-          if (!loaded.some((l) => l.export.measureText === parsed.measureText)) {
-            loaded.push({ fileName: sheets.length > 1 ? `${file.name} › ${sheet.name}` : file.name, export: parsed })
+          for (const parsed of parseGroupExports(sheet.grid)) {
+            const i = loaded.findIndex((l) => l.export.measureText === parsed.measureText)
+            const next = { fileName: sheets.length > 1 ? `${file.name} › ${sheet.name}` : file.name, export: parsed }
+            if (i === -1) loaded.push(next)
+            else if (parsed.rows.length > loaded[i].export.rows.length) loaded[i] = next
           }
         } catch (err) {
           if (!(err instanceof GroupExportError)) throw err
@@ -94,14 +99,18 @@ export function InvestmentsImport({ investments, setInvestments }: {
       const kept = current.map((inv) => {
         const r = updates.get(inv.id)
         return r
-          ? { ...inv, ownershipPct: r.ownershipPct, revenueDKK: r.revenueDKK ?? inv.revenueDKK, investmentDKK: r.investmentDKK ?? inv.investmentDKK, dataSource: source }
+          ? {
+              ...inv, ownershipPct: r.ownershipPct, revenueDKK: r.revenueDKK ?? inv.revenueDKK, investmentDKK: r.investmentDKK ?? inv.investmentDKK, dataSource: source,
+              ...(r.organizationId ? { organizationId: r.organizationId } : {}), ...(r.businessArea ? { businessArea: r.businessArea } : {}),
+            }
           : inv
       })
       const created: Investment[] = importable.filter((r) => !r.existingId).map((r) => ({
         id: newId(), date, company: r.name, ownershipPct: r.ownershipPct,
-        accountingMethod: 'Other investments', climateMethod: 'Investment-specific method', dataSource: source,
+        accountingMethod: importedAccountingMethod(r), climateMethod: 'Investment-specific method', dataSource: source,
         basis: importedBasis(r), totalKgCO2e: null, revenueDKK: r.revenueDKK, investmentDKK: r.investmentDKK, revenueLocal: null, localCurrency: 'DKK',
         rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: '',
+        ...(r.organizationId ? { organizationId: r.organizationId } : {}), ...(r.businessArea ? { businessArea: r.businessArea } : {}),
       }))
       return [...kept, ...created]
     })
@@ -122,7 +131,8 @@ export function InvestmentsImport({ investments, setInvestments }: {
         Eksportér ét nøgletal ad gangen fra koncernsystemet — <strong>Ownership Percentage</strong>,{' '}
         <strong>Net Turnover</strong> og eventuelt <strong>Investment Amount</strong> — med selskaberne som rækker og
         perioder som kolonner. Læg filerne ind her én ad gangen, eller én projektmappe med et ark pr. nøgletal; de
-        samles på selskabsnavnet. Kun ejerandele på højst{' '}
+        samles på selskabsnavnet. En tabel med ét selskab pr. række og kolonnen <strong>OrganizationID</strong> samles
+        i stedet på OrganizationID. Kun ejerandele på højst{' '}
         {CONSOLIDATED_ABOVE_PCT} % oprettes som kategori 15.
       </p>
 
@@ -200,6 +210,8 @@ export function InvestmentsImport({ investments, setInvestments }: {
 function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string }) {
   const shown = rows.filter((r) => r.status === 'new' || r.status === 'update')
   const rest = rows.length - shown.length
+  // Only a company table says how the cube classes each holding.
+  const typed = shown.some((r) => r.ownershipType !== '')
   return (
     <>
       <div className="table-wrap">
@@ -208,6 +220,7 @@ function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string
           <thead>
             <tr>
               <th scope="col">Selskab</th>
+              {typed && <th scope="col">Type i koncernsystemet</th>}
               <th scope="col" className="num">Ejerandel</th>
               <th scope="col" className="num">Omsætning (DKK)</th>
               <th scope="col" className="num">Investeringsbeløb (DKK)</th>
@@ -218,6 +231,7 @@ function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string
             {shown.slice(0, PREVIEW).map((r) => (
               <tr key={r.name}>
                 <td>{r.name}</td>
+                {typed && <td>{r.ownershipType || '—'}</td>}
                 <td className="num">{r.ownershipPct === null ? '—' : `${formatNumber(r.ownershipPct, 2)} %`}</td>
                 <td className="num">{r.revenueDKK === null ? <span className="pending">Mangler</span> : formatNumber(r.revenueDKK, 2)}</td>
                 <td className="num">{r.investmentDKK === null ? '—' : formatNumber(r.investmentDKK, 2)}</td>
