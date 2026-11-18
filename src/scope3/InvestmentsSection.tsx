@@ -5,7 +5,7 @@ import type { Period } from '../calc/dates'
 import { importedBatches, type ImportedBatch } from '../calc/groupExport'
 import { coverLabel, investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
 import { factorLabel } from '../factors/label'
-import { formatFactor, formatNumber } from '../format'
+import { formatDate, formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
 import { useConfirm } from '../confirm'
@@ -71,7 +71,8 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
         branchefaktor pr. EUR, som datamanualen foreskriver — eller, som i den oprindelige app, omsætning i
         EUR × faktor × ejerandel. Tallene er årstal: hver investering dækker de 12 måneder til og med dens
         dato — 31. juli for regnskabsåret august–juli, 31. december for et kalenderår — og tæller med for
-        den del, der ligger i perioden.
+        den del, der ligger i perioden. Er selskabet købt eller solgt i løbet af de 12 måneder, angives
+        datoen, så kun dagene med ejerskab tæller.
       </p>
 
       {cat15.duplicates.length > 0 && (
@@ -152,8 +153,11 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
 }) {
   const id = useId()
   const inv = result.investment
-  const status = !counted
-    ? `${coverLabel(result.covers)} ligger uden for perioden — tæller ikke med`
+  const trimmed = result.owned && result.covers && (result.owned.start !== result.covers.start || result.owned.end !== result.covers.end)
+  const status = result.covers && !result.owned
+    ? 'Ejet fra/til passer ikke med de 12 måneder — tæller ikke med'
+    : !counted
+      ? `${trimmed ? `Ejet ${ownedLabel(result.owned!)}` : coverLabel(result.covers)} ligger uden for perioden — tæller ikke med`
     : inv.ownershipPct === null
       ? 'Angiv ejerandel'
       : !result.included
@@ -175,7 +179,10 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
       <summary>
         <span className="investment-name">{inv.company || 'Ny investering'}</span>
         <span className="muted">
-          {' '}· {coverLabel(result.covers)} · {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
+          {' '}· {coverLabel(result.covers)}
+          {inv.ownedFrom && ` · købt ${formatDate(inv.ownedFrom)}`}
+          {inv.ownedTo && ` · solgt ${formatDate(inv.ownedTo)}`}
+          {' '}· {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
           {' '}· {formatNumber(result.kgCO2e / 1000, 3)} tCO2e
         </span>
         {status && <span className="pending"> · {status}</span>}
@@ -193,6 +200,20 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
         <div className="field">
           <label htmlFor={`${id}-date`}>Opgjort til og med<span className="optional"> (dækker 12 mdr.)</span></label>
           <input id={`${id}-date`} type="date" value={inv.date} onChange={(e) => onChange({ date: e.target.value })} />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-from`}>Ejet fra<span className="optional"> (hvis købt i de 12 mdr.)</span></label>
+          <input
+            id={`${id}-from`} type="date" value={inv.ownedFrom ?? ''} min={result.covers?.start} max={result.covers?.end}
+            onChange={(e) => onChange({ ownedFrom: e.target.value || undefined })}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`${id}-to`}>Ejet til<span className="optional"> (hvis solgt i de 12 mdr.)</span></label>
+          <input
+            id={`${id}-to`} type="date" value={inv.ownedTo ?? ''} min={result.covers?.start} max={result.covers?.end}
+            onChange={(e) => onChange({ ownedTo: e.target.value || undefined })}
+          />
         </div>
         <NumberField label="Ejerandel (%)" value={inv.ownershipPct} onCommit={(v) => onChange({ ownershipPct: v })} />
         <div className="field">
@@ -276,12 +297,15 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
         {inv.basis === 'Investment' && result.investmentEUR !== null && <>Investeret {formatNumber(result.investmentEUR, 0)} EUR · </>}
         Ejerandel {formatNumber(result.share * 100, 1)} % · hele {coverLabel(result.covers)}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
-        {' '}· {formatNumber(result.shareInPeriod * 100, 1)} % af de 12 måneder i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
+        {trimmed && <> · ejet {ownedLabel(result.owned!)}</>}
+        {' '}· {formatNumber(result.shareInPeriod * 100, 1)} % af de 12 måneder {trimmed ? 'ejet og ' : ''}i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
         {status && <> — <strong>{status}</strong></>}
       </p>
     </details>
   )
 }
+
+const ownedLabel = (owned: Period) => `${formatDate(owned.start)}–${formatDate(owned.end)}`
 
 /** Each import's holdings, with a button that deletes them all */
 function ImportedList({ investments, onDelete }: { investments: readonly Investment[]; onDelete: (batch: ImportedBatch) => void }) {

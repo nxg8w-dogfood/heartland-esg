@@ -105,6 +105,20 @@
           "x-ms-dataverse-type": "DecimalType",
           "x-ms-schema-name": "hlesg_Ejerandel"
         },
+        "hlesg_ejetfra": {
+          "type": "string",
+          "title": "Ejet fra",
+          "x-ms-dataverse-attribute": "hlesg_ejetfra",
+          "x-ms-dataverse-type": "DateTimeType",
+          "x-ms-schema-name": "hlesg_Ejetfra"
+        },
+        "hlesg_ejettil": {
+          "type": "string",
+          "title": "Ejet til",
+          "x-ms-dataverse-attribute": "hlesg_ejettil",
+          "x-ms-dataverse-type": "DateTimeType",
+          "x-ms-schema-name": "hlesg_Ejettil"
+        },
         "hlesg_faktorid": {
           "type": "string",
           "title": "Faktor",

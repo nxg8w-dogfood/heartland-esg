@@ -31,6 +31,13 @@ describe('parseAccount', () => {
     expect(r.ok && r.account.investments.map((i) => i.investmentDKK)).toEqual([null, null, 2_500_000])
   })
 
+  it('keeps the dates a holding was owned, and drops one that is not a date', () => {
+    const holding = { id: 'i1', date: '2025-07-31', company: 'Delejet ApS', ownershipPct: 40, accountingMethod: 'Ass.', climateMethod: '', dataSource: '', basis: 'Revenue', totalKgCO2e: null, revenueDKK: 1_000_000, revenueLocal: null, localCurrency: 'DKK', rateLocalToDKK: null, investmentDKK: null, factorKgPerEUR: null, factorSource: '', country: '', ownedFrom: '2025-02-01', ownedTo: '31.03.2025' }
+    const r = parseAccount({ ...sample(), investments: [holding] })
+    expect(r.ok && r.account.investments[0]).toMatchObject({ ownedFrom: '2025-02-01' })
+    expect(r.ok && r.account.investments[0]).not.toHaveProperty('ownedTo')
+  })
+
   it("keeps a location's heating share, and drops one outside 0-100 %", () => {
     const a = sample()
     const loc = a.locations[0]
