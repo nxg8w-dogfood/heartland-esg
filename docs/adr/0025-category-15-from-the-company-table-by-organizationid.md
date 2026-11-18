@@ -38,7 +38,9 @@ is positive. A notes sheet explains the setup: July 2026, YTD, i.e. the fiscal y
    and the credit is reversed; if most are positive, it's taken as it is.
 6. **OwnershipType sets the accounting method:** *Associated* becomes *Ass.*, everything else
    *Other investments*. Which holdings count is unchanged: those of 50 % or less (ADR 0006,
-   ADR 0017). The preview shows the cube's type next to each one.
+   ADR 0017), whatever the cube's type. @mortengad decided on 2026-11-18 that subsidiaries at
+   50 % or less and companies with no type are included. The preview shows the cube's type next
+   to each one.
 7. **A measure found on two sheets is read from the one with more companies.** The summary's
    lookups are only as good as the last time Excel calculated them; the data sheets hold the
    values themselves.
@@ -47,10 +49,9 @@ is positive. A notes sheet explains the setup: July 2026, YTD, i.e. the fiscal y
 
 - **Read only the summary sheet (rejected).** It has every measure in one place, but its values
   are cached formula results. A file saved without recalculating would import empty cells.
-- **Classify holdings by OwnershipType instead of the 50 % rule (not chosen now).** It's the
-  group's own classification, and it disagrees with the rule for a few companies: subsidiaries
-  at 50 % or less, and companies with no type. That changes which holdings count, so it's left to
-  the ESG owner (see Consequences).
+- **Classify holdings by OwnershipType instead of the 50 % rule (rejected 2026-11-18).** It's
+  the group's own classification, but it would leave out subsidiaries at 50 % or less and
+  companies with no type. @mortengad decided they must be included.
 - **Match on FriendlyName as before (rejected).** It isn't unique, and the investment amounts
   wouldn't match.
 
@@ -59,8 +60,8 @@ is positive. A notes sheet explains the setup: July 2026, YTD, i.e. the fiscal y
 - In the July 2026 table, 79 holdings are at 50 % or less. 67 of them now have an investment
   amount, against 4 before. 3 more have only revenue, and 9 have neither.
 - Three companies the cube calls *Subsidiary* are at 50 % or less and are imported. Eight
-  companies with no type (FriendlyName *Not Available*) are imported too. Whether either group
-  belongs in category 15 is open.
+  companies with no type (FriendlyName *Not Available*) are imported too. Both are included by
+  decision.
 - The two columns have to be applied to each environment (ADR 0007) before this ships there;
   the deploy stops if they're missing (ADR 0020). Dev has them from 2026-11-18.
 - The business area isn't yet used to choose a factor. A mapping from business area to a sector
