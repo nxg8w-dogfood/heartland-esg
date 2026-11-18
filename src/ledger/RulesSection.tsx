@@ -16,6 +16,7 @@ import type { LedgerState } from './state'
 import { formatDate } from '../format'
 import { newId } from '../newId'
 import { useConfirm } from '../confirm'
+import { RegionFactorSelect } from '../factors/RegionFactorSelect'
 
 const fieldOptions: { value: ConditionField; label: string }[] = [
   { value: 'account', label: 'Kontonummer' },
@@ -240,10 +241,7 @@ function RuleCard({ rule, index, count, matches, spendFactors, onChange, onMove,
           </select>
         </div>
         {rule.type === 'tag' && (
-          <div className="field">
-            <label htmlFor={`${id}-factor`}>Faktor</label>
-            <FactorSelect id={`${id}-factor`} value={rule.factorId} factors={spendFactors} emptyLabel="Vælg faktor" onChange={(factorId) => onChange({ factorId })} />
-          </div>
+          <RegionFactorSelect id={`${id}-factor`} label="Faktor" value={rule.factorId ?? ''} factors={spendFactors} emptyLabel="Vælg faktor" onChange={(factorId) => onChange({ factorId: factorId || null })} />
         )}
         <div className="field">
           <label htmlFor={`${id}-reason`}>Begrundelse</label>
@@ -285,19 +283,6 @@ function RuleCard({ rule, index, count, matches, spendFactors, onChange, onMove,
         <button type="button" className="secondary" onClick={onClose}>Luk</button>
       </div>
     </div>
-  )
-}
-
-function FactorSelect({ id, value, factors, emptyLabel, onChange }: { id: string; value: string | null; factors: Factor[]; emptyLabel: string; onChange: (id: string | null) => void }) {
-  return (
-    <select id={id} value={value ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-      <option value="">{emptyLabel}</option>
-      {factors.map((f) => (
-        <option key={f.id} value={f.id}>
-          {f.name}, {f.region}{f.value === null ? ' (faktor mangler)' : ''}
-        </option>
-      ))}
-    </select>
   )
 }
 
@@ -415,10 +400,7 @@ function PostingRuleEditor({ rule, spendFactors, onSave, onRestore, onCancel }: 
         </div>
         {handling !== 'exclude' && (
           <>
-            <div className="field">
-              <label htmlFor={`${id}-factor`}>Faktor</label>
-              <FactorSelect id={`${id}-factor`} value={factorId} factors={spendFactors} emptyLabel="Kontoens faktor" onChange={setFactorId} />
-            </div>
+            <RegionFactorSelect id={`${id}-factor`} label="Faktor" value={factorId ?? ''} factors={spendFactors} emptyLabel="Kontoens faktor" onChange={(v) => setFactorId(v || null)} />
             <div className="field">
               <label htmlFor={`${id}-move`}>Flyt til kategori</label>
               <select id={`${id}-move`} value={moveTo ?? ''} onChange={(e) => setMoveTo(e.target.value ? Number(e.target.value) : null)}>

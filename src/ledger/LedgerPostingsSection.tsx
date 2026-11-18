@@ -10,6 +10,7 @@ import type { Factor } from '../data/factors'
 import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { Tile } from '../ui'
+import { RegionFactorSelect } from '../factors/RegionFactorSelect'
 import type { LedgerState } from './state'
 
 type Props = {
@@ -239,13 +240,7 @@ export function ExceptionForm({ posting, category, factors, onSave, onCancel }: 
         </div>
         {type === 'tag' && (
           <>
-            <div className="field">
-              <label htmlFor={`${id}-factor`}>Faktor</label>
-              <select id={`${id}-factor`} value={factorId} onChange={(e) => setFactorId(e.target.value)}>
-                <option value="">Vælg faktor</option>
-                {spendFactors.map((f) => <option key={f.id} value={f.id}>{f.name}, {f.region}{f.value === null ? ' (faktor mangler)' : ''}</option>)}
-              </select>
-            </div>
+            <RegionFactorSelect id={`${id}-factor`} label="Faktor" value={factorId} factors={spendFactors} emptyLabel="Vælg faktor" onChange={setFactorId} />
             <div className="field">
               <label htmlFor={`${id}-cat`}>Kategori</label>
               <select id={`${id}-cat`} value={cat} onChange={(e) => setCat(Number(e.target.value))}>

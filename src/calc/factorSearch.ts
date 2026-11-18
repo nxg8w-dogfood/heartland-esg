@@ -14,3 +14,15 @@ export function searchFactors<F extends Pick<Factor, 'name' | 'source' | 'region
 }
 
 const fold = (s: string) => s.normalize('NFKD').replace(/\p{M}/gu, '').toLocaleLowerCase('da')
+
+/** The countries and areas the factors are for, alphabetically, each once. */
+export function factorRegions(factors: readonly Pick<Factor, 'region'>[]): string[] {
+  return [...new Set(factors.map((f) => f.region).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'da'))
+}
+
+/** The factors for one country or area, or all for '', by name. */
+export function factorsInRegion<F extends Pick<Factor, 'name' | 'region'>>(factors: readonly F[], region: string): F[] {
+  return factors
+    .filter((f) => !region || f.region === region)
+    .sort((a, b) => a.name.localeCompare(b.name, 'da') || a.region.localeCompare(b.region, 'da'))
+}

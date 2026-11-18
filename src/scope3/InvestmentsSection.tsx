@@ -6,6 +6,7 @@ import { appRates, type DkkRate } from '../calc/exchangeRates'
 import { importedBatches, type ImportedBatch } from '../calc/groupExport'
 import { coverLabel, investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
 import { factorLabel } from '../factors/label'
+import { RegionFactorSelect } from '../factors/RegionFactorSelect'
 import { formatDate, formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
@@ -28,7 +29,6 @@ type Props = {
 }
 
 /** "Other business services (Sverige) · 0,0768" — what a factor is and its value, in a list. */
-const optionLabel = (f: Factor) => `${factorLabel(f)} · ${f.value === null ? 'værdi mangler' : formatFactor(f.value)}`
 
 /** A holding estimated with a factor that has none of any kind: what the bulk choice fills in. */
 const withoutFactor = (i: Investment) => i.basis !== 'CO2e' && !i.factorId && i.factorKgPerEUR === null
@@ -132,13 +132,7 @@ function BulkFactor({ count, options, onApply }: { count: number; options: reado
   if (count === 0 || options.length === 0) return null
   return (
     <div className="bulk-factor">
-      <div className="field">
-        <label htmlFor={`${id}-factor`}>Faktor til investeringer uden faktor</label>
-        <select id={`${id}-factor`} value={factorId} onChange={(e) => setFactorId(e.target.value)}>
-          <option value="">Vælg faktor …</option>
-          {options.map((f) => <option key={f.id} value={f.id}>{optionLabel(f)}</option>)}
-        </select>
-      </div>
+      <RegionFactorSelect id={`${id}-factor`} label="Faktor til investeringer uden faktor" factors={options} value={factorId} emptyLabel="Vælg faktor …" showValue onChange={setFactorId} />
       <button type="button" disabled={!factorId} onClick={() => { onApply(factorId); setFactorId('') }}>
         Brug på {formatNumber(count, 0)} {count === 1 ? 'investering' : 'investeringer'}
       </button>
@@ -262,15 +256,10 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
         )}
         {inv.basis !== 'CO2e' && (
           <>
-            <div className="field">
-              <label htmlFor={`${id}-factor`}>Faktor</label>
-              <select id={`${id}-factor`} value={inv.factorId ?? ''} onChange={(e) => onChange({ factorId: e.target.value || null })}>
-                <option value="">Egen faktor</option>
-                {/* A factor that is no longer offered stays chosen, so nothing changes silently. */}
-                {inv.factorId && !options.some((f) => f.id === inv.factorId) && <option value={inv.factorId}>{factorLabel(result.factor) || inv.factorId}</option>}
-                {options.map((f) => <option key={f.id} value={f.id}>{optionLabel(f)}</option>)}
-              </select>
-            </div>
+            <RegionFactorSelect
+              id={`${id}-factor`} label="Faktor" factors={options} value={inv.factorId ?? ''} emptyLabel="Egen faktor" showValue
+              keptLabel={factorLabel(result.factor)} onChange={(v) => onChange({ factorId: v || null })}
+            />
             {inv.factorId ? (
               <p className="field">
                 {result.factorKgPerEUR === null
