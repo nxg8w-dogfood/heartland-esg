@@ -107,6 +107,11 @@
           "entitySetName": "hlesg_regnskabsperiodes",
           "logicalName": "hlesg_regnskabsperiode",
           "isHidden": false
+        },
+        "dokumenter": {
+          "entitySetName": "hlesg_dokuments",
+          "logicalName": "hlesg_dokument",
+          "isHidden": false
         }
       },
       "environmentVariableName": ""

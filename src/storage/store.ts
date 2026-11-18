@@ -3,6 +3,7 @@
 // implementation, not the app.
 
 import { parseGroup, type GroupData, type GroupLoadResult } from './group'
+import type { DocumentStore } from './documents'
 
 export type SaveProgress = (done: number, total: number) => void
 
@@ -17,6 +18,8 @@ export type GroupStore = {
   save(group: GroupData, onProgress?: SaveProgress): Promise<void>
   /** Delete everything. Only the browser draft offers it; shared data isn't cleared from the app. */
   clear?(): Promise<void>
+  /** Where documents on holdings are kept; only Dataverse has somewhere (ADR 0029). */
+  readonly documents?: DocumentStore
 }
 
 // The key predates groups; a single account saved under it loads as the group's first company.

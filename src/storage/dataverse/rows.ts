@@ -20,7 +20,7 @@ import type { TestNorm, Vehicle, VehicleFuel } from '../../calc/vehicles'
 import type { Location, Scope2Line } from '../../calc/scope2'
 import { defaultPriceIndexSeries, noDeflation, type SpendLine } from '../../calc/spend'
 import { factors } from '../../data/factors'
-import { lineLists, tables, type Choice, type Column } from '../../dataverse/schema'
+import { lineLists, storedTables, tables, type Choice, type Column } from '../../dataverse/schema'
 import { defaultPeriod, periodError, periodFromRange, periodOrLatest, sortPeriods, type FiscalPeriod } from '../../calc/periods'
 import { defaultRelevance } from '../../scope3/relevance'
 import { ACCOUNT_VERSION, emptyAccount, type AccountData } from '../account'
@@ -59,7 +59,7 @@ const thousands = (v: number | null | undefined): number | null => { const x = n
 const fromThousands = (v: Value): number | null => (typeof v === 'number' ? Math.round(v * 1e6) / 1000 : null)
 
 export function emptyRows(): Rows {
-  return Object.fromEntries([c('koncern'), ...tables.filter((t) => t.name !== c('koncern')).map((t) => t.name)].map((t) => [t, new Map<string, Row>()]))
+  return Object.fromEntries([c('koncern'), ...storedTables.filter((t) => t.name !== c('koncern')).map((t) => t.name)].map((t) => [t, new Map<string, Row>()]))
 }
 
 /** The group as rows. The active company and period are the user's view, not stored. */

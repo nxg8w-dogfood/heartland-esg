@@ -1,4 +1,4 @@
-import { useId, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, useId, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
@@ -11,6 +11,8 @@ import { formatDate, formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
 import { useConfirm } from '../confirm'
+import { useDocuments, type StoredDocument } from '../storage/documents'
+import { InvestmentDocuments } from './InvestmentDocuments'
 import { InvestmentsImport } from './InvestmentsImport'
 
 const blank = (date: string): Investment => ({
@@ -28,8 +30,6 @@ type Props = {
   factors: readonly Factor[]
 }
 
-/** "Other business services (Sverige) · 0,0768" — what a factor is and its value, in a list. */
-
 /** A holding estimated with a factor that has none of any kind: what the bulk choice fills in. */
 const withoutFactor = (i: Investment) => i.basis !== 'CO2e' && !i.factorId && i.factorKgPerEUR === null
 
@@ -41,6 +41,23 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
   const update = (invId: string, patch: Partial<Investment>) =>
     setInvestments((is) => is.map((i) => (i.id === invId ? { ...i, ...patch } : i)))
   const { confirm, dialog } = useConfirm()
+  const documents = useDocuments()
+  const [docs, setDocs] = useState<StoredDocument[] | null>(null)
+  const [docsError, setDocsError] = useState<string | null>(null)
+  // Every holding's documents in one request, so each folded holding can say how many it has.
+  const docStore = documents?.store
+  useEffect(() => {
+    if (!docStore) return
+    let cancelled = false
+    docStore.list().then(
+      (ds) => { if (!cancelled) setDocs(ds) },
+      (e: unknown) => { if (!cancelled) setDocsError(e instanceof Error ? e.message : 'Kunne ikke hente dokumenterne.') },
+    )
+    return () => { cancelled = true }
+  }, [docStore])
+  const docsOf = (invId: string) => docs && docs.filter((d) => d.investmentId === invId)
+  /** Deleting a holding deletes its documents too (the lookup cascades), so the question says so. */
+  const andDocuments = (ids: ReadonlySet<string>, whose: 'Dens' | 'Deres') => (docs?.some((d) => ids.has(d.investmentId)) ? ` ${whose} dokumenter slettes også.` : '')
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -55,8 +72,8 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
         onDelete={async (batch) => {
           const n = batch.ids.length
           const what = `${formatNumber(n, 0)} ${n === 1 ? 'investering' : 'investeringer'} fra importen ${batch.periodLabel}`
-          if (!(await confirm(`Slet ${what}? Det gælder også investeringer, importen opdaterede, og eventuelle ændringer du har lavet i dem. Det kan ikke fortrydes.`, 'Slet import'))) return
           const ids = new Set(batch.ids)
+          if (!(await confirm(`Slet ${what}? Det gælder også investeringer, importen opdaterede, og eventuelle ændringer du har lavet i dem.${andDocuments(ids, 'Deres')} Det kan ikke fortrydes.`, 'Slet import'))) return
           setInvestments((is) => is.filter((i) => !ids.has(i.id)))
         }}
       />
@@ -105,8 +122,15 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
           counted={counted.has(inv.id)}
           onChange={(patch) => update(inv.id, patch)}
           onDelete={async () => {
-            if (await confirm(`Slet ${inv.company || 'investeringen'}?`)) setInvestments((is) => is.filter((i) => i.id !== inv.id))
+            if (await confirm(`Slet ${inv.company || 'investeringen'}?${andDocuments(new Set([inv.id]), 'Dens')}`)) setInvestments((is) => is.filter((i) => i.id !== inv.id))
           }}
+          documents={
+            <InvestmentDocuments
+              investmentId={inv.id} company={inv.company} documents={documents} list={docsOf(inv.id)} loadError={docsError}
+              onChange={(f) => setDocs((ds) => f(ds ?? []))} confirm={confirm}
+            />
+          }
+          documentCount={docsOf(inv.id)?.length ?? 0}
         />
       ))}
 
@@ -140,12 +164,15 @@ function BulkFactor({ count, options, onApply }: { count: number; options: reado
   )
 }
 
-function InvestmentCard({ result, options, counted, onChange, onDelete }: {
+function InvestmentCard({ result, options, counted, onChange, onDelete, documents, documentCount }: {
   result: InvestmentResult
   options: readonly Factor[]
   counted: boolean
   onChange: (patch: Partial<Investment>) => void
   onDelete: () => void
+  /** The holding's documentation, shown below its figures */
+  documents: ReactNode
+  documentCount: number
 }) {
   const id = useId()
   const inv = result.investment
@@ -180,6 +207,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
           {inv.ownedTo && ` · solgt ${formatDate(inv.ownedTo)}`}
           {' '}· {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
           {' '}· {formatNumber(result.kgCO2e / 1000, 3)} tCO2e
+          {documentCount > 0 && ` · ${documentCount} ${documentCount === 1 ? 'dokument' : 'dokumenter'}`}
         </span>
         {status && <span className="pending"> · {status}</span>}
       </summary>
@@ -293,6 +321,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
         {' '}· {formatNumber(result.shareInPeriod * 100, 1)} % af de 12 måneder {trimmed ? 'ejet og ' : ''}i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
         {status && <> — <strong>{status}</strong></>}
       </p>
+      {documents}
     </details>
   )
 }

@@ -974,6 +974,10 @@ ul.plain {
   margin-bottom: var(--hl-sp-4);
 }
 
+.investment-details .documents h3 {
+  margin-top: var(--hl-sp-4);
+}
+
 .investment-name {
   font-weight: var(--hl-fw-bold);
 }

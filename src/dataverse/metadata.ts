@@ -55,6 +55,8 @@ export function attribute(c: Exclude<Column, { kind: 'lookup' }>, lcid: number):
         DefaultValue: c.default,
         OptionSet: { TrueOption: { Value: 1, Label: label(c.trueLabel, lcid) }, FalseOption: { Value: 0, Label: label(c.falseLabel, lcid) }, OptionSetType: 'Boolean' },
       }
+    case 'file':
+      return { '@odata.type': 'Microsoft.Dynamics.CRM.FileAttributeMetadata', ...base, AttributeTypeName: { Value: 'FileType' }, RequiredLevel: required(false), MaxSizeInKB: c.maxSizeKB }
     case 'choice':
       return {
         '@odata.type': 'Microsoft.Dynamics.CRM.PicklistAttributeMetadata', ...base, AttributeType: 'Picklist', AttributeTypeName: { Value: 'PicklistType' }, RequiredLevel: required(c.required),
