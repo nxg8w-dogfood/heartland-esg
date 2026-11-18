@@ -14,6 +14,9 @@
 // The app only reads what it needs: the measure, the period columns and one value per entity.
 // Everything else in the header block is kept for display, so the user can see what they picked
 // in the source system.
+//
+// The cube's company table is read too (docs/adr/0025): one row per company, keyed by
+// OrganizationID, with a column per measure. See parseCompanyTable.
 
 import type { CellValue } from './ledger'
 import { parseLedgerAmount, parseLedgerDate } from './ledger'
@@ -33,6 +36,12 @@ export type GroupPeriod = { label: string; year: number; month: number }
 export type GroupExportRow = {
   /** The entity, as the source system writes it */
   name: string
+  /** The company's key in the cube (OrganizationID), when the export has one */
+  id?: string
+  /** How the cube classes the holding: Subsidiary, Associated, Other, Cost … */
+  ownershipType?: string
+  /** The company's business area in the cube, e.g. Apparel */
+  businessArea?: string
   /** One value per period, in the same order; null where the cell is empty */
   values: (number | null)[]
 }
@@ -93,7 +102,7 @@ export function parsePeriodLabel(v: CellValue): GroupPeriod | null {
 
 export function measureOf(accountInternal: string): GroupMeasure {
   if (/ownership\s*percentage|ejerandel/i.test(accountInternal)) return 'ownership'
-  if (/net\s*turnover|nettoomsætning|omsætning/i.test(accountInternal)) return 'turnover'
+  if (/net\s*turnover|nettoomsætning|omsætning|revenue/i.test(accountInternal)) return 'turnover'
   if (/investment\s*amount|investeringsbeløb/i.test(accountInternal)) return 'investment'
   return 'unknown'
 }
@@ -160,6 +169,78 @@ export function parseGroupExport(sheet: readonly (readonly CellValue[])[]): Grou
   return { measure: measureOf(measureText), measureText, settings, dimension: text(grid[headerAt][0]), periods, rows, skipped }
 }
 
+/** The first month a heading names, e.g. "juli 2026" in "Revenue juli 2026 (DKK)" */
+function periodIn(heading: string): GroupPeriod | null {
+  for (const m of heading.matchAll(/([A-Za-zÆØÅæøå]+)\.?\s+(\d{4})/g)) {
+    const period = parsePeriodLabel(`${m[1]} ${m[2]}`)
+    if (period) return period
+  }
+  return null
+}
+
+const isOrganizationId = (heading: string) => /^organi[sz]ation\s*id$/i.test(heading)
+/** "N/A", "NA" and "Not Available" are the cube's way of saying nothing */
+const known = (value: string) => (/^(n\/?a|not available)$/i.test(value) ? '' : value)
+
+/**
+ * Reads a sheet of the cube's company table (docs/adr/0025): one row per company, keyed by
+ * OrganizationID, with a column per measure whose heading names the month:
+ *
+ *   OrganizationID  Selskabsnavn (OrganizationName)  FriendlyName  OwnershipType  BusinessArea  Revenue juli 2026 (DKK)  Ejerandel juli 2026
+ *   401_464         Zalando SE                       Zalando       Associated     Apparel       100937926370,37          0,11425
+ *
+ * Each measure column becomes an export of its own, so the rest of the import treats it as one
+ * from the cube. Revenue here is already positive. Null when the sheet has no OrganizationID
+ * column, so the caller can try the cube's layout.
+ */
+export function parseCompanyTable(sheet: readonly (readonly CellValue[])[]): GroupExport[] | null {
+  const headerAt = sheet.findIndex((row) => row.some((v) => isOrganizationId(text(v))))
+  if (headerAt === -1) return null
+  const headings = sheet[headerAt].map(text)
+  const column = (re: RegExp) => headings.findIndex((h) => re.test(h))
+  const idColumn = headings.findIndex(isOrganizationId)
+  const friendlyColumn = column(/^friendly\s*name$/i)
+  const nameColumn = column(/organi[sz]ation\s*name/i)
+  const typeColumn = column(/^ownership\s*type$/i)
+  const areaColumn = column(/^business\s*area$/i)
+  const cell = (row: readonly CellValue[], c: number) => (c === -1 ? '' : known(text(row[c])))
+
+  // The title above the table says the month and whether it's year to date.
+  const above = sheet.slice(0, headerAt).flatMap((row) => row.map(text)).filter(Boolean)
+  const settings = above.length ? [{ label: 'Titel', value: above[0] }] : []
+  if (above.some((t) => /\bytd\b/i.test(t))) settings.push({ label: 'Time Calculations', value: 'YTD' })
+  const measures = headings.flatMap((heading, c) => {
+    const measure = measureOf(heading)
+    const period = periodIn(heading) ?? above.map(periodIn).find((p) => p !== null) ?? null
+    return measure !== 'unknown' && !/ownership\s*type/i.test(heading) && period ? [{ c, measure, heading, period }] : []
+  })
+  if (measures.length === 0) {
+    throw new GroupExportError('Tabellen har OrganizationID, men ingen kolonne med ejerandel, omsætning eller investeringsbeløb for en måned (fx “Ejerandel juli 2026”).')
+  }
+
+  const companies = sheet.slice(headerAt + 1).flatMap((row) => {
+    const id = text(row[idColumn])
+    if (!id) return []
+    // FriendlyName can be shared (dozens are "Not Available"); the legal name tells those apart.
+    const name = cell(row, friendlyColumn) || cell(row, nameColumn) || id
+    return [{ row, id, name, ownershipType: cell(row, typeColumn), businessArea: cell(row, areaColumn) }]
+  })
+  const exports = measures.map(({ c, measure, heading, period }): GroupExport => {
+    const rows: GroupExportRow[] = []
+    for (const { row, ...company } of companies) {
+      const value = parseLedgerAmount(row[c] ?? null)
+      if (value !== null && value !== 0) rows.push({ ...company, values: [value] })
+    }
+    return { measure, measureText: heading, settings, dimension: 'OrganizationID', periods: [period], rows, skipped: companies.length - rows.length }
+  }).filter((e) => e.rows.length > 0)
+  if (exports.length === 0) throw new GroupExportError('Filen indeholder ingen selskaber med værdier.')
+  return exports
+}
+
+/** Every export a sheet holds: one per measure of a company table, or the cube's one. */
+export const parseGroupExports = (sheet: readonly (readonly CellValue[])[]): GroupExport[] =>
+  parseCompanyTable(sheet) ?? [parseGroupExport(sheet)]
+
 /**
  * Ownership as a percentage. The system writes a share (1,00 for a wholly owned company), but
  * an export set to percent writes 100. The export is read as shares when most values are at
@@ -175,6 +256,17 @@ export function ownershipScale(values: readonly (number | null)[]): { factor: 1 
 /** Income is a credit in the source system, so it arrives negative. */
 export const turnoverToRevenue = (value: number) => -value
 
+/**
+ * What turns an export's turnover into revenue: −1 for the cube's own export, where income is a
+ * credit, 1 for the company table, which has turned it already. Read from the values, since a
+ * few companies can have the other sign.
+ */
+export function revenueSign(values: readonly (number | null)[]): 1 | -1 {
+  const negative = values.filter((v) => v !== null && v < 0).length
+  const positive = values.filter((v) => v !== null && v > 0).length
+  return negative >= positive ? -1 : 1
+}
+
 /** What importing one company from the export would do. */
 export type PlanStatus = 'new' | 'update' | 'consolidated' | 'unknownShare'
 
@@ -187,13 +279,18 @@ export const planStatusLabels: Record<PlanStatus, string> = {
 
 export type PlanRow = {
   name: string
+  /** OrganizationID, from a company table; null from the cube's own export */
+  organizationId: string | null
+  /** As the cube classes the holding, e.g. Associated; '' when the export doesn't say */
+  ownershipType: string
+  businessArea: string
   /** 0–100, from the ownership export */
   ownershipPct: number | null
-  /** DKK, the credit from the turnover export turned into revenue */
+  /** DKK, the turnover export as revenue */
   revenueDKK: number | null
   /** DKK, the amount invested: the data manual's basis (docs/adr/0022) */
   investmentDKK: number | null
-  /** The investment this updates: the same company, on the same date */
+  /** The investment this updates: the same company (by OrganizationID if both have one), on the same date */
   existingId: string | null
   status: PlanStatus
 }
@@ -211,46 +308,58 @@ export const CONSOLIDATED_ABOVE_PCT = 50
 export function planInvestments(
   exports: readonly GroupExport[],
   periodLabel: string,
-  existing: readonly { id: string; company: string; date: string }[],
+  existing: readonly { id: string; company: string; date: string; organizationId?: string }[],
 ): PlanRow[] {
   // A holding covers the 12 months up to its date (docs/adr/0023), and an imported one is dated
   // at the end of its period. The same company on the same date is the same holding; any other
   // date is a new row, and an overlap is flagged in category 15.
   const period = exports.flatMap((e) => e.periods).find((p) => p.label === periodLabel)
   const date = period ? periodEndDate(period) : null
-  const valueOf = (measure: GroupMeasure, name: string): number | null => {
+  // A company table's rows are matched on OrganizationID (docs/adr/0025), the cube's own export
+  // on the name.
+  const keyOf = (r: GroupExportRow) => (r.id ? `id:${r.id}` : `name:${r.name.trim().toLowerCase()}`)
+  const signs = new Map(exports.filter((e) => e.measure === 'turnover').map((e) => [e, revenueSign(e.rows.flatMap((r) => r.values))]))
+  /** The value for the period, with turnover as revenue */
+  const valueOf = (measure: GroupMeasure, key: string): number | null => {
     for (const e of exports) {
       if (e.measure !== measure) continue
       const i = e.periods.findIndex((p) => p.label === periodLabel)
       if (i === -1) continue
-      const row = e.rows.find((r) => sameCompany(r.name, name))
-      if (row && row.values[i] != null) return row.values[i]
+      const value = e.rows.find((r) => keyOf(r) === key)?.values[i]
+      if (value != null) return value * (signs.get(e) ?? 1)
     }
     return null
   }
   const ownershipValues = exports.filter((e) => e.measure === 'ownership').flatMap((e) => e.rows.flatMap((r) => r.values))
   const { factor } = ownershipScale(ownershipValues)
 
-  const names: string[] = []
-  for (const e of exports) for (const r of e.rows) if (!names.some((n) => sameCompany(n, r.name))) names.push(r.name)
+  const companies = new Map<string, GroupExportRow>()
+  for (const e of exports) for (const r of e.rows) if (!companies.has(keyOf(r))) companies.set(keyOf(r), r)
 
-  return names.map((name) => {
-    const share = valueOf('ownership', name)
+  return [...companies].map(([key, { name, id, ownershipType, businessArea }]) => {
+    const share = valueOf('ownership', key)
     // What's left of a sold holding can be a rounding residue, even below zero: no holding.
     const ownershipPct = share === null || Math.round(share * factor * 1e4) <= 0 ? null : share * factor
-    const turnover = valueOf('turnover', name)
+    const same = (i: (typeof existing)[number]) => (id && i.organizationId ? i.organizationId === id : sameCompany(i.company, name))
     const row = {
       name,
+      organizationId: id ?? null,
+      ownershipType: ownershipType ?? '',
+      businessArea: businessArea ?? '',
       ownershipPct,
-      revenueDKK: turnover === null ? null : turnoverToRevenue(turnover),
-      investmentDKK: valueOf('investment', name),
-      existingId: existing.find((i) => sameCompany(i.company, name) && i.date === date)?.id ?? null,
+      revenueDKK: valueOf('turnover', key),
+      investmentDKK: valueOf('investment', key),
+      existingId: existing.find((i) => same(i) && i.date === date)?.id ?? null,
     }
     if (ownershipPct === null) return { ...row, status: 'unknownShare' as const }
     if (ownershipPct > CONSOLIDATED_ABOVE_PCT) return { ...row, status: 'consolidated' as const }
     return { ...row, status: row.existingId ? ('update' as const) : ('new' as const) }
   })
 }
+
+/** The cube's Associated is the app's associate; everything else is another investment. */
+export const importedAccountingMethod = (row: Pick<PlanRow, 'ownershipType'>): 'Ass.' | 'Other investments' =>
+  /^associated?$/i.test(row.ownershipType) ? 'Ass.' : 'Other investments'
 
 /**
  * The basis a new holding gets. The data manual estimates a company without a climate account

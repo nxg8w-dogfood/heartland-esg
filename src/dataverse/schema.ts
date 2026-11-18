@@ -255,6 +255,8 @@ export const tables: readonly Table[] = [
       text('faktorkilde', 'Faktorkilde', 200),
       text('land', 'Land', 100),
       text('faktorid', 'Faktor', 100, 'Spendfaktoren fra faktortabellen. Tom: investeringens egen faktor (kg CO2e pr. EUR).'),
+      text('organisationid', 'OrganizationID', 50, 'Selskabets nøgle i koncernsystemet, når investeringen er importeret derfra.'),
+      text('forretningsomraade', 'Forretningsområde', 100, 'Selskabets BusinessArea i koncernsystemet, fx Apparel.'),
     ],
   },
   {

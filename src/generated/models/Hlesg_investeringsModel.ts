@@ -31,6 +31,7 @@ export interface Hlesg_investeringsBase {
   hlesg_faktorid?: string;
   hlesg_faktorkilde?: string;
   hlesg_faktorpreur?: number;
+  hlesg_forretningsomraade?: string;
   hlesg_grundlag?: Hlesg_investeringshlesg_grundlag;
   hlesg_investeringdkk?: number;
   hlesg_investeringid: string;
@@ -42,6 +43,7 @@ export interface Hlesg_investeringsBase {
   hlesg_omsaetninglokal?: number;
   hlesg_omsaetningtdkk?: number;
   hlesg_omsaetningtlokal?: number;
+  hlesg_organisationid?: string;
   hlesg_regnskabsmetode?: Hlesg_investeringshlesg_regnskabsmetode;
   hlesg_selskab?: string;
   hlesg_udledningkg?: number;

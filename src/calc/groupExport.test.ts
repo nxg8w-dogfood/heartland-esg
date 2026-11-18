@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { GroupExportError, importedBasis, importedBatches, measureOf, ownershipScale, parseGroupExport, parsePeriodLabel, periodEndDate, planInvestments, turnoverToRevenue } from './groupExport'
+import {
+  GroupExportError, importedAccountingMethod, importedBasis, importedBatches, measureOf, ownershipScale, parseCompanyTable, parseGroupExport,
+  parseGroupExports, parsePeriodLabel, periodEndDate, planInvestments, revenueSign, turnoverToRevenue,
+} from './groupExport'
 import { parseCsvGrid, type CellValue } from './ledger'
 import { readXlsxSheets } from './readXlsx'
 import { makeWorkbook } from './testing/xlsx'
@@ -61,6 +64,7 @@ describe('measureOf', () => {
     expect(measureOf('Ownership Percentage (CL)')).toBe('ownership')
     expect(measureOf('Net Turnover')).toBe('turnover')
     expect(measureOf('Investment Amount')).toBe('investment')
+    expect(measureOf('Revenue juli 2026 (DKK)')).toBe('turnover')
     expect(measureOf('EBITDA')).toBe('unknown')
   })
 })
@@ -264,5 +268,107 @@ describe('importedBatches', () => {
 
   it('has none when nothing was imported', () => {
     expect(importedBatches([{ id: 'b', dataSource: 'Årsrapport' }])).toEqual([])
+  })
+})
+
+// The cube's company table (ADR 0025), with invented companies and figures. An empty lookup is
+// '' as Excel caches it, and "Not Available" is a FriendlyName several companies share.
+const companyTable: CellValue[][] = [
+  ['Heartland – revenue, ejerandel og investment amount pr. selskab, juli 2026 (YTD 2025/26)'],
+  ['OrganizationID', 'Selskabsnavn (OrganizationName)', 'FriendlyID', 'FriendlyName', 'Division', 'BusinessArea', 'OwnershipType', 'Revenue juli 2026 (DKK)', 'Ejerandel juli 2026', 'Investment Amount juli 2026 (DKK)'],
+  ['101', 'Alfa Holding A/S', '101', 'Alfa Holding', 'NA', 'N/A', 'Subsidiary', 13_500_000, 1, 250_000_000],
+  ['401_464', 'Delejet SE', '401', 'Delejet', 'Retail', 'Apparel', 'Associated', 120_000_000_000.5, 0.25, 4_000_000_000],
+  ['157', 'Gamma Fashion Ltd', '157', 'Not Available', 'NA', 'Not Available', 'NA', '', 0.15, ''],
+  ['208_103', 'Epsilon Ltd', '208', 'Not Available', 'NA', 'Not Available', 'NA', '', 0.1, 300_000],
+  ['629', 'Zeta Farms ApS', '629', 'Zeta', 'Land', 'Farming & Forestry', 'Cost', 0, 0.05, 12_000_000],
+  [null, null, null, null, null, null, null, null, null, null],
+]
+
+describe('parseCompanyTable', () => {
+  const [turnover, ownership, investment] = parseCompanyTable(companyTable)!
+
+  it('makes an export per measure, for the month its heading names', () => {
+    expect([turnover, ownership, investment].map((e) => e.measure)).toEqual(['turnover', 'ownership', 'investment'])
+    expect(ownership.measureText).toBe('Ejerandel juli 2026')
+    expect(ownership.periods).toEqual([{ label: 'juli 2026', year: 2026, month: 7 }])
+    expect(ownership.dimension).toBe('OrganizationID')
+    expect(ownership.settings).toContainEqual({ label: 'Time Calculations', value: 'YTD' })
+  })
+
+  it('keys each company by OrganizationID, with how the cube classes it', () => {
+    expect(ownership.rows[1]).toEqual({ name: 'Delejet', id: '401_464', ownershipType: 'Associated', businessArea: 'Apparel', values: [0.25] })
+    expect(ownership.rows[0]).toMatchObject({ ownershipType: 'Subsidiary', businessArea: '' })
+  })
+
+  it('names a company by its legal name when the FriendlyName is shared', () => {
+    expect(ownership.rows.map((r) => r.name)).toEqual(['Alfa Holding', 'Delejet', 'Gamma Fashion Ltd', 'Epsilon Ltd', 'Zeta'])
+    expect(ownership.rows[2]).toMatchObject({ id: '157', ownershipType: '', businessArea: '' })
+  })
+
+  it('leaves out empty and zero cells, and counts them', () => {
+    expect(turnover.rows.map((r) => r.name)).toEqual(['Alfa Holding', 'Delejet'])
+    expect(turnover.skipped).toBe(3)
+  })
+
+  it('is not one without an OrganizationID column, so the cube layout is read instead', () => {
+    const grid = parseCsvGrid(ownershipCsv) as CellValue[][]
+    expect(parseCompanyTable(grid)).toBeNull()
+    expect(parseGroupExports(grid)).toEqual([read(ownershipCsv)])
+  })
+
+  it('says what is wrong when no column holds a measure for a month', () => {
+    expect(() => parseCompanyTable([['OrganizationID', 'FriendlyName', 'Revenue (DKK)'], ['1', 'Alfa', 5]])).toThrow(GroupExportError)
+  })
+
+  it('reads the table from a workbook', async () => {
+    const book = makeWorkbook([{ name: 'Samlet', rows: companyTable.map((row) => row.map((v) => (v === '' ? null : v as string | number | null))) }])
+    const [sheet] = await readXlsxSheets(book.buffer as ArrayBuffer)
+    expect(parseGroupExports(sheet.grid)).toEqual([turnover, ownership, investment])
+  })
+})
+
+describe('revenueSign', () => {
+  it('turns the cube’s credit into revenue, and leaves a table that has done so alone', () => {
+    expect(revenueSign([-12_000_000, -4_000_000, 300])).toBe(-1)
+    expect(revenueSign([12_000_000, 4_000_000, -300])).toBe(1)
+    expect(revenueSign([null])).toBe(-1)
+  })
+})
+
+describe('planInvestments from a company table (ADR 0025)', () => {
+  const exports = parseCompanyTable(companyTable)!
+  const plan = (existing: Parameters<typeof planInvestments>[2] = []) => planInvestments(exports, 'juli 2026', existing)
+  const row = (rows: ReturnType<typeof plan>, name: string) => rows.find((r) => r.name === name)!
+
+  it('joins the measures by OrganizationID, with revenue as the table gives it', () => {
+    expect(row(plan(), 'Delejet')).toEqual({
+      name: 'Delejet', organizationId: '401_464', ownershipType: 'Associated', businessArea: 'Apparel',
+      ownershipPct: 25, revenueDKK: 120_000_000_000.5, investmentDKK: 4_000_000_000, existingId: null, status: 'new',
+    })
+    expect(row(plan(), 'Alfa Holding').status).toBe('consolidated')
+    expect(row(plan(), 'Zeta')).toMatchObject({ ownershipPct: 5, revenueDKK: null, investmentDKK: 12_000_000, status: 'new' })
+  })
+
+  it('keeps companies that share a FriendlyName apart', () => {
+    expect(plan().filter((r) => r.status === 'new').map((r) => r.organizationId)).toEqual(['401_464', '157', '208_103', '629'])
+  })
+
+  it('updates the holding with the same OrganizationID on the same date, even if it was renamed', () => {
+    expect(row(plan([{ id: 'inv-9', company: 'Delejet (gammelt navn)', date: '2026-07-31', organizationId: '401_464' }]), 'Delejet'))
+      .toMatchObject({ existingId: 'inv-9', status: 'update' })
+    expect(row(plan([{ id: 'inv-8', company: 'Delejet', date: '2026-07-31', organizationId: '999' }]), 'Delejet').existingId).toBeNull()
+  })
+
+  it('matches a holding saved before OrganizationIDs on its name', () => {
+    expect(row(plan([{ id: 'inv-7', company: 'delejet', date: '2026-07-31' }]), 'Delejet').existingId).toBe('inv-7')
+  })
+})
+
+describe('importedAccountingMethod', () => {
+  it('makes the cube’s associates associates, and everything else another investment', () => {
+    expect(importedAccountingMethod({ ownershipType: 'Associated' })).toBe('Ass.')
+    for (const ownershipType of ['Other', 'Cost', 'Convertible', 'Subsidiary', '']) {
+      expect(importedAccountingMethod({ ownershipType })).toBe('Other investments')
+    }
   })
 })

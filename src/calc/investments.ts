@@ -51,6 +51,10 @@ export type Investment = {
   factorKgPerEUR: number | null
   factorSource: string
   country: string
+  /** The company's key in the group's consolidation system (OrganizationID), when imported from it */
+  organizationId?: string
+  /** The company's business area in the consolidation system, e.g. Apparel */
+  businessArea?: string
 }
 
 export type InvestmentResult = {

@@ -178,6 +178,7 @@ function investmentRow(company: string, i: Investment): Row {
     [c('lokalvaluta')]: s(i.localCurrency), [c('kurs')]: n(i.rateLocalToDKK), [c('investeringdkk')]: n(i.investmentDKK),
     [c('faktorpreur')]: n(i.factorKgPerEUR),
     [c('faktorkilde')]: s(i.factorSource), [c('land')]: s(i.country), [c('faktorid')]: s(i.factorId),
+    [c('organisationid')]: s(i.organizationId), [c('forretningsomraade')]: s(i.businessArea),
   }
 }
 
@@ -410,6 +411,8 @@ function investmentFrom(id: string, r: Row): Investment {
     factorKgPerEUR: num(r[c('faktorpreur')]),
     factorSource: str(r[c('faktorkilde')]), country: str(r[c('land')]),
     ...(str(r[c('faktorid')]) ? { factorId: str(r[c('faktorid')]) } : {}),
+    ...(str(r[c('organisationid')]) ? { organizationId: str(r[c('organisationid')]) } : {}),
+    ...(str(r[c('forretningsomraade')]) ? { businessArea: str(r[c('forretningsomraade')]) } : {}),
   }
 }
 
