@@ -17,10 +17,13 @@
 // 31 July, it covers Heartland's fiscal year from August, as the data manual reports it; dated
 // 31 December, the calendar year. This deliberately differs from the original, which counted the
 // whole annual figure for any holding dated in the period, however short the period.
+//
+// Amounts in DKK are converted to EUR at the ECB's reference rate on the holding's date
+// (docs/adr/0028), and the result says which rate it used.
 
-import { toDKK, type CurrencyRate } from '../data/currencies'
 import type { Factor } from '../data/factors'
 import { overlapDays, twelveMonthsTo, type Period } from './dates'
+import { dkkRate, type DkkRate, type RateSource } from './exchangeRates'
 import { findFactor } from './findFactor'
 
 export type InvestmentBasis = 'CO2e' | 'Revenue' | 'Investment'
@@ -70,6 +73,8 @@ export type InvestmentResult = {
   revenueEUR: number | null
   /** The amount invested, in EUR (basis Investment) */
   investmentEUR: number | null
+  /** DKK per EUR on the holding's date, and the day of the ECB rate used */
+  eurRate: DkkRate
   /** The factor table's factor, when the holding uses one */
   factor: Factor | null
   /** kg CO2e per EUR used: the chosen factor's value, or the holding's own; null when missing */
@@ -106,7 +111,7 @@ const finiteOrZero = (n: number | null | undefined): number =>
 export const investmentFactors = (factors: readonly Factor[]): Factor[] =>
   factors.filter((f) => f.method === 'spend' && f.unit === 'kg CO2e/EUR')
 
-export function investmentResult(investment: Investment, rates: readonly CurrencyRate[], period: Period, factors: readonly Factor[]): InvestmentResult {
+export function investmentResult(investment: Investment, rates: RateSource, period: Period, factors: readonly Factor[]): InvestmentResult {
   const { ownershipPct } = investment
   const factor = investment.factorId ? findFactor(factors, investment.factorId, investment.date) : null
   // A chosen factor that is gone, or isn't per EUR, counts as missing rather than as the own value.
@@ -116,6 +121,8 @@ export function investmentResult(investment: Investment, rates: readonly Currenc
   const share = ownershipPct === null ? 0 : finiteOrZero(ownershipPct) / 100
   const included = ownershipPct !== null && ownershipPct <= 50
 
+  const eurRate = dkkRate(rates, 'EUR', investment.date)
+  const perEUR = eurRate.value
   let revenueEUR: number | null = null
   let investmentEUR: number | null = null
   let annualKgCO2e: number
@@ -128,21 +135,21 @@ export function investmentResult(investment: Investment, rates: readonly Currenc
       investment.revenueDKK !== null
         ? finiteOrZero(investment.revenueDKK)
         : finiteOrZero(investment.revenueLocal) * finiteOrZero(investment.rateLocalToDKK)
-    revenueEUR = revenueDKK / toDKK(rates, 'EUR')
-    annualKgCO2e = revenueEUR * finiteOrZero(factorKgPerEUR) * share
-    pending = factorKgPerEUR === null && revenueDKK !== 0
+    revenueEUR = perEUR === null ? null : revenueDKK / perEUR
+    annualKgCO2e = finiteOrZero(revenueEUR) * finiteOrZero(factorKgPerEUR) * share
+    pending = revenueDKK !== 0 && (factorKgPerEUR === null || perEUR === null)
   } else {
     // A negative amount (a written-down holding, say) would give negative emissions: it waits.
     const amount = investment.investmentDKK
-    investmentEUR = amount === null ? null : amount / toDKK(rates, 'EUR')
+    investmentEUR = amount === null || perEUR === null ? null : amount / perEUR
     annualKgCO2e = investmentEUR !== null && investmentEUR > 0 ? investmentEUR * finiteOrZero(factorKgPerEUR) : 0
-    pending = amount === null || amount < 0 || (factorKgPerEUR === null && amount !== 0)
+    pending = amount === null || amount < 0 || (amount !== 0 && (factorKgPerEUR === null || perEUR === null))
   }
   const covers = twelveMonthsTo(investment.date)
   // A company bought or sold during the 12 months counts for the days it was owned (docs/adr/0027).
   const owned = covers && ownedPart(covers, investment)
   const inPeriod = covers && owned ? overlapDays(owned, period) / overlapDays(covers, covers) : 0
-  return { investment, share, included, revenueEUR, investmentEUR, factor, factorKgPerEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+  return { investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
 }
 
 /** The 12 months, cut to the dates the company was owned. ISO dates compare as text. */
@@ -160,7 +167,7 @@ export function coverLabel(covers: Period | null): string {
   return from === to ? from : `${from}/${to.slice(2)}`
 }
 
-export function category15(investments: readonly Investment[], rates: readonly CurrencyRate[], period: Period, factors: readonly Factor[]): Category15 {
+export function category15(investments: readonly Investment[], rates: RateSource, period: Period, factors: readonly Factor[]): Category15 {
   const rows = investments.map((i) => investmentResult(i, rates, period, factors)).filter((r) => r.shareInPeriod > 0)
   // Two holdings of one company whose owned months overlap count those months twice. ISO dates
   // compare as text.

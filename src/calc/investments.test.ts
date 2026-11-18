@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { currencyRates, toDKK } from '../data/currencies'
 import type { Factor } from '../data/factors'
+import type { DailyRates } from './exchangeRates'
 import { category15, coverLabel, investmentFactors, investmentResult, type Investment } from './investments'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
@@ -175,6 +176,36 @@ describe('a factor from the factor table', () => {
 
   it('offers only spend factors per EUR', () => {
     expect(investmentFactors([...table, { ...spend('activity', 1), method: undefined }]).map((f) => f.id)).toEqual(['obs', 'blank'])
+  })
+})
+
+describe('the rate to EUR', () => {
+  // Thursday 30 and Friday 31 July 2026; nothing over the weekend
+  const daily: DailyRates = { codes: ['DKK', 'GBP'], days: [['2026-07-30', [7.47, 0.85]], ['2026-07-31', [7.48, 0.85]]] }
+  const rates = { fixed: currencyRates, daily }
+  const onAmount = (date: string) => holding({ date, basis: 'Investment', investmentDKK: 7_480_000, factorKgPerEUR: 0.1 })
+
+  it("converts at the ECB's rate on the holding's date, and says which", () => {
+    const r = investmentResult(onAmount('2026-07-31'), rates, year2025, [])
+    expect(r.eurRate).toEqual({ value: 7.48, rateDate: '2026-07-31', note: null })
+    expect(r.investmentEUR).toBe(1_000_000)
+    expect(r.annualKgCO2e).toBe(100_000)
+  })
+
+  it('takes the last rate before a weekend', () => {
+    expect(investmentResult(onAmount('2026-08-02'), rates, year2025, []).eurRate.rateDate).toBe('2026-07-31')
+  })
+
+  it("falls back to the fixed rate with no ECB rate on the date, and says so", () => {
+    const r = investmentResult(onAmount('2026-12-31'), rates, year2025, [])
+    expect(r.eurRate).toMatchObject({ value: 7.4604, rateDate: null })
+    expect(r.eurRate.note).toContain('fast kurs')
+    expect(r.pending).toBe(false)
+  })
+
+  it('converts revenue at the same rate', () => {
+    const r = investmentResult(holding({ date: '2026-07-31', basis: 'Revenue', revenueDKK: 7_480_000, factorKgPerEUR: 0.1 }), rates, year2025, [])
+    expect(r.revenueEUR).toBe(1_000_000)
   })
 })
 

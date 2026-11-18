@@ -32,7 +32,8 @@ allows them (ADR 0011), and the rates aren't stored in Dataverse.
    rate (EUR, SEK, ISK, CNY) falls back to it and the line says so. Any other currency leaves
    the line pending, with a warning, rather than being taken as DKK.
 5. Category 15 (investments) still uses the fixed rates; it isn't spend-based and is being
-   reworked separately.
+   reworked separately. *Superseded by ADR 0028 on 2026-11-18: category 15 uses the ECB rate on
+   the holding's date.*
 
 ## Options considered
 

@@ -2,6 +2,7 @@ import { useId, useState, type Dispatch, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
+import { appRates, type DkkRate } from '../calc/exchangeRates'
 import { importedBatches, type ImportedBatch } from '../calc/groupExport'
 import { coverLabel, investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
 import { factorLabel } from '../factors/label'
@@ -69,7 +70,8 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
         større ejerandele er konsolideret i Scope 1 og 2. Har selskabet et klimaregnskab, bruges dets
         udledning i kg CO2e × ejerandel. Ellers skønnes udledningen som investeringsbeløbet i EUR × en
         branchefaktor pr. EUR, som datamanualen foreskriver — eller, som i den oprindelige app, omsætning i
-        EUR × faktor × ejerandel. Tallene er årstal: hver investering dækker de 12 måneder til og med dens
+        EUR × faktor × ejerandel. Beløb i DKK omregnes til EUR med ECB's referencekurs på investeringens
+        dato. Tallene er årstal: hver investering dækker de 12 måneder til og med dens
         dato — 31. juli for regnskabsåret august–juli, 31. december for et kalenderår — og tæller med for
         den del, der ligger i perioden. Er selskabet købt eller solgt i løbet af de 12 måneder, angives
         datoen, så kun dagene med ejerskab tæller.
@@ -98,7 +100,7 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
       {investments.map((inv) => (
         <InvestmentCard
           key={inv.id}
-          result={investmentResult(inv, currencyRates, period, factors)}
+          result={investmentResult(inv, appRates, period, factors)}
           options={options}
           counted={counted.has(inv.id)}
           onChange={(patch) => update(inv.id, patch)}
@@ -296,6 +298,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
       <p className={status ? 'warning' : 'muted'}>
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
         {inv.basis === 'Investment' && result.investmentEUR !== null && <>Investeret {formatNumber(result.investmentEUR, 0)} EUR · </>}
+        {inv.basis !== 'CO2e' && <>{rateLabel(result.eurRate, inv.date)} · </>}
         Ejerandel {formatNumber(result.share * 100, 1)} % · hele {coverLabel(result.covers)}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
         {trimmed && <> · ejet {ownedLabel(result.owned!)}</>}
         {' '}· {formatNumber(result.shareInPeriod * 100, 1)} % af de 12 måneder {trimmed ? 'ejet og ' : ''}i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>
@@ -303,6 +306,15 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
       </p>
     </details>
   )
+}
+
+/** The DKK→EUR rate used, and where it's from, so the holding documents its own conversion. */
+function rateLabel({ value, rateDate }: DkkRate, date: string): string {
+  if (value === null) return 'Ingen kurs til EUR'
+  const rate = `Kurs ${formatNumber(value, 4)} DKK pr. EUR`
+  return rateDate
+    ? `${rate} (ECB-referencekurs ${formatDate(rateDate)})`
+    : `${rate} (fast kurs; ingen ECB-kurs ${formatDate(date)})`
 }
 
 const ownedLabel = (owned: Period) => `${formatDate(owned.start)}–${formatDate(owned.end)}`

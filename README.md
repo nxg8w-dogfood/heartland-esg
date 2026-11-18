@@ -87,6 +87,8 @@ Each holding is dated on the last day of the period and covers the 12 months up 
 (ADR 0023). Pick **July** for Heartland's fiscal year August–July; a YTD export of another month
 covers less than 12 months and is flagged. A company bought or sold during those 12 months gets
 **Ejet fra** / **Ejet til** on its holding, and counts only for the days it was owned (ADR 0027).
+Revenue and the amount invested are converted from DKK to EUR at the ECB's reference rate on the
+holding's date, and each holding shows the rate and its date (ADR 0028).
 The import doesn't set them; the cube has no acquisition or sale date.
 
 ### Update the exchange rates
