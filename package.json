@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
+    "audit": "node scripts/audit.ts",
     "dataverse:apply": "node scripts/dataverse-apply.ts",
     "dataverse:check": "node scripts/dataverse-check.ts",
     "dataverse:company": "node scripts/dataverse-company.ts",

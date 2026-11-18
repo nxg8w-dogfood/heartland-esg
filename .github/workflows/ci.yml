@@ -22,7 +22,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - run: npm audit --audit-level=high
+      # npm audit --audit-level=high, apart from the advisories waived in docs/waivers.md
+      - run: npm run audit
       # The Azure setup for plate lookups (ADR 0009); building catches template errors.
       - run: az bicep build --file infra/motorapi/main.bicep --stdout > /dev/null
 
