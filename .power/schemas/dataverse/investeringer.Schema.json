@@ -225,6 +225,20 @@
           "x-ms-dataverse-type": "DecimalType",
           "x-ms-schema-name": "hlesg_Omsaetninglokal"
         },
+        "hlesg_omsaetningtdkk": {
+          "type": "string",
+          "title": "Omsætning (t.DKK)",
+          "x-ms-dataverse-attribute": "hlesg_omsaetningtdkk",
+          "x-ms-dataverse-type": "DecimalType",
+          "x-ms-schema-name": "hlesg_Omsaetningtdkk"
+        },
+        "hlesg_omsaetningtlokal": {
+          "type": "string",
+          "title": "Omsætning (t. lokal valuta)",
+          "x-ms-dataverse-attribute": "hlesg_omsaetningtlokal",
+          "x-ms-dataverse-type": "DecimalType",
+          "x-ms-schema-name": "hlesg_Omsaetningtlokal"
+        },
         "hlesg_regnskabsmetode": {
           "type": "string",
           "title": "Regnskabsmæssig behandling",

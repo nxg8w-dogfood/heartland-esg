@@ -282,3 +282,37 @@ describe('migrateLegacyPeriods', () => {
     expect(diff(rows, toRows(fromRows(rows)))).toEqual([])
   })
 })
+
+describe('category 15 revenue in thousands (ADR 0024)', () => {
+  const withRevenue = (revenueDKK: number | null, revenueLocal: number | null = null) => {
+    const a = richAccount()
+    a.investments = a.investments.map((i) => (i.id === 'inv-b' ? { ...i, revenueDKK, revenueLocal } : i))
+    return group(company('c-1', 'Heartland A/S', a))
+  }
+  const holding = (g: GroupData) => g.companies[0].account.investments.find((i) => i.id === 'inv-b')!
+
+  it('stores revenue over 100 bn, which a decimal column can’t hold in units, and reads it back', () => {
+    const rows = toRows(withRevenue(100_937_926_370.36984, 2_500_000_000_000))
+    expect(rows.hlesg_investering.get('inv-b')).toMatchObject({
+      hlesg_omsaetningtdkk: 100_937_926.37037, hlesg_omsaetningtlokal: 2_500_000_000, hlesg_omsaetningdkk: null, hlesg_omsaetninglokal: null,
+    })
+    expect(holding(fromRows(rows))).toMatchObject({ revenueDKK: 100_937_926_370.37, revenueLocal: 2_500_000_000_000 })
+  })
+
+  it('needs no change to save revenue as it was loaded', () => {
+    const rows = toRows(withRevenue(9_320_772.331000008, 0.1))
+    expect(diff(rows, toRows(fromRows(rows)))).toEqual([])
+  })
+
+  it('reads revenue saved in units before, and moves it to thousands on the next save', () => {
+    const rows = toRows(withRevenue(null))
+    const row = rows.hlesg_investering.get('inv-b')!
+    delete row.hlesg_omsaetningtdkk
+    row.hlesg_omsaetningdkk = 81_635_610_972.14381
+    const loaded = fromRows(rows)
+    expect(holding(loaded).revenueDKK).toBe(81_635_610_972.14381)
+    expect(diff(rows, toRows(loaded))).toEqual([
+      { kind: 'update', table: 'hlesg_investering', key: 'inv-b', changes: { hlesg_omsaetningtdkk: 81_635_610.972144, hlesg_omsaetningdkk: null } },
+    ])
+  })
+})

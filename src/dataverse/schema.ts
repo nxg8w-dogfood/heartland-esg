@@ -241,8 +241,13 @@ export const tables: readonly Table[] = [
         options: [option(1, 'CO2e', 'CO2e'), option(2, 'Omsætning', 'Revenue'), option(3, 'Investering', 'Investment')],
       },
       decimal('udledningkg', 'Selskabets udledning (kg CO2e)'),
+      // Revenue was stored in units until 2026-11-18. A decimal column stops at 100 bn, and a large
+      // investee's revenue doesn't, so it's now stored in thousands (docs/adr/0024). The unit
+      // columns are still read for rows saved before, and emptied when the row is next saved.
       decimal('omsaetningdkk', 'Omsætning (DKK)'),
       decimal('omsaetninglokal', 'Omsætning (lokal valuta)'),
+      decimal('omsaetningtdkk', 'Omsætning (t.DKK)', 'Omsætningen i tusind DKK.'),
+      decimal('omsaetningtlokal', 'Omsætning (t. lokal valuta)', 'Omsætningen i tusind enheder af den lokale valuta.'),
       text('lokalvaluta', 'Lokal valuta', 3),
       decimal('kurs', 'Kurs (DKK pr. enhed)'),
       decimal('investeringdkk', 'Investeringsbeløb (DKK)', 'Beløbet investeret i selskabet (grundlag Investering).'),

@@ -40,6 +40,8 @@ export interface Hlesg_investeringsBase {
   hlesg_lokalvaluta?: string;
   hlesg_omsaetningdkk?: number;
   hlesg_omsaetninglokal?: number;
+  hlesg_omsaetningtdkk?: number;
+  hlesg_omsaetningtlokal?: number;
   hlesg_regnskabsmetode?: Hlesg_investeringshlesg_regnskabsmetode;
   hlesg_selskab?: string;
   hlesg_udledningkg?: number;

@@ -53,6 +53,10 @@ const s = (v: string | null | undefined): string | null => (v == null || v === '
 const num = (v: Value): number | null => (typeof v === 'number' ? v : null)
 const str = (v: Value): string => (typeof v === 'string' ? v : '')
 const optStr = (v: Value): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined)
+// Revenue is stored in thousands (docs/adr/0024), to the nearest 0,001 of a unit, so a value read
+// back converts to the same number and saving it again changes nothing.
+const thousands = (v: number | null | undefined): number | null => { const x = n(v); return x === null ? null : Math.round(x * 1000) / 1e6 }
+const fromThousands = (v: Value): number | null => (typeof v === 'number' ? Math.round(v * 1e6) / 1000 : null)
 
 export function emptyRows(): Rows {
   return Object.fromEntries([c('koncern'), ...tables.filter((t) => t.name !== c('koncern')).map((t) => t.name)].map((t) => [t, new Map<string, Row>()]))
@@ -169,7 +173,8 @@ function investmentRow(company: string, i: Investment): Row {
     [c('regnskabsmetode')]: toChoice(c('investering'), c('regnskabsmetode'), i.accountingMethod),
     [c('klimametode')]: s(i.climateMethod), [c('datakilde')]: s(i.dataSource),
     [c('grundlag')]: toChoice(c('investering'), c('grundlag'), i.basis),
-    [c('udledningkg')]: n(i.totalKgCO2e), [c('omsaetningdkk')]: n(i.revenueDKK), [c('omsaetninglokal')]: n(i.revenueLocal),
+    [c('udledningkg')]: n(i.totalKgCO2e), [c('omsaetningtdkk')]: thousands(i.revenueDKK), [c('omsaetningtlokal')]: thousands(i.revenueLocal),
+    [c('omsaetningdkk')]: null, [c('omsaetninglokal')]: null,
     [c('lokalvaluta')]: s(i.localCurrency), [c('kurs')]: n(i.rateLocalToDKK), [c('investeringdkk')]: n(i.investmentDKK),
     [c('faktorpreur')]: n(i.factorKgPerEUR),
     [c('faktorkilde')]: s(i.factorSource), [c('land')]: s(i.country), [c('faktorid')]: s(i.factorId),
@@ -398,7 +403,9 @@ function investmentFrom(id: string, r: Row): Investment {
     accountingMethod: (fromChoice(c('investering'), c('regnskabsmetode'), r[c('regnskabsmetode')]) ?? 'Ass.') as Investment['accountingMethod'],
     climateMethod: str(r[c('klimametode')]), dataSource: str(r[c('datakilde')]),
     basis: (fromChoice(c('investering'), c('grundlag'), r[c('grundlag')]) ?? 'CO2e') as Investment['basis'],
-    totalKgCO2e: num(r[c('udledningkg')]), revenueDKK: num(r[c('omsaetningdkk')]), revenueLocal: num(r[c('omsaetninglokal')]),
+    totalKgCO2e: num(r[c('udledningkg')]),
+    revenueDKK: fromThousands(r[c('omsaetningtdkk')]) ?? num(r[c('omsaetningdkk')]),
+    revenueLocal: fromThousands(r[c('omsaetningtlokal')]) ?? num(r[c('omsaetninglokal')]),
     localCurrency: str(r[c('lokalvaluta')]), rateLocalToDKK: num(r[c('kurs')]), investmentDKK: num(r[c('investeringdkk')]),
     factorKgPerEUR: num(r[c('faktorpreur')]),
     factorSource: str(r[c('faktorkilde')]), country: str(r[c('land')]),
