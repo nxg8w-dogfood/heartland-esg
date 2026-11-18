@@ -204,6 +204,16 @@ describe('the Dataverse store', () => {
     expect(fake.calls.filter((c) => c.op === 'create' && c.table === 'hlesg_virksomhed').length).toBe(1)
   })
 
+  it('leaves the documents table to the documents store (ADR 0029)', async () => {
+    const fake = fakeDataverse()
+    fake.db.get('hlesg_dokument')!.set('d1', { hlesg_dokumentid: 'd1', hlesg_navn: 'ESG-rapport.pdf' })
+    const store = dataverseStore(fake.api, memoryPrefs())
+    await store.load()
+    await store.save(sample())
+    expect(fake.calls.filter((c) => c.table === 'hlesg_dokument')).toEqual([])
+    expect(fake.db.get('hlesg_dokument')!.size).toBe(1)
+  })
+
   it('loads only what the user may read, and starts empty with nothing', async () => {
     const fake = fakeDataverse()
     const result = await dataverseStore(fake.api, memoryPrefs()).load()

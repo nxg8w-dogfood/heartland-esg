@@ -19,3 +19,9 @@ export function formatDate(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split('-')
   return y && m && d ? `${d}.${m}.${y}` : iso
 }
+
+/** "820 kB", "12,4 MB"; '' when not known */
+export function formatBytes(bytes: number | null): string {
+  if (bytes === null) return ''
+  return bytes < 1024 * 1024 ? `${formatNumber(Math.max(1, Math.round(bytes / 1024)), 0)} kB` : `${formatNumber(bytes / 1024 / 1024, 1)} MB`
+}

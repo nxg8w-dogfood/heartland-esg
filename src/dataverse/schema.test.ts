@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { marketInstruments } from '../calc/scope2'
 import { emptyAccount } from '../storage/account'
 import { attribute, entity, relationship, relationshipName, schemaName } from './metadata'
-import { accountStorage, lineLists, PUBLISHER, tables, type Column } from './schema'
+import { dataSourcesInfo } from '../../.power/schemas/appschemas/dataSourcesInfo'
+import devConfig from '../../deploy/dev/power.config.json'
+import { entitySet } from '../storage/dataverse/store'
+import { accountStorage, lineLists, PUBLISHER, storedTables, tables, type Column } from './schema'
 
 const lookups = (cols: readonly Column[]) => cols.filter((c): c is Extract<Column, { kind: 'lookup' }> => c.kind === 'lookup')
 const allColumns = tables.flatMap((t) => [{ ...t.primary, kind: 'text' as const, table: t.name }, ...t.columns.map((c) => ({ ...c, table: t.name }))])
@@ -110,6 +113,12 @@ describe('metadata requests', () => {
     expect(a.DisplayName.LocalizedLabels).toEqual([expect.objectContaining({ Label: 'Konto', LanguageCode: 1030 })])
   })
 
+  it('make a file column with its size limit', () => {
+    expect(attribute({ kind: 'file', name: 'hlesg_fil', label: 'Fil', maxSizeKB: 32_768 }, lcid)).toMatchObject({
+      '@odata.type': 'Microsoft.Dynamics.CRM.FileAttributeMetadata', AttributeTypeName: { Value: 'FileType' }, MaxSizeInKB: 32_768, SchemaName: 'hlesg_Fil',
+    })
+  })
+
   it('make dates date-only, so a date never shifts with the user’s time zone', () => {
     expect(attribute({ kind: 'date', name: 'hlesg_dato', label: 'Dato' }, lcid)).toMatchObject({ Format: 'DateOnly', DateTimeBehavior: { Value: 'DateOnly' } })
   })
@@ -123,5 +132,22 @@ describe('metadata requests', () => {
       Lookup: { SchemaName: 'hlesg_Virksomhedid', RequiredLevel: { Value: 'ApplicationRequired' } },
     })
     expect(relationship(toLocation, linje.name, lcid)).toMatchObject({ CascadeConfiguration: { Delete: 'Restrict', Assign: 'NoCascade' } })
+  })
+})
+
+describe('data sources', () => {
+  it('give the app every table, in dataSourcesInfo and in the dev deploy config', () => {
+    const sources = Object.keys(dataSourcesInfo)
+    const deployed = Object.values(devConfig.databaseReferences['default.cds'].dataSources).map((d) => d.logicalName)
+    for (const t of tables) {
+      expect(sources).toContain(entitySet(t.name))
+      expect(deployed).toContain(t.name)
+    }
+  })
+
+  it('keep separate tables out of the group store', () => {
+    expect(tables.find((t) => t.name === 'hlesg_dokument')?.separate).toBe(true)
+    expect(storedTables.map((t) => t.name)).not.toContain('hlesg_dokument')
+    expect(storedTables.length).toBe(tables.length - 1)
   })
 })

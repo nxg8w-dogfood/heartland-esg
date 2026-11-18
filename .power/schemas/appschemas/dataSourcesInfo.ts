@@ -71,6 +71,13 @@ export const dataSourcesInfo = {
       }
     }
   },
+  "hlesg_dokuments": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "hlesg_dokumentid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
   "hlesg_ejerandels": {
     "tableId": "",
     "version": "",

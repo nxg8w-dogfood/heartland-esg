@@ -28,6 +28,7 @@ import { ACCOUNT_VERSION, type AccountData } from './storage/account'
 import { DataBar, SaveIndicator, type SaveStatus } from './storage/DataBar'
 import { activeCompany, emptyGroup, selectedPeriod, withActiveCompany, type GroupData } from './storage/group'
 import { chooseStore } from './storage/choose'
+import { DocumentsContext } from './storage/documents'
 import type { GroupStore } from './storage/store'
 import { movedHash, pageFromHash, pages, type CompanyPageId } from './pages'
 import { ContextSwitcher } from './ui'
@@ -125,6 +126,8 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
   // save's progress about once a second.
   const [status, setStatus] = useState<SaveStatus>({ state: 'idle' })
   const saveSeq = useRef(0)
+  // The group as last saved: a document can only point to a holding that's in Dataverse.
+  const [savedGroup, setSavedGroup] = useState(initial)
   useEffect(() => {
     if (group === initial) return
     const timer = setTimeout(() => {
@@ -138,7 +141,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
         shown = now
         setStatus({ state: 'pending', done, total })
       }).then(
-        () => { if (isLatest()) setStatus({ state: 'saved', at: new Date() }) },
+        () => { if (isLatest()) { setSavedGroup(group); setStatus({ state: 'saved', at: new Date() }) } },
         (e: unknown) => { if (isLatest()) setStatus({ state: 'failed', reason: e instanceof Error ? e.message : undefined }) },
       )
     }, 500)
@@ -157,6 +160,8 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
   )
 
   const current = pages.find((p) => p.id === page)!
+  const saved = group === savedGroup
+  const documents = useMemo(() => (store.documents ? { store: store.documents, saved } : null), [store.documents, saved])
 
   return (
     <>
@@ -184,24 +189,26 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
           </ul>
         </nav>
       </header>
-      <main aria-label={page === 'koncern' ? current.label : `${current.label}, ${active.name}`}>
-        <DataBar
-          storeLabel={store.label}
-          central={store.central}
-          status={status}
-          message={initialMessage}
-          onClear={store.clear && (async () => {
-            await store.clear?.()
-            onReplace(emptyGroup(), 'Alle data er ryddet.')
-          })}
-        />
-        <SaveIndicator status={status} />
-        {page === 'koncern' ? (
-          <GroupPage group={group} setGroup={setGroup} period={period} />
-        ) : (
-          <Workspace key={active.id} page={page} period={range} scope1Subpage={scope1SubpageFromHash(hash)} scope3Subpage={scope3SubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
-        )}
-      </main>
+      <DocumentsContext.Provider value={documents}>
+        <main aria-label={page === 'koncern' ? current.label : `${current.label}, ${active.name}`}>
+          <DataBar
+            storeLabel={store.label}
+            central={store.central}
+            status={status}
+            message={initialMessage}
+            onClear={store.clear && (async () => {
+              await store.clear?.()
+              onReplace(emptyGroup(), 'Alle data er ryddet.')
+            })}
+          />
+          <SaveIndicator status={status} />
+          {page === 'koncern' ? (
+            <GroupPage group={group} setGroup={setGroup} period={period} />
+          ) : (
+            <Workspace key={active.id} page={page} period={range} scope1Subpage={scope1SubpageFromHash(hash)} scope3Subpage={scope3SubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
+          )}
+        </main>
+      </DocumentsContext.Provider>
     </>
   )
 }

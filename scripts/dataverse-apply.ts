@@ -153,7 +153,7 @@ async function securityRoles() {
 const count = (p: Record<string, Partial<Record<Operation, unknown>>>) => Object.values(p).reduce((n, ops) => n + Object.keys(ops).length, 0)
 
 function expectedType(c: Column): string {
-  return { text: 'String', memo: 'Memo', decimal: 'Decimal', integer: 'Integer', date: 'DateTime', datetime: 'DateTime', boolean: 'Boolean', choice: 'Picklist', lookup: 'Lookup' }[c.kind]
+  return { text: 'String', memo: 'Memo', decimal: 'Decimal', integer: 'Integer', date: 'DateTime', datetime: 'DateTime', boolean: 'Boolean', choice: 'Picklist', lookup: 'Lookup', file: 'Virtual' }[c.kind]
 }
 
 main().catch((e: unknown) => {

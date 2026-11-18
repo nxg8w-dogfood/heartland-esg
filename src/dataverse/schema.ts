@@ -29,6 +29,8 @@ export type Column =
   | { kind: 'boolean'; name: string; label: string; trueLabel: string; falseLabel: string; default: boolean; description?: string }
   | { kind: 'choice'; name: string; label: string; options: readonly Choice[]; required?: boolean; description?: string }
   | { kind: 'lookup'; name: string; label: string; target: string; required: boolean; onDelete: 'Cascade' | 'RemoveLink' | 'Restrict'; description?: string }
+  /** Binary data, up to maxSizeKB. Uploaded and downloaded on its own, never with the record. */
+  | { kind: 'file'; name: string; label: string; maxSizeKB: number; description?: string }
 
 export type Table = {
   /** Logical name, lowercase, e.g. hlesg_linje */
@@ -39,6 +41,11 @@ export type Table = {
   /** The primary name column */
   primary: { name: string; label: string; maxLength: number; required: boolean }
   columns: readonly Column[]
+  /**
+   * Read and written on its own, as the user adds or removes something, rather than loaded and
+   * saved with the group (documents, ADR 0029). The group store leaves it alone.
+   */
+  separate?: true
 }
 
 const P = PUBLISHER.prefix
@@ -358,6 +365,21 @@ export const tables: readonly Table[] = [
     ],
   },
   {
+    name: n('dokument'),
+    label: 'Dokument',
+    pluralLabel: 'Dokumenter',
+    description: 'Dokumentation for en investering, fx selskabets egen ESG-rapport (ADR 0029).',
+    primary: { name: n('navn'), label: 'Filnavn', maxLength: 260, required: false },
+    separate: true,
+    // Belongs to its investment, which belongs to the company, like a posting to its import.
+    columns: [
+      { kind: 'lookup', name: n('investeringid'), label: 'Investering', target: n('investering'), required: true, onDelete: 'Cascade' },
+      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: 32_768 },
+      { kind: 'integer', name: n('stoerrelse'), label: 'Størrelse (bytes)', min: 0, max: 2_147_483_647 },
+      text('filtype', 'Filtype', 200),
+    ],
+  },
+  {
     name: n('regel'),
     label: 'Regel',
     pluralLabel: 'Regler',
@@ -385,6 +407,9 @@ export const tables: readonly Table[] = [
     ],
   },
 ]
+
+/** The tables the group store loads and saves: all but the separate ones. */
+export const storedTables = tables.filter((t) => !t.separate)
 
 /**
  * Where each part of a company's account is stored. Typed against AccountData, so a new part

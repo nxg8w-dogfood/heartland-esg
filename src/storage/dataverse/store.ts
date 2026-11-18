@@ -8,7 +8,7 @@
 // The store talks to a small TableApi, so it's tested with a fake; generated.ts implements it
 // with the Power Apps services generated for the hlesg_ tables.
 
-import { tables, type Column } from '../../dataverse/schema'
+import { storedTables, tables, type Column } from '../../dataverse/schema'
 import { schemaName } from '../../dataverse/metadata'
 import { parseGroup, type GroupData, type GroupLoadResult } from '../group'
 import type { GroupStore, SaveProgress } from '../store'
@@ -229,7 +229,7 @@ export function dataverseStore(api: TableApi, prefs: ViewPrefs, options: Partial
     async load(): Promise<GroupLoadResult | null> {
       const rows = emptyRows()
       ids.clear()
-      for (const t of tables) {
+      for (const t of storedTables) {
         const map = new Map<string, string>()
         for (const record of await api.list(t.name)) {
           const { id, key, row } = rowFromRecord(t.name, record)

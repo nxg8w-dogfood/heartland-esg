@@ -87,9 +87,14 @@ Each holding is dated on the last day of the period and covers the 12 months up 
 (ADR 0023). Pick **July** for Heartland's fiscal year August–July; a YTD export of another month
 covers less than 12 months and is flagged. A company bought or sold during those 12 months gets
 **Ejet fra** / **Ejet til** on its holding, and counts only for the days it was owned (ADR 0027).
-Revenue and the amount invested are converted from DKK to EUR at the ECB's reference rate on the
-holding's date, and each holding shows the rate and its date (ADR 0028).
-The import doesn't set them; the cube has no acquisition or sale date.
+The import doesn't set them; the cube has no acquisition or sale date. Revenue and the amount
+invested are converted from DKK to EUR at the ECB's reference rate on the holding's date, and each
+holding shows the rate and its date (ADR 0028).
+
+Each holding has a **Dokumentation** list for the files behind its figures, such as the company's
+own ESG report (ADR 0029). Files are saved in Dataverse the moment they're added, up to 32 MB
+each, and can be downloaded or deleted from the holding. Deleting a holding deletes its documents.
+Documents need Dataverse, so `npm run dev` on its own doesn't offer them.
 
 ### Update the exchange rates
 
@@ -180,6 +185,11 @@ npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com
 Dev is shared with branches that aren't merged yet. If the dry run would remove privileges on a
 table that a branch added, apply only the tables and columns with `--no-roles`, so that branch's
 access stays.
+
+A new table is also a data source of the app. `npx pa app add data-source --connector dataverse
+--table <name>` adds it to `.power/schemas/appschemas/dataSourcesInfo.ts`, and the deploy config
+in `deploy/<env>/power.config.json` needs the same entry. A test checks that every table in the
+schema is in both.
 
 The app selects every column in the schema when it loads, so an environment that is behind the
 code fails to load entirely. The deploy checks for that before it publishes and stops if anything
