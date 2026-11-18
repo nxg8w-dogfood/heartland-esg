@@ -210,7 +210,7 @@ You need the System Administrator role in the environment.
 | `src/App.tsx`, `src/pages.ts` | The app shell, and the pages it links to. Scope 3 has its own pages under `#/scope3/` (overview, one per calculated category, settings last), listed in `src/scope3/subpages.ts`. Scope 1 has two, the emission lines and Bilpark, listed in `src/scope1/subpages.ts`; the old `#/bilpark` address is redirected there (`movedHash` in `src/pages.ts`). |
 | `docs/adr/` | Architecture decisions. |
 | `deploy/<env>/power.config.json` | Per-environment app config used by the deploy workflow. |
-| `.github/workflows/ci.yml` | Lint, test, build and dependency audit, plus a gitleaks scan of the full history. |
+| `.github/workflows/ci.yml` | Lint, test, build and dependency audit (`npm run audit`: high and critical advisories fail, apart from those waived in `docs/waivers.md`), plus a gitleaks scan of the full history. |
 | `.github/workflows/deploy.yml` | Publishes the app to dev, test or prod. |
 | `.github/workflows/exchange-rates.yml` | Weekly: regenerates the exchange-rate table onto `chore/exchange-rates` and runs CI on it, ready for a pull request (ADR 0016). |
 
