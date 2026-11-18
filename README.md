@@ -75,6 +75,9 @@ column, and a column per measure whose heading names the month (`Revenue juli 20
 `Ejerandel juli 2026`, `Investment Amount juli 2026 (DKK)`). Companies are matched on
 OrganizationID, revenue is taken as positive, and each holding keeps its OrganizationID and
 BusinessArea. A workbook with a summary sheet and one sheet per measure can be added as it is.
+Each new holding gets the EXIOBASE sector factor of its business area (ADR 0026,
+`src/data/businessAreaFactors.ts`). Those factors have no values until they're entered from
+EXIOBASE on **Faktorer**.
 
 Add the files one at a time, pick the period, and check the preview before importing. Only
 holdings of 50 % or less are imported; the rest are consolidated in Scope 1 and 2. Imported

@@ -161,7 +161,9 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
         : result.pending
           ? inv.basis === 'Investment' && inv.investmentDKK === null ? 'Investeringsbeløb mangler'
             : inv.basis === 'Investment' && inv.investmentDKK! < 0 ? 'Investeringsbeløbet er negativt — tæller ikke med'
-              : inv.basis !== 'CO2e' && result.factorKgPerEUR === null ? 'Faktor mangler' : 'Mangler data'
+              : inv.basis !== 'CO2e' && result.factorKgPerEUR === null
+                ? (result.factor && result.factor.value === null ? 'Faktorens værdi mangler' : 'Faktor mangler')
+                : 'Mangler data'
           : null
 
   // Folded to one line, so an import of a hundred holdings stays readable. A new, empty one
