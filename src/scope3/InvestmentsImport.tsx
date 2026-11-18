@@ -10,6 +10,8 @@ import {
   planStatusLabels, type GroupExport, type PlanRow,
 } from '../calc/groupExport'
 import { ImportFileError, readSheets } from '../calc/importFile'
+import { importedFactorId } from '../data/businessAreaFactors'
+import { factors } from '../data/factors'
 import type { Investment } from '../calc/investments'
 import { formatNumber } from '../format'
 import { newId } from '../newId'
@@ -98,12 +100,14 @@ export function InvestmentsImport({ investments, setInvestments }: {
       const updates = new Map(importable.filter((r) => r.existingId).map((r) => [r.existingId!, r]))
       const kept = current.map((inv) => {
         const r = updates.get(inv.id)
-        return r
-          ? {
-              ...inv, ownershipPct: r.ownershipPct, revenueDKK: r.revenueDKK ?? inv.revenueDKK, investmentDKK: r.investmentDKK ?? inv.investmentDKK, dataSource: source,
-              ...(r.organizationId ? { organizationId: r.organizationId } : {}), ...(r.businessArea ? { businessArea: r.businessArea } : {}),
-            }
-          : inv
+        if (!r) return inv
+        // A factor the ESG owner chose, or a value of the holding's own, is left alone.
+        const factorId = !inv.factorId && inv.factorKgPerEUR === null ? importedFactorId(r) : null
+        return {
+          ...inv, ownershipPct: r.ownershipPct, revenueDKK: r.revenueDKK ?? inv.revenueDKK, investmentDKK: r.investmentDKK ?? inv.investmentDKK, dataSource: source,
+          ...(r.organizationId ? { organizationId: r.organizationId } : {}), ...(r.businessArea ? { businessArea: r.businessArea } : {}),
+          ...(factorId ? { factorId } : {}),
+        }
       })
       const created: Investment[] = importable.filter((r) => !r.existingId).map((r) => ({
         id: newId(), date, company: r.name, ownershipPct: r.ownershipPct,
@@ -111,6 +115,7 @@ export function InvestmentsImport({ investments, setInvestments }: {
         basis: importedBasis(r), totalKgCO2e: null, revenueDKK: r.revenueDKK, investmentDKK: r.investmentDKK, revenueLocal: null, localCurrency: 'DKK',
         rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: '',
         ...(r.organizationId ? { organizationId: r.organizationId } : {}), ...(r.businessArea ? { businessArea: r.businessArea } : {}),
+        ...(importedFactorId(r) ? { factorId: importedFactorId(r)! } : {}),
       }))
       return [...kept, ...created]
     })
@@ -207,6 +212,12 @@ export function InvestmentsImport({ investments, setInvestments }: {
   )
 }
 
+/** The sector factor a holding starts with, as the factor table names it */
+function factorLabel(factorId: string | null): string {
+  const factor = factorId ? factors.find((f) => f.id === factorId) : undefined
+  return factor ? `${factor.name} (${factor.region})` : 'Vælges i appen'
+}
+
 function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string }) {
   const shown = rows.filter((r) => r.status === 'new' || r.status === 'update')
   const rest = rows.length - shown.length
@@ -221,6 +232,7 @@ function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string
             <tr>
               <th scope="col">Selskab</th>
               {typed && <th scope="col">Type i koncernsystemet</th>}
+              {typed && <th scope="col">Faktor (branche)</th>}
               <th scope="col" className="num">Ejerandel</th>
               <th scope="col" className="num">Omsætning (DKK)</th>
               <th scope="col" className="num">Investeringsbeløb (DKK)</th>
@@ -232,6 +244,7 @@ function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string
               <tr key={r.name}>
                 <td>{r.name}</td>
                 {typed && <td>{r.ownershipType || '—'}</td>}
+                {typed && <td>{factorLabel(importedFactorId(r))}</td>}
                 <td className="num">{r.ownershipPct === null ? '—' : `${formatNumber(r.ownershipPct, 2)} %`}</td>
                 <td className="num">{r.revenueDKK === null ? <span className="pending">Mangler</span> : formatNumber(r.revenueDKK, 2)}</td>
                 <td className="num">{r.investmentDKK === null ? '—' : formatNumber(r.investmentDKK, 2)}</td>

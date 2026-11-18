@@ -48,7 +48,7 @@ describe('InvestmentsSection', () => {
     // 7.460.400 DKK = 1.000.000 EUR × 0,0768 × 40 % = 30,72 t for the whole year
     expect(render([onRevenue({ factorId: 'f-exio-obs-se' })])).toContain('30,720 tCO2e</span></summary>')
     const missing = render([onRevenue({ factorId: 'f-exio-computer' })])
-    expect(missing).toContain('Faktor mangler')
+    expect(missing).toContain('· Faktorens værdi mangler</span></summary>')
     expect(missing).toContain('Faktorens værdi mangler — angiv den på Faktorer-siden')
   })
 
