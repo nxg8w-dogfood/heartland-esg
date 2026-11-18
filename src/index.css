@@ -1166,3 +1166,61 @@ ul.plain {
 .month-chart {
   padding-bottom: 2.4em;
 }
+
+/* Controls above a set of charts, in one row. */
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hl-sp-4) var(--hl-sp-6);
+  align-items: end;
+  margin-bottom: var(--hl-sp-4);
+}
+
+.chart-controls .method-toggle {
+  margin: 0;
+}
+
+/* Small multiples: one small month chart per area, side by side. */
+.small-multiples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--hl-sp-4) var(--hl-sp-6);
+}
+
+.month-chart.compact {
+  margin-top: var(--hl-sp-2);
+}
+
+.month-chart.compact .month-columns {
+  height: 90px;
+}
+
+.month-chart.compact figcaption {
+  /* Two lines for every caption, so the charts in a row line up */
+  min-height: calc(2em * var(--hl-lh-sm));
+  font-size: var(--hl-fs-sm);
+  line-height: var(--hl-lh-sm);
+}
+
+.month-chart.compact .month-readout {
+  font-size: var(--hl-fs-sm);
+}
+
+/* A grouped lines table: a heading row with the group's subtotal above its lines. */
+.line-group .group-row th,
+.line-group .group-row td {
+  padding-top: var(--hl-sp-4);
+  background: var(--hl-surface-sunken);
+  border-top: var(--hl-rule-strong-w) solid var(--hl-rule-strong);
+}
+
+.line-group .group-row th {
+  text-align: left;
+}
+
+.field.inline {
+  display: flex;
+  gap: var(--hl-sp-2);
+  align-items: center;
+  margin-bottom: var(--hl-sp-2);
+}

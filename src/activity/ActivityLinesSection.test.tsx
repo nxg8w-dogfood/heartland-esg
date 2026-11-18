@@ -73,3 +73,37 @@ describe('Activity lines folded behind a summary', () => {
     expect(html).toContain('<th scope="row" colSpan="6">I alt</th>')
   })
 })
+
+describe('Grouping the lines', () => {
+  const lines: ActivityLine[] = [
+    { id: 'a', group: category4Groups[1].id, date: '2025-03-01', quantity: 10 },
+    { id: 'b', group: category4Groups[0].id, date: '2025-04-01', quantity: 20 },
+  ]
+  const renderGroupable = (groupable: boolean) =>
+    renderToStaticMarkup(
+      <ActivityLinesSection
+        title="Fragt"
+        groups={category4Groups as readonly ActivityGroup[]}
+        factors={factors}
+        summary={activitySummary(lines, category4Groups, factors, year2025)}
+        lines={lines}
+        setLines={noop}
+        defaultDate={year2025.start}
+        emptyText="Ingen fragt i perioden."
+        groupable={groupable}
+      />,
+    )
+
+  it('groups by type with a subtotal per type, when the section allows it', () => {
+    const html = renderGroupable(true)
+    expect(html).toContain('>Gruppér linjerne</label>')
+    expect(html.match(/<tbody class="line-group">/g)).toHaveLength(2)
+    expect(html).toContain(`<th scope="rowgroup" colSpan="5">${category4Groups[0].label} <span class="muted">· 1 linje · 20,00 tonkm</span>`)
+  })
+
+  it('lists the lines as entered otherwise', () => {
+    const html = renderGroupable(false)
+    expect(html).not.toContain('Gruppér linjerne')
+    expect(html).not.toContain('line-group')
+  })
+})

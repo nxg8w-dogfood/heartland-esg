@@ -19,6 +19,7 @@ import { ActivityLinesSection } from '../activity/ActivityLinesSection'
 import { FreightSection } from './FreightSection'
 import { CommutingSection } from './CommutingSection'
 import { InvestmentsSection } from './InvestmentsSection'
+import { WasteCharts } from './WasteCharts'
 import { WasteImport } from './WasteImport'
 import { DeflationPanel, PurchasesSection } from './PurchasesSection'
 import { formatFactor, formatNumber } from '../format'
@@ -184,6 +185,7 @@ export function Scope3Page(props: Props) {
         />
       )}
 
+      {subpage === 'kategori-5' && <WasteCharts lines={cat5Lines} factors={factors} period={period} />}
       {subpage === 'kategori-5' && (
         <ActivityLinesSection
           title="Kategori 5 — affald genereret i driften"
@@ -196,6 +198,7 @@ export function Scope3Page(props: Props) {
           defaultDate={period.start}
           emptyText="Intet affald registreret i perioden."
           collapsible
+          groupable
           locations={locations}
         />
       )}
