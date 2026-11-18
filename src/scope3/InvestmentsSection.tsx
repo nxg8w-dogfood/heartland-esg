@@ -2,6 +2,7 @@ import { useId, useState, type Dispatch, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
+import { importedBatches, type ImportedBatch } from '../calc/groupExport'
 import { coverLabel, investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
 import { factorLabel } from '../factors/label'
 import { formatFactor, formatNumber } from '../format'
@@ -48,6 +49,16 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
         <button type="button" onClick={() => setInvestments((is) => [...is, blank(defaultDate)])}>Ny investering</button>
       </div>
       <InvestmentsImport investments={investments} setInvestments={setInvestments} />
+      <ImportedList
+        investments={investments}
+        onDelete={async (batch) => {
+          const n = batch.ids.length
+          const what = `${formatNumber(n, 0)} ${n === 1 ? 'investering' : 'investeringer'} fra importen ${batch.periodLabel}`
+          if (!(await confirm(`Slet ${what}? Det gælder også investeringer, importen opdaterede, og eventuelle ændringer du har lavet i dem. Det kan ikke fortrydes.`, 'Slet import'))) return
+          const ids = new Set(batch.ids)
+          setInvestments((is) => is.filter((i) => !ids.has(i.id)))
+        }}
+      />
       <BulkFactor
         count={investments.filter(withoutFactor).length}
         options={options}
@@ -262,5 +273,27 @@ function InvestmentCard({ result, options, counted, onChange, onDelete }: {
         {status && <> — <strong>{status}</strong></>}
       </p>
     </details>
+  )
+}
+
+/** Each import's holdings, with a button that deletes them all */
+function ImportedList({ investments, onDelete }: { investments: readonly Investment[]; onDelete: (batch: ImportedBatch) => void }) {
+  const id = useId()
+  const batches = importedBatches(investments)
+  if (batches.length === 0) return null
+  return (
+    <section aria-labelledby={`${id}-heading`} className="imported-list">
+      <h3 id={`${id}-heading`}>Importerede data</h3>
+      <ul className="plain">
+        {batches.map((b) => (
+          <li key={b.source}>
+            <strong>{b.periodLabel}</strong> fra koncernsystemet · {formatNumber(b.ids.length, 0)} {b.ids.length === 1 ? 'investering' : 'investeringer'}{' '}
+            <button type="button" className="link" onClick={() => onDelete(b)}>
+              Slet<span className="visually-hidden"> importen {b.periodLabel}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

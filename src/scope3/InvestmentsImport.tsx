@@ -5,7 +5,7 @@
 
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
-  CONSOLIDATED_ABOVE_PCT, GroupExportError, importedBasis, measureLabels, parseGroupExport, periodEndDate, planInvestments,
+  CONSOLIDATED_ABOVE_PCT, GroupExportError, IMPORT_SOURCE_PREFIX, importedBasis, measureLabels, parseGroupExport, periodEndDate, planInvestments,
   planStatusLabels, type GroupExport, type PlanRow,
 } from '../calc/groupExport'
 import { ImportFileError, readSheets } from '../calc/importFile'
@@ -88,7 +88,7 @@ export function InvestmentsImport({ investments, setInvestments }: {
     const period = exports.flatMap((e) => e.periods).find((p) => p.label === periodLabel)
     if (!period) return
     const date = periodEndDate(period)
-    const source = `Koncernsystem, ${periodLabel}`
+    const source = `${IMPORT_SOURCE_PREFIX}${periodLabel}`
     setInvestments((current) => {
       const updates = new Map(importable.filter((r) => r.existingId).map((r) => [r.existingId!, r]))
       const kept = current.map((inv) => {
