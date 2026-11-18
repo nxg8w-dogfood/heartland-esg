@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayValue, periodShare, twelveMonthsTo } from './dates'
+import { dayValue, overlapDays, periodShare, twelveMonthsTo } from './dates'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 
@@ -48,6 +48,19 @@ describe('periodShare', () => {
   it('handles a period spanning a leap day', () => {
     // Feb 2024 has 29 days; the line covers all of February, the period its first half.
     expect(periodShare({ date: '2024-02-01', dateTo: '2024-02-29' }, { start: '2024-02-01', end: '2024-02-14' })).toBe(14 / 29)
+  })
+})
+
+describe('overlapDays', () => {
+  it('counts the days two periods share, both ends included', () => {
+    expect(overlapDays(year2025, year2025)).toBe(365)
+    expect(overlapDays({ start: '2025-08-01', end: '2026-07-31' }, year2025)).toBe(153)
+    expect(overlapDays(year2025, { start: '2025-12-31', end: '2026-01-31' })).toBe(1)
+  })
+
+  it('is 0 for periods that do not meet or an invalid date', () => {
+    expect(overlapDays(year2025, { start: '2026-01-01', end: '2026-12-31' })).toBe(0)
+    expect(overlapDays(year2025, { start: 'ukendt', end: '2025-12-31' })).toBe(0)
   })
 })
 

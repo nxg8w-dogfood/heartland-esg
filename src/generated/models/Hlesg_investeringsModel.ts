@@ -28,6 +28,8 @@ export interface Hlesg_investeringsBase {
   hlesg_datakilde?: string;
   hlesg_dato: string;
   hlesg_ejerandel?: number;
+  hlesg_ejetfra?: string;
+  hlesg_ejettil?: string;
   hlesg_faktorid?: string;
   hlesg_faktorkilde?: string;
   hlesg_faktorpreur?: number;

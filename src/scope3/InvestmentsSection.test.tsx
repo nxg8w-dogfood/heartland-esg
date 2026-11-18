@@ -59,6 +59,20 @@ describe('InvestmentsSection', () => {
     expect(render([holding({})])).not.toContain('Faktor til investeringer uden faktor')
   })
 
+  it('counts a company bought during the year from the day it was bought', () => {
+    // 01.02.2026–31.07.2026 is 181 of 365 days: 400 t × 181/365 = 198,356 t
+    const html = render([holding({ ownedFrom: '2026-02-01' })])
+    expect(html).toContain('Ejet fra<span class="optional"> (hvis købt i de 12 mdr.)</span>')
+    expect(html).toContain('type="date" min="2025-08-01" max="2026-07-31" value="2026-02-01"')
+    expect(html).toMatch(/<summary>.* · 2025\/26 · købt 01\.02\.2026 · 40,00 % · 198,356 tCO2e<\/span><\/summary>/)
+    expect(html).toContain('· ejet 01.02.2026–31.07.2026 · 49,6 % af de 12 måneder ejet og i perioden')
+  })
+
+  it('says when the owned dates leave none of the 12 months', () => {
+    expect(render([holding({ ownedFrom: '2026-05-01', ownedTo: '2026-04-30' })]))
+      .toContain('· Ejet fra/til passer ikke med de 12 måneder — tæller ikke med</span></summary>')
+  })
+
   it('opens a new, empty holding so it can be filled in', () => {
     expect(render([holding({ company: '' })])).toContain('<details class="card investment-details" open="">')
   })

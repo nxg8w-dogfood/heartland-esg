@@ -179,6 +179,7 @@ function investmentRow(company: string, i: Investment): Row {
     [c('faktorpreur')]: n(i.factorKgPerEUR),
     [c('faktorkilde')]: s(i.factorSource), [c('land')]: s(i.country), [c('faktorid')]: s(i.factorId),
     [c('organisationid')]: s(i.organizationId), [c('forretningsomraade')]: s(i.businessArea),
+    [c('ejetfra')]: s(i.ownedFrom), [c('ejettil')]: s(i.ownedTo),
   }
 }
 
@@ -413,6 +414,8 @@ function investmentFrom(id: string, r: Row): Investment {
     ...(str(r[c('faktorid')]) ? { factorId: str(r[c('faktorid')]) } : {}),
     ...(str(r[c('organisationid')]) ? { organizationId: str(r[c('organisationid')]) } : {}),
     ...(str(r[c('forretningsomraade')]) ? { businessArea: str(r[c('forretningsomraade')]) } : {}),
+    ...(str(r[c('ejetfra')]) ? { ownedFrom: str(r[c('ejetfra')]).slice(0, 10) } : {}),
+    ...(str(r[c('ejettil')]) ? { ownedTo: str(r[c('ejettil')]).slice(0, 10) } : {}),
   }
 }
 

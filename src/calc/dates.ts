@@ -43,6 +43,13 @@ export function periodShare(line: Dated, period: Period): number {
 
 const daysBetween = (from: number, to: number) => Math.round((to - from) / DAY_MS) + 1
 
+/** Days two periods share, counting both ends; 0 when they don't meet or a date is invalid. */
+export function overlapDays(a: Period, b: Period): number {
+  const from = Math.max(dayValue(a.start), dayValue(b.start))
+  const to = Math.min(dayValue(a.end), dayValue(b.end))
+  return Number.isNaN(from) || Number.isNaN(to) || to < from ? 0 : daysBetween(from, to)
+}
+
 /** Share of a calendar year that falls in the period, 0 to 1. 0 for an invalid or reversed period. */
 export function yearShare(year: number, period: Period): number {
   const start = dayValue(period.start)

@@ -204,6 +204,50 @@ describe('the 12 months a holding covers', () => {
     expect(r.shareInPeriod).toBe(0)
   })
 
+  it('counts a company bought during the year from the day it was bought', () => {
+    // 01.02.2026–31.07.2026 is 181 of the 365 days, all of them in 2026.
+    const bought = holding({ date: '2026-07-31', ownedFrom: '2026-02-01' })
+    const r = investmentResult(bought, currencyRates, fy2526, [])
+    expect(r.owned).toEqual({ start: '2026-02-01', end: '2026-07-31' })
+    expect(r.shareInPeriod).toBe(181 / 365)
+    expect(r.kgCO2e).toBe(100_000 * 181 / 365)
+    expect(investmentResult(bought, currencyRates, year2025, []).shareInPeriod).toBe(0)
+    expect(investmentResult(bought, currencyRates, { start: '2026-01-01', end: '2026-12-31' }, []).shareInPeriod).toBe(181 / 365)
+  })
+
+  it('counts a company sold during the year up to the day it was sold', () => {
+    // 01.08.2025–31.10.2025 is 92 days.
+    const r = investmentResult(holding({ date: '2026-07-31', ownedTo: '2025-10-31' }), currencyRates, fy2526, [])
+    expect(r.owned).toEqual({ start: '2025-08-01', end: '2025-10-31' })
+    expect(r.shareInPeriod).toBe(92 / 365)
+  })
+
+  it('counts a company bought and sold during the year for the days between', () => {
+    // 01.09.2025–28.02.2026 is 181 days.
+    expect(investmentResult(holding({ date: '2026-07-31', ownedFrom: '2025-09-01', ownedTo: '2026-02-28' }), currencyRates, fy2526, []).shareInPeriod).toBe(181 / 365)
+  })
+
+  it('ignores owned dates outside the 12 months', () => {
+    const r = investmentResult(holding({ date: '2026-07-31', ownedFrom: '2020-01-01', ownedTo: '2030-12-31' }), currencyRates, fy2526, [])
+    expect(r.owned).toEqual(r.covers)
+    expect(r.shareInPeriod).toBe(1)
+  })
+
+  it('leaves out a holding owned for none of the 12 months', () => {
+    for (const dates of [{ ownedFrom: '2026-05-01', ownedTo: '2026-04-30' }, { ownedFrom: '2026-08-01' }, { ownedTo: '2025-07-31' }]) {
+      const r = investmentResult(holding({ date: '2026-07-31', ...dates }), currencyRates, fy2526, [])
+      expect(r.owned).toBeNull()
+      expect(r.shareInPeriod).toBe(0)
+    }
+  })
+
+  it('flags a company sold and bought back only when the days owned overlap', () => {
+    const sold = holding({ id: 'a', date: '2026-07-31', ownedTo: '2025-12-31' })
+    expect(category15([sold, holding({ id: 'b', date: '2026-07-31', ownedFrom: '2026-01-01' })], currencyRates, fy2526, []).duplicates).toEqual([])
+    expect(category15([sold, holding({ id: 'b', date: '2026-07-31', ownedFrom: '2025-12-31' })], currencyRates, fy2526, []).duplicates)
+      .toEqual([{ company: 'Selskab A/S', covers: '2025/26' }])
+  })
+
   it('names a calendar year by its year and a fiscal year by both', () => {
     expect(coverLabel({ start: '2025-01-01', end: '2025-12-31' })).toBe('2025')
     expect(coverLabel({ start: '2025-08-01', end: '2026-07-31' })).toBe('2025/26')

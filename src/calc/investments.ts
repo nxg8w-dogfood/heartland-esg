@@ -20,7 +20,7 @@
 
 import { toDKK, type CurrencyRate } from '../data/currencies'
 import type { Factor } from '../data/factors'
-import { periodShare, twelveMonthsTo, type Period } from './dates'
+import { overlapDays, twelveMonthsTo, type Period } from './dates'
 import { findFactor } from './findFactor'
 
 export type InvestmentBasis = 'CO2e' | 'Revenue' | 'Investment'
@@ -55,6 +55,10 @@ export type Investment = {
   organizationId?: string
   /** The company's business area in the consolidation system, e.g. Apparel */
   businessArea?: string
+  /** First day the group owned the company, when it was bought during the 12 months */
+  ownedFrom?: string
+  /** Last day the group owned the company, when it was sold during the 12 months */
+  ownedTo?: string
 }
 
 export type InvestmentResult = {
@@ -74,7 +78,9 @@ export type InvestmentResult = {
   annualKgCO2e: number
   /** The 12 months the holding covers, ending on its date; null for an invalid date */
   covers: Period | null
-  /** Share of those months inside the period, 0 to 1 */
+  /** The part of those months the group owned the company; null when it owned none of them */
+  owned: Period | null
+  /** Share of the 12 months that the group owned and that fall in the period, 0 to 1 */
   shareInPeriod: number
   /** For the period: annual × share in period */
   kgCO2e: number
@@ -133,8 +139,17 @@ export function investmentResult(investment: Investment, rates: readonly Currenc
     pending = amount === null || amount < 0 || (factorKgPerEUR === null && amount !== 0)
   }
   const covers = twelveMonthsTo(investment.date)
-  const inPeriod = covers === null ? 0 : periodShare({ date: covers.start, dateTo: covers.end }, period)
-  return { investment, share, included, revenueEUR, investmentEUR, factor, factorKgPerEUR, annualKgCO2e, covers, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+  // A company bought or sold during the 12 months counts for the days it was owned (docs/adr/0027).
+  const owned = covers && ownedPart(covers, investment)
+  const inPeriod = covers && owned ? overlapDays(owned, period) / overlapDays(covers, covers) : 0
+  return { investment, share, included, revenueEUR, investmentEUR, factor, factorKgPerEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+}
+
+/** The 12 months, cut to the dates the company was owned. ISO dates compare as text. */
+function ownedPart(covers: Period, { ownedFrom, ownedTo }: Investment): Period | null {
+  const start = ownedFrom && ownedFrom > covers.start ? ownedFrom : covers.start
+  const end = ownedTo && ownedTo < covers.end ? ownedTo : covers.end
+  return start <= end ? { start, end } : null
 }
 
 /** "2025" for a calendar year, "2025/26" for a year that runs across New Year. */
@@ -147,7 +162,7 @@ export function coverLabel(covers: Period | null): string {
 
 export function category15(investments: readonly Investment[], rates: readonly CurrencyRate[], period: Period, factors: readonly Factor[]): Category15 {
   const rows = investments.map((i) => investmentResult(i, rates, period, factors)).filter((r) => r.shareInPeriod > 0)
-  // Two holdings of one company whose 12 months overlap count those months twice. ISO dates
+  // Two holdings of one company whose owned months overlap count those months twice. ISO dates
   // compare as text.
   const duplicates: Category15['duplicates'] = []
   const byCompany = new Map<string, InvestmentResult[]>()
@@ -156,9 +171,9 @@ export function category15(investments: readonly Investment[], rates: readonly C
     if (company) byCompany.set(company, [...(byCompany.get(company) ?? []), r])
   }
   for (const holdings of byCompany.values()) {
-    const sorted = holdings.map((r) => r.covers!).sort((a, b) => a.start.localeCompare(b.start))
-    const overlap = sorted.find((c, i) => i > 0 && c.start <= sorted[i - 1].end)
-    if (overlap) duplicates.push({ company: holdings[0].investment.company.trim(), covers: coverLabel(overlap) })
+    const sorted = [...holdings].sort((a, b) => a.owned!.start.localeCompare(b.owned!.start))
+    const overlap = sorted.find((r, i) => i > 0 && r.owned!.start <= sorted[i - 1].owned!.end)
+    if (overlap) duplicates.push({ company: holdings[0].investment.company.trim(), covers: coverLabel(overlap.covers) })
   }
   return {
     rows,
