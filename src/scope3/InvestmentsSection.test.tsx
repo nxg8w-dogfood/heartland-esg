@@ -40,7 +40,7 @@ describe('InvestmentsSection', () => {
   it('offers the spend factors per EUR, and a factor of its own', () => {
     const html = render([onRevenue()])
     expect(html).toContain('>Egen faktor</option>')
-    expect(html).toContain('<option value="f-exio-obs-se">Other business services (Sverige) · 0,0768</option>')
+    expect(html).toContain('<option value="f-exio-obs-se">Other business services, Sverige · 0,0768</option>')
     expect(html).not.toContain('kg CO2e/GBP')
     expect(html).toContain('Egen faktor (kg CO2e pr. EUR)')
   })

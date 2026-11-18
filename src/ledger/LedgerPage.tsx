@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { searchFactors } from '../calc/factorSearch'
+import { factorRegions, factorsInRegion, searchFactors } from '../calc/factorSearch'
 import { textRule } from './textRule'
 import type { Factor } from '../data/factors'
 import {
@@ -470,7 +470,9 @@ function FactorPicker({ posting, factors, onPick, onCancel }: {
   const search = useRef<HTMLInputElement>(null)
   useEffect(() => search.current?.focus(), [])
   const [query, setQuery] = useState('')
-  const found = useMemo(() => searchFactors(factors, query), [factors, query])
+  const [region, setRegion] = useState('')
+  const regions = useMemo(() => factorRegions(factors), [factors])
+  const found = useMemo(() => searchFactors(factorsInRegion(factors, region), query), [factors, region, query])
   const p = posting.posting
   return (
     <section className="card" aria-labelledby={`${id}-h`} onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}>
@@ -478,8 +480,15 @@ function FactorPicker({ posting, factors, onPick, onCancel }: {
       <p className="muted">
         Postering {p.account}{p.date ? `, ${formatDate(p.date)}` : ''}{p.text ? `, ${p.text}` : ''}. Går forud for kontoreglen og alle andre regler.
       </p>
+      <div className="field">
+        <label htmlFor={`${id}-region`}>Land/område</label>
+        <select id={`${id}-region`} value={region} onChange={(e) => setRegion(e.target.value)} aria-describedby={`${id}-count`}>
+          <option value="">Alle lande og områder</option>
+          {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+        </select>
+      </div>
       <div className="field wide">
-        <label htmlFor={`${id}-q`}>Søg faktor</label>
+        <label htmlFor={`${id}-q`}>Søg type</label>
         <input
           id={`${id}-q`}
           ref={search}
@@ -488,7 +497,7 @@ function FactorPicker({ posting, factors, onPick, onCancel }: {
           onChange={(e) => setQuery(e.target.value)}
           aria-describedby={`${id}-hint ${id}-count`}
         />
-        <span id={`${id}-hint`} className="muted">Navn, kilde eller land. Flere ord skal alle passe.</span>
+        <span id={`${id}-hint`} className="muted">Vælg land eller område, og søg på navn eller kilde. Flere ord skal alle passe.</span>
       </div>
       <p id={`${id}-count`} className="muted" role="status">
         {found.length === 0 ? 'Ingen faktorer passer.' : found.length > PICKER_LIMIT ? `Viser ${PICKER_LIMIT} af ${found.length} faktorer. Søg for at indsnævre.` : `${found.length} ${found.length === 1 ? 'faktor' : 'faktorer'}.`}

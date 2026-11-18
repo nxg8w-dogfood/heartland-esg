@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { searchFactors } from './factorSearch'
+import { factorRegions, factorsInRegion, searchFactors } from './factorSearch'
 
 const f = (name: string, source: string, region: string) => ({ name, source, region })
 const list = [
@@ -33,5 +33,23 @@ describe('searchFactors', () => {
 
   it('finds nothing when no factor matches', () => {
     expect(names('beton')).toEqual([])
+  })
+})
+
+describe('factorRegions', () => {
+  it('lists each country or area once, alphabetically in Danish', () => {
+    expect(factorRegions([...list, f('Hotel', 'DEFRA', 'Østrig'), f('Fly', 'DEFRA', 'Danmark'), f('X', '', '')])).toEqual(['Danmark', 'Irland', 'UK/generisk', 'Østrig'])
+  })
+})
+
+describe('factorsInRegion', () => {
+  const more = [...list, f('Bank', 'Exiobase 3.8', 'Danmark'), f('Bank', 'Exiobase 3.8', 'Sverige')]
+
+  it("keeps one country's factors, by name", () => {
+    expect(factorsInRegion(more, 'Danmark').map((x) => x.name)).toEqual(['Bank', 'Rådgivning'])
+  })
+
+  it('keeps all for no country, by name and then country', () => {
+    expect(factorsInRegion(more, '').map((x) => `${x.name}, ${x.region}`)).toEqual(['Bank, Danmark', 'Bank, Sverige', 'Kantine, UK/generisk', 'Rådgivning, Danmark', 'Software, Irland'])
   })
 })
