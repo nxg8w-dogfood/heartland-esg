@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GroupExportError, importedBasis, measureOf, ownershipScale, parseGroupExport, parsePeriodLabel, periodEndDate, planInvestments, turnoverToRevenue } from './groupExport'
+import { GroupExportError, importedBasis, importedBatches, measureOf, ownershipScale, parseGroupExport, parsePeriodLabel, periodEndDate, planInvestments, turnoverToRevenue } from './groupExport'
 import { parseCsvGrid, type CellValue } from './ledger'
 import { readXlsxSheets } from './readXlsx'
 import { makeWorkbook } from './testing/xlsx'
@@ -244,5 +244,25 @@ describe('importedBasis', () => {
     expect(importedBasis({ investmentDKK: null })).toBe('Revenue')
     expect(importedBasis({ investmentDKK: 0 })).toBe('Revenue')
     expect(importedBasis({ investmentDKK: -6_766_896 })).toBe('Revenue')
+  })
+})
+
+describe('importedBatches', () => {
+  it('lists each import by its period, with the holdings it created or updated', () => {
+    const batches = importedBatches([
+      { id: 'a', dataSource: 'Koncernsystem, July 2025' },
+      { id: 'b', dataSource: 'Årsrapport' },
+      { id: 'c', dataSource: 'Koncernsystem, July 2026' },
+      { id: 'd', dataSource: 'Koncernsystem, July 2025' },
+      { id: 'e', dataSource: '' },
+    ])
+    expect(batches).toEqual([
+      { source: 'Koncernsystem, July 2025', periodLabel: 'July 2025', ids: ['a', 'd'] },
+      { source: 'Koncernsystem, July 2026', periodLabel: 'July 2026', ids: ['c'] },
+    ])
+  })
+
+  it('has none when nothing was imported', () => {
+    expect(importedBatches([{ id: 'b', dataSource: 'Årsrapport' }])).toEqual([])
   })
 })

@@ -75,3 +75,15 @@ describe('a holding on the investment amount', () => {
     expect(render([onAmount()])).toContain('· Faktor mangler</span></summary>')
   })
 })
+
+describe('Imported data', () => {
+  it('lists each import with a button that deletes it', () => {
+    const html = render([holding({}), holding({ id: 'inv-2', company: 'Andet ApS' }), holding({ id: 'inv-3', dataSource: 'Årsrapport' })])
+    expect(html).toContain('<strong>July 2026</strong> fra koncernsystemet · 2 investeringer')
+    expect(html).toContain('Slet<span class="visually-hidden"> importen July 2026</span></button>')
+  })
+
+  it('is left out when nothing was imported', () => {
+    expect(render([holding({ dataSource: 'Årsrapport' })])).not.toContain('Importerede data')
+  })
+})

@@ -265,3 +265,26 @@ export function periodEndDate(period: GroupPeriod): string {
   const day = new Date(Date.UTC(period.year, period.month, 0)).getUTCDate()
   return `${period.year}-${String(period.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
 }
+
+/** Stamped on every holding an import creates or updates, followed by the export's period */
+export const IMPORT_SOURCE_PREFIX = 'Koncernsystem, '
+
+export type ImportedBatch = {
+  /** The holdings' data source, e.g. "Koncernsystem, July 2026" */
+  source: string
+  /** The export's period, e.g. "July 2026" */
+  periodLabel: string
+  ids: string[]
+}
+
+/** The imports the holdings came from, one per export period, in the order first seen. */
+export function importedBatches(investments: readonly { id: string; dataSource: string }[]): ImportedBatch[] {
+  const batches = new Map<string, ImportedBatch>()
+  for (const inv of investments) {
+    if (!inv.dataSource.startsWith(IMPORT_SOURCE_PREFIX)) continue
+    const batch = batches.get(inv.dataSource) ?? { source: inv.dataSource, periodLabel: inv.dataSource.slice(IMPORT_SOURCE_PREFIX.length), ids: [] }
+    batch.ids.push(inv.id)
+    batches.set(inv.dataSource, batch)
+  }
+  return [...batches.values()]
+}
