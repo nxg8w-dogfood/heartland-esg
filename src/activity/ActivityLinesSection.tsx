@@ -1,7 +1,8 @@
 import { useId, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
-import { factorOptions, type ActivityGroup, type ActivityLine, type ActivitySummary } from '../calc/activity'
+import { factorOptions, type ActivityGroup, type ActivityLine, type ActivityResult, type ActivitySummary } from '../calc/activity'
 import { parseNumber } from '../calc/parseNumber'
+import { groupLines, type LineGrouping } from './groupLines'
 import { formatDate, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
@@ -22,14 +23,62 @@ type Props = {
   collapsible?: boolean
   /** When given, an Adresse column shows each line's location */
   locations?: readonly { id: string; name: string }[]
+  /** Lets the reader group the lines by type, then date, or by month, then type */
+  groupable?: boolean
 }
 
+const groupings: { id: LineGrouping; label: string }[] = [
+  { id: 'type', label: 'Type, så dato' },
+  { id: 'month', label: 'Måned, så type' },
+  { id: 'none', label: 'Ingen (som indtastet)' },
+]
+
 /** Add, list and delete activity lines for one category: quantity × factor per row type. */
-export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText, collapsible = false, locations }: Props) {
+export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText, collapsible = false, locations, groupable = false }: Props) {
   const id = useId()
+  const [grouping, setGrouping] = useState<LineGrouping>(groupable ? 'type' : 'none')
+  const sections = groupLines(summary.lines, grouping)
   const hiddenCount = lines.length - summary.lines.length
   const locationName = (locationId: string | null | undefined) => locations?.find((l) => l.id === locationId)?.name
   const columns = locations ? 8 : 7
+
+  const row = (r: ActivityResult) => (
+    <tr key={r.line.id}>
+      <td>
+        {formatDate(r.line.date)}
+        {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
+      </td>
+      <td>{r.group.label}</td>
+      {locations && <td>{locationName(r.line.locationId) ?? '—'}</td>}
+      <td>{r.line.description}</td>
+      <td className="num">
+        {r.quantityInPeriod === null ? '—' : `${formatNumber(r.quantityInPeriod, 2)} ${r.group.unit}`}
+        {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
+      </td>
+      <td className="num">
+        <FactorCell
+          value={r.factorValue}
+          factor={r.factor}
+          custom={r.line.customFactor != null}
+          choice={lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
+        />
+      </td>
+      <td className="num strong">
+        {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}
+        {r.warning && <span className="sub warning-text">{r.warning}</span>}
+      </td>
+      <td>
+        <button
+          type="button"
+          className="link"
+          onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))}
+          aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}
+        >
+          Slet
+        </button>
+      </td>
+    </tr>
+  )
 
   const table = (
     <div className="table-wrap">
@@ -47,45 +96,22 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
             <th scope="col"><span className="visually-hidden">Handlinger</span></th>
           </tr>
         </thead>
-        <tbody>
-          {summary.lines.map((r) => (
-            <tr key={r.line.id}>
-              <td>
-                {formatDate(r.line.date)}
-                {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
-              </td>
-              <td>{r.group.label}</td>
-              {locations && <td>{locationName(r.line.locationId) ?? '—'}</td>}
-              <td>{r.line.description}</td>
-              <td className="num">
-                {r.quantityInPeriod === null ? '—' : `${formatNumber(r.quantityInPeriod, 2)} ${r.group.unit}`}
-                {r.share < 1 && <span className="sub">{formatNumber(r.share * 100, 0)} % af linjen</span>}
-              </td>
-              <td className="num">
-                <FactorCell
-                  value={r.factorValue}
-                  factor={r.factor}
-                  custom={r.line.customFactor != null}
-                  choice={lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
-                />
-              </td>
-              <td className="num strong">
-                {r.pending ? <span className="pending">Afventer</span> : formatNumber(r.tCO2e, 3)}
-                {r.warning && <span className="sub warning-text">{r.warning}</span>}
-              </td>
-              <td>
-                <button
-                  type="button"
-                  className="link"
-                  onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))}
-                  aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}
-                >
-                  Slet
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
+        {sections.map((sec) =>
+          sec.label === null ? (
+            <tbody key="all">{sec.lines.map(row)}</tbody>
+          ) : (
+            <tbody key={sec.key} className="line-group">
+              <tr className="group-row">
+                <th scope="rowgroup" colSpan={columns - 2}>
+                  {sec.label} <span className="muted">· {sec.lines.length} {sec.lines.length === 1 ? 'linje' : 'linjer'}{sec.quantity !== null && ` · ${formatNumber(sec.quantity, 2)} ${sec.unit}`}</span>
+                </th>
+                <td className="num strong">{formatNumber(sec.total, 3)}</td>
+                <td />
+              </tr>
+              {sec.lines.map(row)}
+            </tbody>
+          ),
+        )}
         <tfoot>
           <tr>
             <th scope="row" colSpan={columns - 2}>I alt</th>
@@ -102,6 +128,14 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
       <h2 id={`${id}-heading`}>{title}</h2>
       {intro && <p className="muted">{intro}</p>}
 
+      {groupable && summary.lines.length > 1 && (
+        <div className="field inline">
+          <label htmlFor={`${id}-grouping`}>Gruppér linjerne</label>
+          <select id={`${id}-grouping`} value={grouping} onChange={(e) => setGrouping(e.target.value as LineGrouping)}>
+            {groupings.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+          </select>
+        </div>
+      )}
       {summary.lines.length === 0 ? (
         <div className="empty">
           <p>{emptyText}</p>

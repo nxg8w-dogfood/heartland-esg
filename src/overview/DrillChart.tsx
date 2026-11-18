@@ -1,5 +1,5 @@
-import { useId, useState } from 'react'
 import { nodePath, sharePct, type DrillNode, type MonthValue } from '../calc/companyOverview'
+import { MonthChart } from '../charts/MonthChart'
 import { formatNumber } from '../format'
 import { nodeHref } from './nodeHref'
 
@@ -80,45 +80,8 @@ export function DrillChart({ tree, selected, onSelect, months }: {
         </div>
       )}
 
-      <MonthChart label={node.label} months={months} />
+      <MonthChart title="Måned for måned" subtitle={`${node.label}, tCO2e`} unit="tCO2e" months={months} />
     </div>
   )
 }
 
-/** The selected figure per month, as columns; hover or focus a column for its value. */
-function MonthChart({ label, months }: { label: string; months: MonthValue[] }) {
-  const id = useId()
-  const [active, setActive] = useState<number | null>(null)
-  if (months.length < 2) return null
-  const max = Math.max(0, ...months.map((m) => m.value))
-  const shown = active === null ? null : months[active]
-  return (
-    <figure className="month-chart" aria-labelledby={`${id}-title`}>
-      <figcaption id={`${id}-title`}>
-        <strong>Måned for måned</strong> <span className="muted">{label}, tCO2e</span>
-      </figcaption>
-      <p className="month-readout" aria-live="polite">
-        {shown ? <><strong>{t(shown.value)}</strong> <span className="muted">{shown.label}</span></> : <span className="muted">Højeste måned: {t(max)}</span>}
-      </p>
-      <div className="month-columns" onPointerLeave={() => setActive(null)}>
-        {months.map((m, i) => (
-          <div
-            key={m.start}
-            className={i === active ? 'month active' : 'month'}
-            tabIndex={0}
-            role="img"
-            aria-label={`${m.label}: ${t(m.value)} tCO2e`}
-            onPointerEnter={() => setActive(i)}
-            onFocus={() => setActive(i)}
-            onBlur={() => setActive(null)}
-          >
-            <span className="column-track">
-              <span className="column" style={{ height: max > 0 ? `${(Math.max(0, m.value) / max) * 100}%` : 0 }} />
-            </span>
-            <span className="month-label" aria-hidden="true">{m.label.slice(0, 3)}{i === 0 || m.label.startsWith('jan') ? <><br />{m.label.slice(-4)}</> : null}</span>
-          </div>
-        ))}
-      </div>
-    </figure>
-  )
-}
