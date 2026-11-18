@@ -1,7 +1,6 @@
 // One company's climate account summed up for a period: the figures the Scope pages show, in
 // one place, plus what's still missing. The group summary is built from this.
 
-import { currencyRates } from '../data/currencies'
 import { appRates } from './exchangeRates'
 import type { Factor } from '../data/factors'
 import type { Relevance } from '../scope3/relevance'
@@ -59,7 +58,7 @@ export function accountDetails(account: AccountData, factors: readonly Factor[],
   const cat5 = category5(account.cat5Lines, factors, period)
   const cat6 = category6(account.cat6Lines, factors, period)
   const cat7 = category7(account.surveys, factors, period)
-  const cat15 = category15(account.investments, currencyRates, period, factors)
+  const cat15 = category15(account.investments, appRates, period, factors)
   const scope3ByCategory: Record<number, number> = { 1: cat1.total, 2: cat2.total, 3: cat3.total, 4: cat4.total, 5: cat5.total, 6: cat6.total + cat6Spend.total, 7: cat7.total, 15: cat15.total }
   const relevant = (nr: number) => account.relevance[nr]?.relevant ?? false
 

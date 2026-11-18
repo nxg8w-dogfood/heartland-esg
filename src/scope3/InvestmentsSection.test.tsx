@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { category15, type Investment } from '../calc/investments'
-import { currencyRates } from '../data/currencies'
+import { appRates } from '../calc/exchangeRates'
 import { factors } from '../data/factors'
 import { InvestmentsSection } from './InvestmentsSection'
 
@@ -15,10 +15,11 @@ const holding = (patch: Partial<Investment>): Investment => ({
 })
 
 const render = (investments: Investment[]) => renderToStaticMarkup(
-  <InvestmentsSection cat15={category15(investments, currencyRates, period, factors)} investments={investments} setInvestments={() => {}} period={period} factors={factors} />,
+  <InvestmentsSection cat15={category15(investments, appRates, period, factors)} investments={investments} setInvestments={() => {}} period={period} factors={factors} />,
 )
-const onRevenue = (patch: Partial<Investment> = {}) => holding({ basis: 'Revenue', totalKgCO2e: null, revenueDKK: 7_460_400, ...patch })
-const onAmount = (patch: Partial<Investment> = {}) => holding({ basis: 'Investment', totalKgCO2e: null, investmentDKK: 7_460_400, ...patch })
+// 1.000.000 EUR at the ECB's 7,4752 DKK per EUR on 31.07.2026, the holdings' date
+const onRevenue = (patch: Partial<Investment> = {}) => holding({ basis: 'Revenue', totalKgCO2e: null, revenueDKK: 7_475_200, ...patch })
+const onAmount = (patch: Partial<Investment> = {}) => holding({ basis: 'Investment', totalKgCO2e: null, investmentDKK: 7_475_200, ...patch })
 
 describe('InvestmentsSection', () => {
   it('folds each holding to one line with its name, year, ownership and tCO2e', () => {
@@ -45,7 +46,7 @@ describe('InvestmentsSection', () => {
   })
 
   it('counts with the chosen factor, and points to the Faktorer page when its value is missing', () => {
-    // 7.460.400 DKK = 1.000.000 EUR × 0,0768 × 40 % = 30,72 t for the whole year
+    // 7.475.200 DKK = 1.000.000 EUR × 0,0768 × 40 % = 30,72 t for the whole year
     expect(render([onRevenue({ factorId: 'f-exio-obs-se' })])).toContain('30,720 tCO2e</span></summary>')
     const missing = render([onRevenue({ factorId: 'f-exio-computer' })])
     expect(missing).toContain('· Faktorens værdi mangler</span></summary>')
@@ -80,11 +81,11 @@ describe('InvestmentsSection', () => {
 
 describe('a holding on the investment amount', () => {
   it('takes the amount and a factor, and counts amount × factor without the ownership share', () => {
-    // 7.460.400 DKK = 1.000.000 EUR × 0,0768 = 76,8 t
+    // 7.475.200 DKK = 1.000.000 EUR × 0,0768 = 76,8 t
     const html = render([onAmount({ factorId: 'f-exio-obs-se' })])
     expect(html).toContain('<option value="Investment" selected="">Investeringsbeløb × faktor</option>')
     expect(html).toContain('Investeringsbeløb (DKK)')
-    expect(html).toContain('Investeret 1.000.000 EUR')
+    expect(html).toContain('Investeret 1.000.000 EUR · Kurs 7,4752 DKK pr. EUR (ECB-referencekurs 31.07.2026) · ')
     expect(html).toContain('76,800 tCO2e</span></summary>')
   })
 

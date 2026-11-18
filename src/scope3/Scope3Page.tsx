@@ -9,7 +9,6 @@ import type { Deflation, SpendLine } from '../calc/spend'
 import { classifyLedger, ledgerSpendLines } from '../calc/ledger'
 import type { LedgerState } from '../ledger/state'
 import { LedgerPostingsSection } from '../ledger/LedgerPostingsSection'
-import { currencyRates } from '../data/currencies'
 import { appRates } from '../calc/exchangeRates'
 import type { Scope1Line } from '../calc/scope1'
 import { includedScope3Total } from '../calc/accountTotals'
@@ -74,7 +73,7 @@ export function Scope3Page(props: Props) {
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
   const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
-  const cat15 = useMemo(() => category15(investments, currencyRates, period, factors), [investments, period, factors])
+  const cat15 = useMemo(() => category15(investments, appRates, period, factors), [investments, period, factors])
   const classified = useMemo(() => classifyLedger(ledger), [ledger])
   const cat1 = useMemo(() => category1(cat1Lines, factors, appRates, deflation, period, ledgerSpendLines(classified, 1)), [cat1Lines, factors, deflation, period, classified])
   const cat2 = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 2), factors, appRates, deflation, period), [classified, factors, deflation, period])
