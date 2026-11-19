@@ -171,7 +171,7 @@ describe('migrating version 1', () => {
       'f-s2-fjernvarme-lokal': { kind: 'manual', value: 0.08, source: 'Indtastet (fra en tidligere version)', date: '' },
     })
     expect(r.ok && r.dropped).toBe(1)
-    expect(r.ok && r.notes[0]).toContain('til og med 2024')
+    expect(r.ok && r.notes[0]).toContain('til og med 2021')
   })
 
   it('keeps cars, and drops ones it can’t use', () => {

@@ -111,9 +111,9 @@ describe('Scope 2 line figures', () => {
   })
 
   it('names the market-based factor, also while it waits for a value', () => {
-    const pending = scope2Line(line(), location(), factors, year2025)
+    const pending = scope2Line(line({ date: '2026-03-01' }), location(), factors, { start: '2026-01-01', end: '2026-12-31' })
     expect(text(renderToStaticMarkup(<Figure t={pending.marketT} value={pending.marketValue} factor={pending.marketFactor} />))).toEqual([
-      'Faktor mangler', 'Energinets residualmiks 2025 (Danmark)',
+      'Faktor mangler', 'Energinets residualmiks 2026 (Danmark)',
     ])
     const ppa = scope2Line(line(), location({ marketInstrument: 'ppa' }), factors, year2025)
     expect(text(renderToStaticMarkup(<Figure t={ppa.marketT} value={ppa.marketValue} factor={ppa.marketFactor} />))).toContain('PPA-dækket el (Danmark)')
