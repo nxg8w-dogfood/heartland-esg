@@ -209,10 +209,10 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
           {inv.ownedFrom && ` · købt ${formatDate(inv.ownedFrom)}`}
           {inv.ownedTo && ` · solgt ${formatDate(inv.ownedTo)}`}
           {' '}· {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
-          {' '}· {formatNumber(result.kgCO2e / 1000, 3)} tCO2e
           {documentCount > 0 && ` · ${documentCount} ${documentCount === 1 ? 'dokument' : 'dokumenter'}`}
         </span>
         {status && <span className="pending"> · {status}</span>}
+        {!status && result.kgCO2e > 0 && <strong className="investment-value">{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>}
       </summary>
       <div className="location-settings">
         <div className="field">
