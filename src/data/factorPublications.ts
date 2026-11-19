@@ -9,7 +9,8 @@ export type FactorPublication = {
   publisher: string
   /** When the publisher issued it */
   published: string
-  url: string
+  /** Left out for a document the company received, which has no public address */
+  url?: string
   /** Read by the team on */
   checked: string
   note: string
@@ -193,6 +194,68 @@ export const factorPublications: readonly FactorPublication[] = [
       'f-fr-lastbil': 'Scope 3 > Freighting goods > HGV (non-refrigerated, all diesel) > Average non-refrigerated HGVs > Average laden > per tonne.km',
       'f-fr-fly': 'Scope 3 > Freighting goods > Freight flights > International, to/from non-UK > With RF > per tonne.km',
       'f-fr-skib': 'Scope 3 > Freighting goods > Cargo ship > Container ship > Average > per tonne.km',
+    },
+  },
+  {
+    id: 'heartland-emissionsfaktorer-2025-26',
+    name: 'Heartland, Emissionsfaktorer i klimaregnskabsmodellen 2025/26',
+    publisher: 'Heartland',
+    published: '2026-11-19',
+    checked: '2026-11-19',
+    note: 'Heartlands egen faktorliste (HEARTLAND Emissionsfaktorer 2025-26.xlsx, arket »Emissionsfaktorer«): EXIOBASE-spendfaktorer i kg CO2e pr. EUR med faktorår 2021. Værdierne for Kina, Slovakiet, Portugal, Holland, Frankrig, Sverige, Skotland og Other business services i Danmark er de samme som i den indbyggede tabel; resten udfylder faktorer, der ellers afventer en værdi.',
+    values: {
+      'f-exio-air': 0.4696,
+      'f-exio-rail': 0.3954,
+      'f-exio-sea': 2.6692,
+      'f-exio-land': 0.5884,
+      'f-exio-hotel': 0.055,
+      'f-exio-computer': 0.1086,
+      'f-exio-construction': 0.2706,
+      'f-exio-food': 0.5543,
+      'f-exio-furniture': 0.205,
+      'f-exio-insurance': 0.031,
+      'f-exio-office': 0.2203,
+      'f-exio-obs-dk': 0.1272,
+      'f-exio-post': 0.2037,
+      'f-exio-print': 0.1492,
+      'f-exio-retail': 0.1722,
+      'f-exio-vehicle-repair': 0.0357,
+      'f-exio-obs-cn': 0.5566,
+      'f-exio-apparel-cn': 0.9028,
+      'f-exio-animal-sk': 1.385,
+      'f-exio-leather-pt': 0.2798,
+      'f-exio-obs-de': 0.1686,
+      'f-exio-obs-nl': 0.1222,
+      'f-exio-obs-fr': 0.0917,
+      'f-exio-obs-se': 0.0768,
+      'f-exio-obs-scot': 0.0858,
+    },
+    rows: {
+      'f-exio-air': 'Faktor-ID EXIO-AIR',
+      'f-exio-rail': 'Faktor-ID EXIO-RAIL',
+      'f-exio-sea': 'Faktor-ID EXIO-SEA',
+      'f-exio-land': 'Faktor-ID EXIO-LAND',
+      'f-exio-hotel': 'Faktor-ID EXIO-HOTEL',
+      'f-exio-computer': 'Faktor-ID EXIO-COMP',
+      'f-exio-construction': 'Faktor-ID EXIO-CONS',
+      'f-exio-food': 'Faktor-ID EXIO-FOOD',
+      'f-exio-furniture': 'Faktor-ID EXIO-FURN',
+      'f-exio-insurance': 'Faktor-ID EXIO-INS',
+      'f-exio-office': 'Faktor-ID EXIO-OFFM',
+      'f-exio-obs-dk': 'Faktor-ID EXIO-OBS',
+      'f-exio-post': 'Faktor-ID EXIO-POST',
+      'f-exio-print': 'Faktor-ID EXIO-PRINT',
+      'f-exio-retail': 'Faktor-ID EXIO-RETAIL',
+      'f-exio-vehicle-repair': 'Faktor-ID EXIO-VEH',
+      'f-exio-obs-cn': 'Faktor-ID EXIO-OBS-CN',
+      'f-exio-apparel-cn': 'Faktor-ID EXIO-APP-CN',
+      'f-exio-animal-sk': 'Faktor-ID EXIO-ANIM-SK',
+      'f-exio-leather-pt': 'Faktor-ID EXIO-LEATH-PT',
+      'f-exio-obs-de': 'Faktor-ID EXIO-OBS-DE',
+      'f-exio-obs-nl': 'Faktor-ID EXIO-OBS-NL',
+      'f-exio-obs-fr': 'Faktor-ID EXIO-OBS-FR',
+      'f-exio-obs-se': 'Faktor-ID EXIO-OBS-SE',
+      'f-exio-obs-scot': 'Faktor-ID EXIO-OBS-SCT',
     },
   },
 ]

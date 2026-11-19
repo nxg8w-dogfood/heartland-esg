@@ -120,7 +120,7 @@ so; a currency with no fixed rate (GBP, USD, NOK) is left pending until the tabl
 
 ### Update the Net Price Index
 
-Spend factors are index-regulated to their price year (EXIOBASE: 2019) with Danmarks
+Spend factors are index-regulated to their factor year (EXIOBASE: 2021, ADR 0033) with Danmarks
 Statistik's Net Price Index, table PRIS05 (ADR 0030). The yearly averages are in
 `src/data/netPriceIndex.ts`. When DST publishes a new year's average (January), refresh the
 file and open a pull request:

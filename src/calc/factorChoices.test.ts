@@ -9,7 +9,7 @@ describe('factorChoices', () => {
     expect(ids('f-hotel-dk')).toEqual([
       'f-hotel-dk', 'f-hotel-uk', 'f-hotel-fr', 'f-hotel-de', 'f-hotel-nl', 'f-hotel-es', 'f-hotel-ch', 'f-hotel-us', 'f-hotel-it',
     ])
-    expect(ids('f-exio-obs-dk')).toEqual(['f-exio-obs-dk', 'f-exio-obs-cn', 'f-exio-obs-se', 'f-exio-obs-fr', 'f-exio-obs-nl', 'f-exio-obs-scot'])
+    expect(ids('f-exio-obs-dk')).toEqual(['f-exio-obs-dk', 'f-exio-obs-cn', 'f-exio-obs-se', 'f-exio-obs-fr', 'f-exio-obs-nl', 'f-exio-obs-scot', 'f-exio-obs-de'])
   })
 
   it('offers nothing else when the factor has no other region, so a line keeps to its type', () => {
