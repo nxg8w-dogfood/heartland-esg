@@ -176,13 +176,13 @@ describe('a factor from the factor table', () => {
   })
 
   it('regulates the EUR amount to the factor\'s price year when index regulation is on, but not the own factor', () => {
-    const priced = [{ ...spend('obs', 0.5), priceYear: 2019 }]
+    const priced = [{ ...spend('obs', 0.5), priceYear: 2021 }]
     const on: Deflation = { ...noDeflation, active: true }
     const r = investmentResult(onRevenue({ factorId: 'obs' }), currencyRates, year2025, priced, on)
-    expect(r.deflation).toMatchObject({ status: 'applied', baseYear: 2019, indexNow: 100, indexBase: 85.23 })
+    expect(r.deflation).toMatchObject({ status: 'applied', baseYear: 2021, indexNow: 100, indexBase: 86.79 })
     expect(r.revenueEUR).toBeCloseTo(1_000_000, 6)
-    expect(r.deflatedEUR).toBeCloseTo(852_300, 6)
-    expect(r.annualKgCO2e).toBeCloseTo(852_300 * 0.5 * 0.25, 6)
+    expect(r.deflatedEUR).toBeCloseTo(867_900, 6)
+    expect(r.annualKgCO2e).toBeCloseTo(867_900 * 0.5 * 0.25, 6)
     expect(investmentResult(onRevenue({ factorId: null }), currencyRates, year2025, priced, on).deflation.status).toBe('not-spend')
     expect(investmentResult(onRevenue({ factorId: 'obs' }), currencyRates, year2025, priced).annualKgCO2e).toBeCloseTo(1_000_000 * 0.5 * 0.25, 6)
   })

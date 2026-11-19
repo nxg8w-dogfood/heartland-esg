@@ -87,12 +87,12 @@ describe('price deflation', () => {
     expect(r.warning).toBe('Producentprisindeks (Danmarks Statistik) for 2026 er ikke udgivet endnu; 2025 er brugt.')
   })
 
-  it('regulates EXIOBASE to its 2019 prices with the built-in Net Price Index by default', () => {
+  it('regulates EXIOBASE to its 2021 factor year with the built-in Net Price Index by default', () => {
     const on: Deflation = { ...noDeflation, active: true }
     const r = spendLine(line(), consulting, factors, currencyRates, on, year2025)
-    expect(r.deflation).toMatchObject({ status: 'applied', baseYear: 2019, year: 2025, indexBase: 85.23, indexNow: 100 })
-    expect(r.deflatedAmount).toBeCloseTo(100_000 * (85.23 / 100), 6)
-    expect(r.tCO2e).toBeCloseTo((85_230 * 0.1272) / 1000, 9)
+    expect(r.deflation).toMatchObject({ status: 'applied', baseYear: 2021, year: 2025, indexBase: 86.79, indexNow: 100 })
+    expect(r.deflatedAmount).toBeCloseTo(100_000 * (86.79 / 100), 6)
+    expect(r.tCO2e).toBeCloseTo((86_790 * 0.1272) / 1000, 9)
     expect(r.warning).toBeNull()
   })
 

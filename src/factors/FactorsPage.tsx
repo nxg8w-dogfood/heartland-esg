@@ -32,6 +32,7 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
             <th scope="col">Enhed</th>
             <th scope="col">Kilde</th>
             <th scope="col">Gyldig</th>
+            <th scope="col" className="num">Faktorår</th>
           </tr>
         </thead>
         <tbody>
@@ -53,6 +54,7 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
                   <span className="sub">{applied.source}{applied.reference && applied.reference !== f.reference ? ` · ${applied.reference}` : ''}</span>
                 </td>
                 <td>{validity(f)}</td>
+                <td className="num">{f.priceYear ?? '—'}</td>
               </tr>
             )
           })}
@@ -80,7 +82,7 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
             return (
               <li key={p.id}>
                 <strong>{p.name}</strong> <span className="muted">({p.publisher}, udgivet {formatDate(p.published)}, kontrolleret {formatDate(p.checked)})</span>
-                <p>{p.note} <a href={p.url} target="_blank" rel="noreferrer">Kilde</a></p>
+                <p>{p.note}{p.url && <> <a href={p.url} target="_blank" rel="noreferrer">Kilde</a></>}</p>
                 <p className="muted" role="status">Bruges for {using} af {ids.length} faktorer.</p>
                 <div className="databar-actions">
                   <button type="button" className="secondary" disabled={using === ids.length} onClick={() => ids.forEach((id) => onChoose(id, { kind: 'publication', publicationId: p.id }))}>

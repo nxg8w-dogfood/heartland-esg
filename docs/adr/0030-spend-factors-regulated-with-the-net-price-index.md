@@ -1,6 +1,6 @@
 # 30. Spend factors are index-regulated with Danmarks Statistik's Net Price Index
 
-- **Status:** Accepted
+- **Status:** Accepted. The price year 2019 is replaced by the factor year 2021 in ADR 0033.
 - **Date:** 2026-11-19
 - **Decided by:** @mortengad (tech lead), 2026-11-19: the EXIOBASE factors are from 2019 and must
   be regulated for each year "with the NPI from DKStat", the Net Price Index.

@@ -33,6 +33,12 @@ describe('applyFactorSources', () => {
     expect(out.filter((f, i) => f !== factors[i]).map((f) => f.id)).toEqual(['f-c-el-dk', 'f-c-el-dk-2026'])
   })
 
+  it("fills blank EXIOBASE factors from Heartland's own factor list, which has no public address", () => {
+    const out = applyFactorSources(factors, { 'f-exio-air': { kind: 'publication', publicationId: 'heartland-emissionsfaktorer-2025-26' } }, factorPublications)
+    expect(byId(factors, 'f-exio-air').value).toBeNull()
+    expect(byId(out, 'f-exio-air')).toMatchObject({ value: 0.4696, priceYear: 2021, source: expect.stringContaining('Heartland'), reference: 'Faktor-ID EXIO-AIR (Heartland, Emissionsfaktorer i klimaregnskabsmodellen 2025/26)' })
+  })
+
   it('takes value, source and reference from a chosen publication', () => {
     const out = applyFactorSources(factors, { 'f-s2-el-residual-2025': { kind: 'publication', publicationId: energinet } }, factorPublications)
     expect(byId(out, 'f-s2-el-residual-2025')).toMatchObject({ value: 0.34807, source: expect.stringContaining('Energinet'), reference: expect.stringContaining('energinet.dk') })
