@@ -97,7 +97,7 @@ describe('category 6, business travel', () => {
   const trip = (group: string, quantity: number, o = {}) => ({ id: group, group, date: '2025-04-10', quantity, ...o })
 
   it('has the original rows, each with a factor that exists', () => {
-    expect(category6Groups).toHaveLength(10)
+    expect(category6Groups).toHaveLength(11)
     for (const g of category6Groups) expect(factors.some((f) => f.id === g.factorId), g.id).toBe(true)
   })
 
@@ -117,6 +117,13 @@ describe('category 6, business travel', () => {
     expect(r.travelT).toBeCloseTo(0.07092, 10)
     expect(r.hotelT).toBeCloseTo(0.0201, 10)
     expect(r.total).toBeCloseTo(r.travelT + r.hotelT, 12)
+  })
+
+  it("counts the group's own flights by kg fuel, pending until the company's own factor is entered", () => {
+    expect(category6([trip('k6-egne-fly', 2000)], factors, year2025)).toMatchObject({ total: 0, pendingCount: 1 })
+    const own = factors.map((f) => (f.id === 'f-t-egne-fly' ? { ...f, value: 3.2 } : f))
+    expect(category6([trip('k6-egne-fly', 2000)], own, year2025)).toMatchObject({ pendingCount: 0 })
+    expect(category6([trip('k6-egne-fly', 2000)], own, year2025).travelT).toBeCloseTo(6.4, 12)
   })
 
   it('flags a hotel night left on Denmark as pending', () => {
