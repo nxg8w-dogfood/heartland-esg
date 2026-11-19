@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { currencyRates } from '../data/currencies'
 import { factors } from '../data/factors'
 import { category1, category1Groups } from './scope3'
-import { deflationFor, defaultPriceIndexSeries, noDeflation, spendLine, type Deflation, type SpendLine } from './spend'
+import { deflationFor, defaultPriceIndexSeries, indexPoints, noDeflation, NPI_SERIES, spendLine, type Deflation, type SpendLine } from './spend'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 const consulting = category1Groups.find((g) => g.id === 'k1-raadgivning')!
@@ -70,14 +70,38 @@ describe('price deflation', () => {
   })
 
   it('needs a series, a base year and both index points, and warns when one is missing', () => {
-    expect(spendLine(line(), consulting, factors, currencyRates, deflating({ seriesId: null }), year2025).deflation.status).toBe('no-series')
-    const noBase = spendLine(line(), consulting, factors, currencyRates, deflating({ factorSettings: {} }), year2025)
+    expect(spendLine(line(), consulting, factors, currencyRates, deflating({ seriesId: 'idx-gone' }), year2025).deflation.status).toBe('no-series')
+    // BEIS rent has no price year of its own.
+    const noBase = spendLine(line({ factorId: 'f-beis-rent' }), consulting, factors, currencyRates, deflating({ factorSettings: {} }), year2025)
     expect(noBase.deflation.status).toBe('no-base-year')
     expect(noBase.warning).toBe('Spendfaktoren mangler basisår — indeksregulering kan ikke anvendes.')
-    const noPoint = spendLine(line({ date: '2026-02-01' }), consulting, factors, currencyRates, deflating(), { start: '2026-01-01', end: '2026-12-31' })
+    const noPoint = spendLine(line(), consulting, factors, currencyRates, deflating({ factorSettings: { 'f-exio-obs-dk': { baseYear: 2018 } } }), year2025)
     expect(noPoint.deflation.status).toBe('no-index-point')
     expect(noPoint.warning).toBe('Indeksserien mangler værdi for linjens år eller for faktorens basisår.')
     expect(noPoint.deflatedAmount).toBeCloseTo(100_000, 6)
+  })
+
+  it('uses the latest published year, and says so, until the line\'s own year is out', () => {
+    const r = spendLine(line({ date: '2026-02-01' }), consulting, factors, currencyRates, deflating(), { start: '2026-01-01', end: '2026-12-31' })
+    expect(r.deflation).toMatchObject({ status: 'applied', year: 2026, indexYear: 2025, ratio: 1.25 })
+    expect(r.warning).toBe('Producentprisindeks (Danmarks Statistik) for 2026 er ikke udgivet endnu; 2025 er brugt.')
+  })
+
+  it('regulates EXIOBASE to its 2019 prices with the built-in Net Price Index by default', () => {
+    const on: Deflation = { ...noDeflation, active: true }
+    const r = spendLine(line(), consulting, factors, currencyRates, on, year2025)
+    expect(r.deflation).toMatchObject({ status: 'applied', baseYear: 2019, year: 2025, indexBase: 85.23, indexNow: 100 })
+    expect(r.deflatedAmount).toBeCloseTo(100_000 * (85.23 / 100), 6)
+    expect(r.tCO2e).toBeCloseTo((85_230 * 0.1272) / 1000, 9)
+    expect(r.warning).toBeNull()
+  })
+
+  it('lets an entered index value replace the built-in one for its year', () => {
+    const npi = defaultPriceIndexSeries.find((s) => s.id === NPI_SERIES)!
+    const points = indexPoints({ ...npi, points: [{ year: 2019, value: 80 }] })
+    expect(points.find((p) => p.year === 2019)).toEqual({ year: 2019, value: 80, builtin: false })
+    expect(points.find((p) => p.year === 2025)).toEqual({ year: 2025, value: 100, builtin: true })
+    expect(points.map((p) => p.year)).toEqual([...points.map((p) => p.year)].sort((x, y) => x - y))
   })
 
   it('lets a factor use its own series', () => {

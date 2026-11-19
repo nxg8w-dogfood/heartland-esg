@@ -60,8 +60,9 @@ type Props = {
 }
 
 /** The spend factors category 1 uses in the period: the ones a base year can be set for. */
-const spendFactorsUsed = (cat1: ReturnType<typeof category1>): Factor[] =>
-  [...new Map(cat1.lines.filter((r) => r.factor?.method === 'spend').map((r) => [r.factor!.id, r.factor!])).values()]
+/** The spend factors the period's lines and holdings use, each once */
+const spendFactorsUsed = (used: readonly { factor: Factor | null }[]): Factor[] =>
+  [...new Map(used.filter((r) => r.factor?.method === 'spend').map((r) => [r.factor!.id, r.factor!])).values()]
 
 const pendingNote = (n: number) => (n === 0 ? undefined : n === 1 ? '1 linje afventer faktor' : `${n} linjer afventer faktor`)
 
@@ -73,7 +74,7 @@ export function Scope3Page(props: Props) {
   const cat5 = useMemo(() => category5(cat5Lines, factors, period), [cat5Lines, factors, period])
   const cat6 = useMemo(() => category6(cat6Lines, factors, period), [cat6Lines, factors, period])
   const cat7 = useMemo(() => category7(surveys, factors, period), [surveys, factors, period])
-  const cat15 = useMemo(() => category15(investments, appRates, period, factors), [investments, period, factors])
+  const cat15 = useMemo(() => category15(investments, appRates, period, factors, deflation), [investments, period, factors, deflation])
   const classified = useMemo(() => classifyLedger(ledger), [ledger])
   const cat1 = useMemo(() => category1(cat1Lines, factors, appRates, deflation, period, ledgerSpendLines(classified, 1)), [cat1Lines, factors, deflation, period, classified])
   const cat2 = useMemo(() => ledgerSpend(ledgerSpendLines(classified, 2), factors, appRates, deflation, period), [classified, factors, deflation, period])
@@ -230,7 +231,7 @@ export function Scope3Page(props: Props) {
 
       {subpage === 'kategori-7' && <CommutingSection cat7={cat7} surveys={surveys} setSurveys={setSurveys} factors={factors} period={period} />}
 
-      {subpage === 'kategori-15' && <InvestmentsSection cat15={cat15} investments={investments} setInvestments={setInvestments} period={period} factors={factors} />}
+      {subpage === 'kategori-15' && <InvestmentsSection cat15={cat15} investments={investments} setInvestments={setInvestments} period={period} factors={factors} deflation={deflation} />}
 
       {subpage === 'indstillinger' && (
         <>
@@ -287,8 +288,8 @@ export function Scope3Page(props: Props) {
 
           <section aria-labelledby="s3-deflation">
             <h2 id="s3-deflation">Indeksregulering af spendfaktorer</h2>
-            <p className="muted">Gælder de spendbaserede linjer i kategori 1 og kurér og pakker i kategori 4.</p>
-            <DeflationPanel deflation={deflation} setDeflation={setDeflation} usedFactors={spendFactorsUsed(cat1)} />
+            <p className="muted">Gælder alle spendbaserede linjer (kategori 1, 2, kurér og pakker i 4, og 6) og investeringer i kategori 15, der bruger en spendfaktor.</p>
+            <DeflationPanel deflation={deflation} setDeflation={setDeflation} usedFactors={spendFactorsUsed([...cat1.lines, ...cat2.lines, ...cat4.courier, ...cat6Spend.lines, ...cat15.rows])} />
           </section>
         </>
       )}
