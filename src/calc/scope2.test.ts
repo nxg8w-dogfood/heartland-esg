@@ -3,6 +3,7 @@ import { factors, type Factor } from '../data/factors'
 import { scope2Line, scope2Summary, type Location, type Scope2Line } from './scope2'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
+const year2026 = { start: '2026-01-01', end: '2026-12-31' }
 
 const location = (overrides: Partial<Location> = {}): Location => ({
   id: 'hq',
@@ -56,13 +57,24 @@ describe('electricity, market-based', () => {
     }
   })
 
-  it('is pending for residual mix until its value is entered, and never guesses it', () => {
+  it("uses Energinet's general declaration as the residual mix", () => {
     const r = scope2Line(line(), location(), factors, year2025)
+    expect(r.marketValue).toBe(0.34807)
+    expect(r.marketT).toBeCloseTo(34.807, 10)
+    expect(r.marketFactor?.id).toBe('f-s2-el-residual-2025')
+    for (const [year, value] of [[2022, 0.432], [2023, 0.499], [2024, 0.45]] as const) {
+      const r = scope2Line(line({ date: `${year}-03-01` }), location(), factors, { start: `${year}-01-01`, end: `${year}-12-31` })
+      expect(r.marketValue).toBe(value)
+    }
+  })
+
+  it('is pending for residual mix until its value is entered, and never guesses it', () => {
+    const r = scope2Line(line({ date: '2026-03-01' }), location(), factors, year2026)
     expect(r.marketValue).toBeNull()
     expect(r.marketT).toBe(0)
     expect(r.pendingMarket).toBe(true)
     // The location-based figure is still calculated.
-    expect(r.locationT).toBeCloseTo(5.892, 10)
+    expect(r.locationT).toBeGreaterThan(0)
   })
 
   it('uses the residual mix once a value has been entered', () => {
@@ -73,9 +85,9 @@ describe('electricity, market-based', () => {
   })
 
   it("uses each year's own residual mix, not another year's", () => {
-    const only2024 = withValues({ 'f-s2-el-residual': 0.4 })
-    expect(scope2Line(line({ date: '2024-03-01' }), location(), only2024, { start: '2024-01-01', end: '2024-12-31' }).marketT).toBeCloseTo(40, 10)
-    expect(scope2Line(line(), location(), only2024, year2025).pendingMarket).toBe(true)
+    const only2025 = withValues({ 'f-s2-el-residual-2025': 0.4 })
+    expect(scope2Line(line(), location(), only2025, year2025).marketT).toBeCloseTo(40, 10)
+    expect(scope2Line(line({ date: '2026-03-01' }), location(), only2025, year2026).pendingMarket).toBe(true)
   })
 
   it('is not pending when there is nothing to multiply', () => {
@@ -174,9 +186,9 @@ describe('scope2Summary', () => {
     expect(s.electricityKWh).toBe(120_000)
     expect(s.heatingKWh).toBe(60_000)
     expect(s.electricityLocationT).toBeCloseTo(7.0704, 10)
-    expect(s.electricityMarketT).toBe(0)
+    expect(s.electricityMarketT).toBeCloseTo(34.807, 10)
     expect(s.locationTotal).toBeCloseTo(7.0704 + 8.7645, 10)
-    expect(s.marketTotal).toBeCloseTo(8.7645, 10)
+    expect(s.marketTotal).toBeCloseTo(34.807 + 8.7645, 10)
     expect(s.locations.map((l) => l.location.id)).toEqual(['hq', 'store'])
   })
 
@@ -190,9 +202,11 @@ describe('scope2Summary', () => {
   })
 
   it('flags residual mix on electricity as pending market-based', () => {
-    expect(s.locations[0].pendingMarket).toBe(true)
-    expect(s.locations[1].pendingMarket).toBe(false)
-    expect(s.pendingMarket).toBe(true)
+    const later = scope2Summary([hq, store], lines.map((l) => ({ ...l, date: '2026-05-01' })), factors, year2026)
+    expect(later.locations[0].pendingMarket).toBe(true)
+    expect(later.locations[1].pendingMarket).toBe(false)
+    expect(later.pendingMarket).toBe(true)
+    expect(s.pendingMarket).toBe(false)
   })
 
   it('flags a heating factor without a value at location level too', () => {
@@ -234,14 +248,14 @@ describe('electricity bills spanning two grid-mix years', () => {
   })
 
   it('splits the market-based figure by residual-mix year too', () => {
-    const r = scope2Line(bill, location(), withValues({ 'f-s2-el-residual': 0.4, 'f-s2-el-residual-2025': 0.35 }), twoYears)
-    expect(r.marketT).toBeCloseTo((3_100 * 0.4 + 5_900 * 0.35) / 1000, 10)
-    expect(r.marketParts.map((p) => p.factor?.id)).toEqual(['f-s2-el-residual', 'f-s2-el-residual-2025'])
+    const r = scope2Line(bill, location(), factors, twoYears)
+    expect(r.marketT).toBeCloseTo((3_100 * 0.45 + 5_900 * 0.34807) / 1000, 10)
+    expect(r.marketParts.map((p) => p.factor?.id)).toEqual(['f-s2-el-residual-2024', 'f-s2-el-residual-2025'])
     expect(r.marketValue! * r.kWh / 1000).toBeCloseTo(r.marketT, 10)
   })
 
   it('is pending market-based when one of its years has no residual mix yet', () => {
-    const r = scope2Line(bill, location(), withValues({ 'f-s2-el-residual-2025': 0.35 }), twoYears)
+    const r = scope2Line(line({ date: '2025-12-01', dateTo: '2026-02-28', kWh: 9_000 }), location(), factors, { start: '2025-01-01', end: '2026-12-31' })
     expect(r.pendingMarket).toBe(true)
     expect(r.marketT).toBe(0)
   })

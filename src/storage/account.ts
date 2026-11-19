@@ -136,7 +136,7 @@ export function parseAccount(input: unknown): LoadResult {
       factorSources[id] = { kind: 'manual', value: v, source: 'Indtastet (fra en tidligere version)', date: '' }
     }
     if ('f-s2-el-residual' in factorSources) {
-      notes.push('Den tidligere indtastede residualmiks gælder nu kun linjer til og med 2024; 2025 og 2026 har hver deres faktor under Faktorer.')
+      notes.push('Den tidligere indtastede residualmiks gælder nu kun linjer til og med 2021; 2022-2025 bruger Energinets generelle eldeklaration, og 2026 har sin egen faktor under Faktorer.')
     }
   } else if (isObject(input.factorSources)) {
     for (const [id, c] of Object.entries(input.factorSources)) {
