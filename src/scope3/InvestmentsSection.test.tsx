@@ -22,10 +22,14 @@ const onRevenue = (patch: Partial<Investment> = {}) => holding({ basis: 'Revenue
 const onAmount = (patch: Partial<Investment> = {}) => holding({ basis: 'Investment', totalKgCO2e: null, investmentDKK: 7_475_200, ...patch })
 
 describe('InvestmentsSection', () => {
-  it('folds each holding to one line with its name, year, ownership and tCO2e', () => {
+  it('folds each holding to one line with its name, year, ownership and tCO2e at the right, in bold', () => {
     const html = render([holding({})])
     expect(html).toContain('<details class="card investment-details">')
-    expect(html).toMatch(/<summary><span class="investment-name">Delejet ApS<\/span><span class="muted"> · 2025\/26 · 40,00 % · 400,000 tCO2e<\/span><\/summary>/)
+    expect(html).toMatch(/<summary><span class="investment-name">Delejet ApS<\/span><span class="muted"> · 2025\/26 · 40,00 %<\/span><strong class="investment-value">400,000 tCO2e<\/strong><\/summary>/)
+  })
+
+  it('shows no value on the folded line while something is missing', () => {
+    expect(render([onRevenue()])).not.toContain('investment-value')
   })
 
   it('shows an imported holding’s OrganizationID and business area', () => {
@@ -47,7 +51,7 @@ describe('InvestmentsSection', () => {
 
   it('counts with the chosen factor, and points to the Faktorer page when its value is missing', () => {
     // 7.475.200 DKK = 1.000.000 EUR × 0,0768 × 40 % = 30,72 t for the whole year
-    expect(render([onRevenue({ factorId: 'f-exio-obs-se' })])).toContain('30,720 tCO2e</span></summary>')
+    expect(render([onRevenue({ factorId: 'f-exio-obs-se' })])).toContain('<strong class="investment-value">30,720 tCO2e</strong></summary>')
     const missing = render([onRevenue({ factorId: 'f-exio-computer' })])
     expect(missing).toContain('· Faktorens værdi mangler</span></summary>')
     expect(missing).toContain('Faktorens værdi mangler — angiv den på Faktorer-siden')
@@ -65,7 +69,7 @@ describe('InvestmentsSection', () => {
     const html = render([holding({ ownedFrom: '2026-02-01' })])
     expect(html).toContain('Ejet fra<span class="optional"> (hvis købt i de 12 mdr.)</span>')
     expect(html).toContain('type="date" min="2025-08-01" max="2026-07-31" value="2026-02-01"')
-    expect(html).toMatch(/<summary>.* · 2025\/26 · købt 01\.02\.2026 · 40,00 % · 198,356 tCO2e<\/span><\/summary>/)
+    expect(html).toMatch(/<summary>.* · 2025\/26 · købt 01\.02\.2026 · 40,00 %<\/span><strong class="investment-value">198,356 tCO2e<\/strong><\/summary>/)
     expect(html).toContain('· ejet 01.02.2026–31.07.2026 · 49,6 % af de 12 måneder ejet og i perioden')
   })
 
@@ -86,7 +90,7 @@ describe('a holding on the investment amount', () => {
     expect(html).toContain('<option value="Investment" selected="">Investeringsbeløb × faktor</option>')
     expect(html).toContain('Investeringsbeløb (DKK)')
     expect(html).toContain('Investeret 1.000.000 EUR · Kurs 7,4752 DKK pr. EUR (ECB-referencekurs 31.07.2026) · ')
-    expect(html).toContain('76,800 tCO2e</span></summary>')
+    expect(html).toContain('<strong class="investment-value">76,800 tCO2e</strong></summary>')
   })
 
   it('says what is missing', () => {

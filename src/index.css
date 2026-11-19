@@ -982,6 +982,13 @@ ul.plain {
   font-weight: var(--hl-fw-bold);
 }
 
+/* The holding's tCO2e, at the far right of the folded line. */
+.investment-value {
+  float: right;
+  margin-left: var(--hl-sp-4);
+  font-variant-numeric: tabular-nums;
+}
+
 /* A category's lines, folded behind a summary when an import fills them (category 5). */
 .lines-details {
   margin-bottom: var(--hl-sp-4);
