@@ -15,6 +15,7 @@
     "preview": "vite preview",
     "audit": "node scripts/audit.ts",
     "npi": "node scripts/net-price-index.ts",
+    "municipality-grid": "node scripts/municipality-grid.ts",
     "dataverse:apply": "node scripts/dataverse-apply.ts",
     "dataverse:check": "node scripts/dataverse-check.ts",
     "dataverse:company": "node scripts/dataverse-company.ts",

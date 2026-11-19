@@ -8,6 +8,7 @@
 
 import type { Factor } from '../data/factors'
 import { municipality, type PriceArea } from '../data/municipalities'
+import { municipalityGridFamily } from '../data/municipalityGridFactors'
 import { periodShare, type Period } from './dates'
 import { factorSegments } from './factorSegments'
 import { findFactor } from './findFactor'
@@ -140,16 +141,17 @@ export function gridFamilyFor(municipalityCode: string | null | undefined): stri
 }
 
 /**
- * The grid-mix family to use for a line. A price area's series is used only for dates it covers;
- * outside them (e.g. years with no DK1/DK2 figure) the national average is used, never another
- * year's area value.
+ * The grid-mix family to use for a line: the municipality's own (docs/adr/0031), else its price
+ * area's (docs/adr/0012), else the national average. A series is used only for dates it covers;
+ * outside them (e.g. years with no municipality or DK1/DK2 figure) the next one down is used,
+ * never another year's value.
  */
 export function gridFamilyOn(location: Location, factors: readonly Factor[], date: string): string {
-  const family = location.municipalityCode !== undefined ? gridFamilyFor(location.municipalityCode) : location.gridFamily
-  if (family === NATIONAL_GRID) return family
   const day = date.slice(0, 10)
-  const covered = factors.some((f) => f.family === family && (!f.validFrom || f.validFrom <= day) && (!f.validTo || f.validTo >= day))
-  return covered ? family : NATIONAL_GRID
+  const covered = (family: string) => factors.some((f) => f.family === family && (!f.validFrom || f.validFrom <= day) && (!f.validTo || f.validTo >= day))
+  const m = location.municipalityCode !== undefined ? municipality(location.municipalityCode) : null
+  const candidates = m ? [municipalityGridFamily(m.code), areaGrid[m.priceArea]] : location.municipalityCode === undefined ? [location.gridFamily] : []
+  return candidates.find((family) => family !== NATIONAL_GRID && covered(family)) ?? NATIONAL_GRID
 }
 
 export function marketFactorId(location: Location): string {
@@ -174,11 +176,13 @@ export function scope2Line(
   let marketParts: Scope2LineResult['marketParts']
   if (line.kind === 'electricity') {
     // The original looks the grid mix up by family; there's no factor with the family's id.
-    // A bill spanning two years is split so each part uses its own year's grid mix.
+    // A bill spanning two years is split so each part uses its own year's grid mix, which can
+    // come from a different series: the municipality's for 2025 and the price area's for 2026.
     const gridFamily = gridFamilyOn(location, factors, line.date)
-    const gridId = factors.find((f) => f.family === gridFamily)?.id
+    const grid = gridSeries(location, factors, line)
     const quantity = finiteOrZero(line.kWh)
-    locationParts = factorSegments(factors, gridId, line, period).map(({ factor, share: part }) => {
+    locationParts = factorSegments(grid, grid[0]?.id, line, period).map(({ factor: member, share: part }) => {
+      const factor = member && (factors.find((f) => f.id === member.id) ?? null)
       const partKWh = quantity * part
       return { factor, kWh: partKWh, t: (partKWh * finiteOrZero(line.customFactor ?? factor?.value)) / 1000 }
     })
@@ -235,6 +239,22 @@ export function scope2Line(
     invalid,
     warning,
   }
+}
+
+/**
+ * The grid mix for each calendar year a line touches, each from the series that year uses
+ * (gridFamilyOn), as one family so factorSegments can split the line between them.
+ */
+function gridSeries(location: Location, factors: readonly Factor[], line: Scope2Line): Factor[] {
+  const from = Number(line.date.slice(0, 4))
+  const to = Math.max(from, Number((line.dateTo || line.date).slice(0, 4)))
+  if (!Number.isInteger(from) || !Number.isInteger(to)) return []
+  const series: Factor[] = []
+  for (let y = from; y <= Math.min(to, from + 50); y++) {
+    const member = findFamilyMember(factors, gridFamilyOn(location, factors, `${y}-07-01`), `${y}-07-01`)
+    if (member && !series.some((f) => f.id === member.id)) series.push({ ...member, family: 'grid' })
+  }
+  return series
 }
 
 function findFamilyMember(factors: readonly Factor[], family: string, date: string): Factor | null {

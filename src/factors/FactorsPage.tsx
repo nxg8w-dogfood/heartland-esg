@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import type { Factor } from '../data/factors'
+import { isMunicipalityGrid } from '../data/municipalityGridFactors'
 import type { FactorPublication } from '../data/factorPublications'
 import { apiProviders, sourceOptions, type FactorSourceChoice, type FactorSources } from '../calc/factorSources'
 import { parseNumber } from '../calc/parseNumber'
@@ -18,6 +19,47 @@ type Props = {
 export function FactorsPage({ base, factors, publications, sources, onChoose }: Props) {
   const pending = factors.filter((f) => f.value === null)
   const scopes = ['Scope 1', 'Scope 2', 'Scope 3'] as const
+  // Hundreds of rows, each with a source picker: drawn only once the group is opened.
+  const [municipalitiesOpen, setMunicipalitiesOpen] = useState(false)
+  const table = (list: readonly Factor[]) => (
+    <div className="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Faktor</th>
+            <th scope="col">Kategori</th>
+            <th scope="col" className="num">Værdi</th>
+            <th scope="col">Enhed</th>
+            <th scope="col">Kilde</th>
+            <th scope="col">Gyldig</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((f) => {
+            const applied = factors.find((x) => x.id === f.id) ?? f
+            return (
+              <tr key={f.id} id={`factor-${f.id}`}>
+                <th scope="row">
+                  {f.name}
+                  <span className="sub">{f.region}</span>
+                </th>
+                <td>{f.category}</td>
+                <td className="num">
+                  {applied.value === null ? <span className="pending">Afventer</span> : formatFactor(applied.value)}
+                </td>
+                <td>{f.unit}</td>
+                <td>
+                  <SourcePicker key={optionKey(sources[f.id])} factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
+                  <span className="sub">{applied.source}{applied.reference && applied.reference !== f.reference ? ` · ${applied.reference}` : ''}</span>
+                </td>
+                <td>{validity(f)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
   return (
     <>
       <h1>Emissionsfaktorer</h1>
@@ -83,48 +125,23 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
         )}
       </section>
 
-      {scopes.map((scope) => (
-        <section key={scope} aria-labelledby={`factors-${scope}`}>
-          <h2 id={`factors-${scope}`}>{scope}</h2>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Faktor</th>
-                  <th scope="col">Kategori</th>
-                  <th scope="col" className="num">Værdi</th>
-                  <th scope="col">Enhed</th>
-                  <th scope="col">Kilde</th>
-                  <th scope="col">Gyldig</th>
-                </tr>
-              </thead>
-              <tbody>
-                {base.filter((f) => f.scope === scope).map((f) => {
-                  const applied = factors.find((x) => x.id === f.id) ?? f
-                  return (
-                    <tr key={f.id} id={`factor-${f.id}`}>
-                      <th scope="row">
-                        {f.name}
-                        <span className="sub">{f.region}</span>
-                      </th>
-                      <td>{f.category}</td>
-                      <td className="num">
-                        {applied.value === null ? <span className="pending">Afventer</span> : formatFactor(applied.value)}
-                      </td>
-                      <td>{f.unit}</td>
-                      <td>
-                        <SourcePicker key={optionKey(sources[f.id])} factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
-                        <span className="sub">{applied.source}{applied.reference && applied.reference !== f.reference ? ` · ${applied.reference}` : ''}</span>
-                      </td>
-                      <td>{validity(f)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ))}
+      {scopes.map((scope) => {
+        const own = base.filter((f) => f.scope === scope && !isMunicipalityGrid(f))
+        const perMunicipality = base.filter((f) => f.scope === scope && isMunicipalityGrid(f))
+        return (
+          <section key={scope} aria-labelledby={`factors-${scope}`}>
+            <h2 id={`factors-${scope}`}>{scope}</h2>
+            {table(own)}
+            {perMunicipality.length > 0 && (
+              <details className="factor-group" onToggle={(e) => setMunicipalitiesOpen(e.currentTarget.open)}>
+                <summary>Elmiks pr. kommune ({perMunicipality.length} faktorer)</summary>
+                <p className="muted">Energinets lokationsbaserede deklaration for hver kommune og hvert år. En lokation med en kommune bruger kommunens faktor; år uden den bruger prisområdets.</p>
+                {municipalitiesOpen && table(perMunicipality)}
+              </details>
+            )}
+          </section>
+        )
+      })}
     </>
   )
 }

@@ -1,6 +1,6 @@
 # 12. The electricity factor follows the location's municipality (DK1/DK2)
 
-- **Status:** Accepted
+- **Status:** Accepted; the rejected option "a factor per municipality" is taken up by ADR 0031 (2026-11-19)
 - **Date:** 2026-11-10
 - **Decided by:** @mortengad (tech lead), 2026-11-10: each location gets a municipality, which
   maps to price area DK1 or DK2 and so picks the location-based electricity factor. Locations can

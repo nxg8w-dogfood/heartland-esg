@@ -216,7 +216,7 @@ function LocationCard({
             ))}
           </select>
           <p id={`${id}-area`} className="sub">
-            {place ? `Elområde ${priceAreaLabel[place.priceArea]}` : 'Elfaktoren er landsgennemsnittet, til der er valgt en kommune.'}
+            {place ? `Kommunens egen elfaktor. År uden den bruger elområde ${priceAreaLabel[place.priceArea]}.` : 'Elfaktoren er landsgennemsnittet, til der er valgt en kommune.'}
           </p>
         </div>
         <div className="field">

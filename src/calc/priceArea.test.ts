@@ -67,27 +67,47 @@ describe('grid mix by price area', () => {
     expect(gridFamilyFor('999')).toBe('el-dk-location')
   })
 
-  it('uses the national average for a date the area series does not cover', () => {
-    const aarhus = location({ municipalityCode: '751', gridFamily: 'el-dk1-location' })
-    expect(gridFamilyOn(aarhus, factors, '2025-06-01')).toBe('el-dk1-location')
-    expect(gridFamilyOn(aarhus, factors, '2036-06-01')).toBe('el-dk-location')
+  it("matches Energinet's spreadsheet per municipality, within rounding", () => {
+    // »Miljødeklaration per kommune«, 125 %, 2025: København 48.10 g, Aarhus 74.79 g, Gentofte 48.83 g
+    for (const [code, g] of [['101', 48.1], ['751', 74.79], ['157', 48.83]] as const) {
+      expect(factors.find((f) => f.id === `f-s2-el-kommune-${code}-2025`)!.value! * 1000, code).toBeCloseTo(g, 1)
+    }
+    expect(factors.filter((f) => f.family?.startsWith('el-kommune-'))).toHaveLength(98 * 4)
   })
 
-  it('calculates a line in Aarhus with DK1 and one in Copenhagen with DK2', () => {
+  it("uses the municipality's own factor, then the area's, then the national average, by date", () => {
+    const aarhus = location({ municipalityCode: '751', gridFamily: 'el-dk1-location' })
+    expect(gridFamilyOn(aarhus, factors, '2025-06-01')).toBe('el-kommune-751-location')
+    expect(gridFamilyOn(aarhus, factors, '2026-06-01')).toBe('el-dk1-location')
+    expect(gridFamilyOn(aarhus, factors, '2036-06-01')).toBe('el-dk-location')
+    expect(gridFamilyOn(location({ municipalityCode: null }), factors, '2025-06-01')).toBe('el-dk-location')
+    expect(gridFamilyOn(location({ municipalityCode: '999' }), factors, '2025-06-01')).toBe('el-dk-location')
+    // Saved before municipalities: the stored family, as before.
+    expect(gridFamilyOn(location({ gridFamily: 'el-dk2-location' }), factors, '2025-06-01')).toBe('el-dk2-location')
+  })
+
+  it("calculates a line in Aarhus and one in Copenhagen with each municipality's factor", () => {
     const line = { id: 'l', locationId: 'hq', kind: 'electricity' as const, date: '2025-01-01', dateTo: '2025-12-31', kWh: 100_000 }
     const aarhus = scope2Line(line, location({ municipalityCode: '751', gridFamily: 'el-dk1-location' }), factors, year(2025))
     const cph = scope2Line(line, location({ municipalityCode: '101', gridFamily: 'el-dk2-location' }), factors, year(2025))
     const national = scope2Line(line, location(), factors, year(2025))
-    expect(aarhus.locationFactor?.id).toBe('f-s2-el-dk1-2025')
-    expect(aarhus.locationT).toBeCloseTo(6.801, 6)
-    expect(cph.locationT).toBeCloseTo(4.324, 6)
+    expect(aarhus.locationFactor?.id).toBe('f-s2-el-kommune-751-2025')
+    expect(aarhus.locationT).toBeCloseTo(100_000 * aarhus.locationFactor!.value! / 1000, 9)
+    expect(cph.locationFactor?.id).toBe('f-s2-el-kommune-101-2025')
     expect(national.locationFactor?.id).toBe('f-s2-el-dk-2025')
   })
 
-  it('splits a bill across two years within the area series', () => {
+  it('splits a bill across two years, each with its own year of the series', () => {
     const line = { id: 'l', locationId: 'hq', kind: 'electricity' as const, date: '2024-12-01', dateTo: '2025-01-31', kWh: 62 }
     const r = scope2Line(line, location({ municipalityCode: '751', gridFamily: 'el-dk1-location' }), factors, { start: '2024-01-01', end: '2025-12-31' })
-    expect(r.locationParts.map((p) => p.factor?.id)).toEqual(['f-s2-el-dk1-2024', 'f-s2-el-dk1-2025'])
+    expect(r.locationParts.map((p) => p.factor?.id)).toEqual(['f-s2-el-kommune-751-2024', 'f-s2-el-kommune-751-2025'])
+  })
+
+  it("splits a bill into the municipality's last year and the price area's next", () => {
+    const line = { id: 'l', locationId: 'hq', kind: 'electricity' as const, date: '2025-12-01', dateTo: '2026-01-31', kWh: 62 }
+    const r = scope2Line(line, location({ municipalityCode: '751', gridFamily: 'el-dk1-location' }), factors, { start: '2025-01-01', end: '2026-12-31' })
+    expect(r.locationParts.map((p) => [p.factor?.id, p.kWh])).toEqual([['f-s2-el-kommune-751-2025', 31], ['f-s2-el-dk1-2026', 31]])
+    expect(r.locationParts[1].factor?.family).toBe('el-dk1-location')
   })
 })
 
