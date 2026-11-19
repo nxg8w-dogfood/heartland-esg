@@ -32,6 +32,8 @@ export type ActivityLine = {
   description?: string
   /** The location (address) the line belongs to, when it has one; category 5 waste uses it */
   locationId?: string | null
+  /** The imported file the line came from (a category 5 waste report), so the file can be deleted with its lines */
+  importId?: string | null
 }
 
 export type ActivityResult<G extends ActivityGroup = ActivityGroup, L extends ActivityLine = ActivityLine> = LineResult & {

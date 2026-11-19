@@ -8,6 +8,7 @@ import type { Period } from './calc/dates'
 import type { Scope1Line } from './calc/scope1'
 import type { Location, Scope2Line } from './calc/scope2'
 import type { Category3Params } from './calc/scope3'
+import type { ImportBatch } from './calc/ledger'
 import { resolveScope1Lines, type Vehicle } from './calc/vehicles'
 import { applyFactorSources, type FactorSources } from './calc/factorSources'
 import { factorPublications } from './data/factorPublications'
@@ -236,13 +237,14 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChan
   const [cat1Lines, setCat1Lines] = useState<SpendLine[]>(initial.cat1Lines)
   const [deflation, setDeflation] = useState<Deflation>(initial.deflation)
   const [ledger, setLedger] = useState<LedgerState>(initial.ledger)
+  const [wasteImports, setWasteImports] = useState<ImportBatch[]>(initial.wasteImports)
 
   const factors = useMemo(() => applyFactorSources(baseFactors, factorSources, factorPublications), [factorSources])
 
   const account: AccountData = useMemo(() => ({
     version: ACCOUNT_VERSION, periods, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params,
-    cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger,
-  }), [periods, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger])
+    cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger, wasteImports,
+  }), [periods, vehicles, scope1Lines, locations, scope2Lines, factorSources, relevance, category3Params, cat1Lines, cat4Lines, cat4SpendLines, cat5Lines, cat6Lines, surveys, investments, deflation, ledger, wasteImports])
 
   // Each part keeps its reference until changed, so comparing parts with what was last reported
   // is exact and cheap, and it holds even when React runs the effect twice in development.
@@ -294,6 +296,8 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChan
           setCat4SpendLines={setCat4SpendLines}
           cat5Lines={cat5Lines}
           setCat5Lines={setCat5Lines}
+          wasteImports={wasteImports}
+          setWasteImports={setWasteImports}
           cat6Lines={cat6Lines}
           setCat6Lines={setCat6Lines}
           surveys={surveys}
