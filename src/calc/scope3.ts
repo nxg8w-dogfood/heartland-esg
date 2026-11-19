@@ -172,6 +172,8 @@ export const category6Groups: readonly ActivityGroup[] = [
   { id: 'k6-faerge', label: 'Færge', unit: 'passagerkm', factorId: 'f-t-faerge' },
   { id: 'k6-bil-diesel', label: 'Firmabil – diesel', unit: 'km', factorId: 'f-t-bil-diesel' },
   { id: 'k6-bil-benzin', label: 'Firmabil – benzin', unit: 'km', factorId: 'f-t-bil-benzin' },
+  // Flights operated by another group company: fuel used, not distance.
+  { id: 'k6-egne-fly', label: 'Egne fly', unit: 'kg brændstof', factorId: 'f-t-egne-fly' },
   // Starts on Denmark, which BEIS doesn't cover (blank by design): pick the hotel's country or a proxy.
   { id: 'k6-hotel', label: 'Hotelovernatning', unit: 'værelsesnat', factorId: 'f-hotel-dk' },
 ]
