@@ -8,30 +8,47 @@ import { dkkRate, type RateSource } from './exchangeRates'
 import { periodShare, type Period } from './dates'
 import { factorDenominator } from './lineEmissions'
 import { findFactor } from './findFactor'
+import { npiPoints } from '../data/netPriceIndex'
 
 export type PriceIndexSeries = {
   id: string
   name: string
   source: string
   type: string
-  /** Index value per year */
+  /** Index values entered for the account; they take precedence over the built-in ones */
   points: { year: number; value: number }[]
   note: string
 }
 
-/** The original's series. They start empty: index values are entered from the source, never guessed. */
+export const NPI_SERIES = 'idx-dst-npi'
+
+/** Index values that come with the app, per series: fetched from the publisher by a script, never typed in */
+export const builtinIndexPoints: Record<string, readonly { year: number; value: number }[]> = { [NPI_SERIES]: npiPoints }
+
+/** Built-in and entered index values for a series, an entered value replacing the built-in one for its year */
+export function indexPoints(series: PriceIndexSeries): { year: number; value: number; builtin: boolean }[] {
+  const entered = new Map(series.points.map((p) => [p.year, p.value]))
+  const builtin = (builtinIndexPoints[series.id] ?? []).filter((p) => !entered.has(p.year)).map((p) => ({ ...p, builtin: true }))
+  return [...builtin, ...series.points.map((p) => ({ ...p, builtin: false }))].sort((a, b) => a.year - b.year)
+}
+
+/**
+ * The Net Price Index comes with the app (docs/adr/0030). The original's other series start empty:
+ * their values are entered from the source, never guessed.
+ */
 export const defaultPriceIndexSeries: readonly PriceIndexSeries[] = [
-  { id: 'idx-dst-ppi', name: 'Producentprisindeks (Danmarks Statistik)', source: 'Danmarks Statistik, PRIS111/PPI', type: 'PPI', points: [], note: 'Anbefalet til spendbaserede faktorer: indekset måler virksomheders indkøbspriser. Indtast indeksværdier pr. år fra kilden — værdier gættes aldrig.' },
+  { id: NPI_SERIES, name: 'Nettoprisindeks (Danmarks Statistik)', source: 'Danmarks Statistik, PRIS05, årsgennemsnit', type: 'NPI', points: [], note: 'Standardserien. Værdierne følger med appen og opdateres, når Danmarks Statistik udgiver et nyt år.' },
+  { id: 'idx-dst-ppi', name: 'Producentprisindeks (Danmarks Statistik)', source: 'Danmarks Statistik, PRIS4221', type: 'PPI', points: [], note: 'Anbefalet til spendbaserede faktorer: indekset måler virksomheders indkøbspriser. Indtast indeksværdier pr. år fra kilden — værdier gættes aldrig.' },
   { id: 'idx-eurostat-ppi', name: 'Producentprisindeks (Eurostat)', source: 'Eurostat, sts_inppd_a', type: 'PPI', points: [], note: 'Alternativ kilde for EU-baserede spendfaktorer. Indtast indeksværdier pr. år fra kilden.' },
   { id: 'idx-bnp-deflator', name: 'BNP-deflator (Danmarks Statistik)', source: 'Danmarks Statistik, NAN1', type: 'BNP-deflator', points: [], note: 'Bredt prisniveaumål. Egnet når spendfaktoren dækker en bred kurv af indkøb.' },
 ]
 
 export type Deflation = {
   active: boolean
-  /** Series used unless a factor names its own */
+  /** Series used unless a factor names its own; none chosen means the Net Price Index */
   seriesId: string | null
   series: readonly PriceIndexSeries[]
-  /** Per spend factor: the year its prices are from, and optionally its own series */
+  /** Per spend factor: the year its prices are from, when not the factor's own priceYear, and optionally its own series */
   factorSettings: Record<string, { baseYear?: number | null; seriesId?: string | null }>
 }
 
@@ -51,31 +68,51 @@ export type DeflationResult = {
   ratio: number
   baseYear: number | null
   year: number | null
+  /** The year whose index was used for the line: its own, or the latest published when its own isn't out yet */
+  indexYear: number | null
   indexNow: number | null
   indexBase: number | null
   series: PriceIndexSeries | null
 }
 
 const plain = (status: DeflationStatus, extra: Partial<DeflationResult> = {}): DeflationResult => ({
-  status, ratio: 1, baseYear: null, year: null, indexNow: null, indexBase: null, series: null, ...extra,
+  status, ratio: 1, baseYear: null, year: null, indexYear: null, indexNow: null, indexBase: null, series: null, ...extra,
 })
 
 export function deflationFor(deflation: Deflation, factor: Factor | null, date: string): DeflationResult {
   if (!deflation.active) return plain('not-active')
   if (!factor || factor.method !== 'spend') return plain('not-spend')
   const settings = deflation.factorSettings[factor.id] ?? {}
-  const series = deflation.series.find((s) => s.id === (settings.seriesId ?? deflation.seriesId)) ?? null
+  const series = deflation.series.find((s) => s.id === (settings.seriesId ?? deflation.seriesId ?? NPI_SERIES)) ?? null
   if (!series) return plain('no-series')
-  const baseYear = settings.baseYear ?? null
+  const baseYear = settings.baseYear ?? factor.priceYear ?? null
   if (!baseYear) return plain('no-base-year', { series })
   const year = Number(date.slice(0, 4))
-  const indexNow = series.points.find((p) => p.year === year)?.value ?? null
-  const indexBase = series.points.find((p) => p.year === baseYear)?.value ?? null
+  const points = indexPoints(series)
+  const indexBase = points.find((p) => p.year === baseYear)?.value ?? null
+  // A year whose average isn't published yet uses the latest one there is, and says so.
+  const latest = points.filter((p) => p.year < year).at(-1) ?? null
+  const now = points.find((p) => p.year === year) ?? (latest && latest.year >= baseYear ? latest : null)
+  const indexNow = now?.value ?? null
   if (indexNow === null || indexBase === null || indexBase === 0) {
     return plain('no-index-point', { baseYear, year, indexNow, indexBase, series })
   }
-  return { status: 'applied', ratio: indexNow / indexBase, baseYear, year, indexNow, indexBase, series }
+  return { status: 'applied', ratio: indexNow / indexBase, baseYear, year, indexYear: now!.year, indexNow, indexBase, series }
 }
+
+/** Says when a line's year has no index yet, so the latest published one was used */
+export const deflationNote = (d: DeflationResult): string | null =>
+  d.status === 'applied' && d.indexYear !== d.year
+    ? `${d.series!.name} for ${d.year} er ikke udgivet endnu; ${d.indexYear} er brugt.`
+    : null
+
+/** A deflation's warning, when it couldn't be applied */
+export const deflationWarning = (d: DeflationResult): string | null =>
+  d.status === 'no-base-year'
+    ? 'Spendfaktoren mangler basisår — indeksregulering kan ikke anvendes.'
+    : d.status === 'no-index-point'
+      ? 'Indeksserien mangler værdi for linjens år eller for faktorens basisår.'
+      : null
 
 export type SpendGroup = {
   id: string
@@ -156,12 +193,7 @@ export function spendLine(
   const d = deflationFor(deflation, factor, line.date)
   const deflatedAmount = amountInFactorCurrency === null ? null : amountInFactorCurrency / (d.ratio || 1)
 
-  const warning = rateNote ??
-    (d.status === 'no-base-year'
-      ? 'Spendfaktoren mangler basisår — indeksregulering kan ikke anvendes.'
-      : d.status === 'no-index-point'
-        ? 'Indeksserien mangler værdi for linjens år eller for faktorens basisår.'
-        : null)
+  const warning = rateNote ?? deflationWarning(d) ?? deflationNote(d)
 
   return {
     line, group, share, factor, factorValue, amountInFactorCurrency, factorCurrency, rateDate, deflation: d, deflatedAmount,

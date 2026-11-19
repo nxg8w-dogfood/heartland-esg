@@ -19,12 +19,14 @@
 // whole annual figure for any holding dated in the period, however short the period.
 //
 // Amounts in DKK are converted to EUR at the ECB's reference rate on the holding's date
-// (docs/adr/0028), and the result says which rate it used.
+// (docs/adr/0028), and the result says which rate it used. With index regulation on, the EUR
+// amount is then brought to the factor's price year, as for spend lines (docs/adr/0030).
 
 import type { Factor } from '../data/factors'
 import { overlapDays, twelveMonthsTo, type Period } from './dates'
 import { dkkRate, type DkkRate, type RateSource } from './exchangeRates'
 import { findFactor } from './findFactor'
+import { deflationFor, noDeflation, type Deflation, type DeflationResult } from './spend'
 
 export type InvestmentBasis = 'CO2e' | 'Revenue' | 'Investment'
 
@@ -79,6 +81,10 @@ export type InvestmentResult = {
   factor: Factor | null
   /** kg CO2e per EUR used: the chosen factor's value, or the holding's own; null when missing */
   factorKgPerEUR: number | null
+  /** Index regulation of the EUR amount to the factor's price year; only a table factor has one */
+  deflation: DeflationResult
+  /** Revenue or amount invested in EUR at the factor's price level; equals it unless deflation is applied */
+  deflatedEUR: number | null
   /** The holding's share of the investee's emissions for a whole year */
   annualKgCO2e: number
   /** The 12 months the holding covers, ending on its date; null for an invalid date */
@@ -111,7 +117,7 @@ const finiteOrZero = (n: number | null | undefined): number =>
 export const investmentFactors = (factors: readonly Factor[]): Factor[] =>
   factors.filter((f) => f.method === 'spend' && f.unit === 'kg CO2e/EUR')
 
-export function investmentResult(investment: Investment, rates: RateSource, period: Period, factors: readonly Factor[]): InvestmentResult {
+export function investmentResult(investment: Investment, rates: RateSource, period: Period, factors: readonly Factor[], deflation: Deflation = noDeflation): InvestmentResult {
   const { ownershipPct } = investment
   const factor = investment.factorId ? findFactor(factors, investment.factorId, investment.date) : null
   // A chosen factor that is gone, or isn't per EUR, counts as missing rather than as the own value.
@@ -123,6 +129,8 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
 
   const eurRate = dkkRate(rates, 'EUR', investment.date)
   const perEUR = eurRate.value
+  const d = investment.basis === 'CO2e' ? deflationFor(noDeflation, null, investment.date) : deflationFor(deflation, factor, investment.date)
+  const atPriceLevel = (eur: number | null) => (eur === null ? null : eur / (d.ratio || 1))
   let revenueEUR: number | null = null
   let investmentEUR: number | null = null
   let annualKgCO2e: number
@@ -136,20 +144,21 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
         ? finiteOrZero(investment.revenueDKK)
         : finiteOrZero(investment.revenueLocal) * finiteOrZero(investment.rateLocalToDKK)
     revenueEUR = perEUR === null ? null : revenueDKK / perEUR
-    annualKgCO2e = finiteOrZero(revenueEUR) * finiteOrZero(factorKgPerEUR) * share
+    annualKgCO2e = finiteOrZero(atPriceLevel(revenueEUR)) * finiteOrZero(factorKgPerEUR) * share
     pending = revenueDKK !== 0 && (factorKgPerEUR === null || perEUR === null)
   } else {
     // A negative amount (a written-down holding, say) would give negative emissions: it waits.
     const amount = investment.investmentDKK
     investmentEUR = amount === null || perEUR === null ? null : amount / perEUR
-    annualKgCO2e = investmentEUR !== null && investmentEUR > 0 ? investmentEUR * finiteOrZero(factorKgPerEUR) : 0
+    annualKgCO2e = investmentEUR !== null && investmentEUR > 0 ? atPriceLevel(investmentEUR)! * finiteOrZero(factorKgPerEUR) : 0
     pending = amount === null || amount < 0 || (amount !== 0 && (factorKgPerEUR === null || perEUR === null))
   }
   const covers = twelveMonthsTo(investment.date)
   // A company bought or sold during the 12 months counts for the days it was owned (docs/adr/0027).
   const owned = covers && ownedPart(covers, investment)
   const inPeriod = covers && owned ? overlapDays(owned, period) / overlapDays(covers, covers) : 0
-  return { investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+  const deflatedEUR = atPriceLevel(revenueEUR ?? investmentEUR)
+  return { investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, deflation: d, deflatedEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
 }
 
 /** The 12 months, cut to the dates the company was owned. ISO dates compare as text. */
@@ -167,8 +176,8 @@ export function coverLabel(covers: Period | null): string {
   return from === to ? from : `${from}/${to.slice(2)}`
 }
 
-export function category15(investments: readonly Investment[], rates: RateSource, period: Period, factors: readonly Factor[]): Category15 {
-  const rows = investments.map((i) => investmentResult(i, rates, period, factors)).filter((r) => r.shareInPeriod > 0)
+export function category15(investments: readonly Investment[], rates: RateSource, period: Period, factors: readonly Factor[], deflation: Deflation = noDeflation): Category15 {
+  const rows = investments.map((i) => investmentResult(i, rates, period, factors, deflation)).filter((r) => r.shareInPeriod > 0)
   // Two holdings of one company whose owned months overlap count those months twice. ISO dates
   // compare as text.
   const duplicates: Category15['duplicates'] = []

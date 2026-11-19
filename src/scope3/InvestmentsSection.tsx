@@ -5,6 +5,7 @@ import type { Period } from '../calc/dates'
 import { appRates, type DkkRate } from '../calc/exchangeRates'
 import { importedBatches, type ImportedBatch } from '../calc/groupExport'
 import { coverLabel, investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
+import { deflationNote, deflationWarning, noDeflation, type Deflation } from '../calc/spend'
 import { factorLabel } from '../factors/label'
 import { RegionFactorSelect } from '../factors/RegionFactorSelect'
 import { formatDate, formatFactor, formatNumber } from '../format'
@@ -28,12 +29,14 @@ type Props = {
   period: Period
   /** The company's factor table: the spend factors per EUR are offered for revenue */
   factors: readonly Factor[]
+  /** Index regulation of spend factors, which applies to the EUR amounts here too */
+  deflation?: Deflation
 }
 
 /** A holding estimated with a factor that has none of any kind: what the bulk choice fills in. */
 const withoutFactor = (i: Investment) => i.basis !== 'CO2e' && !i.factorId && i.factorKgPerEUR === null
 
-export function InvestmentsSection({ cat15, investments, setInvestments, period, factors }: Props) {
+export function InvestmentsSection({ cat15, investments, setInvestments, period, factors, deflation = noDeflation }: Props) {
   const defaultDate = period.end
   const id = useId()
   const options = investmentFactors(factors)
@@ -117,7 +120,7 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
       {investments.map((inv) => (
         <InvestmentCard
           key={inv.id}
-          result={investmentResult(inv, appRates, period, factors)}
+          result={investmentResult(inv, appRates, period, factors, deflation)}
           options={options}
           counted={counted.has(inv.id)}
           onChange={(patch) => update(inv.id, patch)}
@@ -316,6 +319,8 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
         {inv.basis === 'Investment' && result.investmentEUR !== null && <>Investeret {formatNumber(result.investmentEUR, 0)} EUR · </>}
         {inv.basis !== 'CO2e' && <>{rateLabel(result.eurRate, inv.date)} · </>}
+        {result.deflation.status === 'applied' && result.deflatedEUR !== null && <>{formatNumber(result.deflatedEUR, 0)} EUR i {result.deflation.baseYear}-priser ({result.deflation.series!.name}) · </>}
+        {(deflationWarning(result.deflation) ?? deflationNote(result.deflation)) && <>{deflationWarning(result.deflation) ?? deflationNote(result.deflation)} · </>}
         Ejerandel {formatNumber(result.share * 100, 1)} % · hele {coverLabel(result.covers)}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
         {trimmed && <> · ejet {ownedLabel(result.owned!)}</>}
         {' '}· {formatNumber(result.shareInPeriod * 100, 1)} % af de 12 måneder {trimmed ? 'ejet og ' : ''}i perioden: <strong>{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>

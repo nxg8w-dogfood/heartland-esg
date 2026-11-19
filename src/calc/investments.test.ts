@@ -3,6 +3,7 @@ import { currencyRates, toDKK } from '../data/currencies'
 import type { Factor } from '../data/factors'
 import type { DailyRates } from './exchangeRates'
 import { category15, coverLabel, investmentFactors, investmentResult, type Investment } from './investments'
+import { noDeflation, type Deflation } from './spend'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 const holding = (o: Partial<Investment> = {}): Investment => ({
@@ -172,6 +173,18 @@ describe('a factor from the factor table', () => {
 
   it("uses the holding's own factor when none is chosen", () => {
     expect(investmentResult(onRevenue({ factorId: null }), currencyRates, year2025, table).factorKgPerEUR).toBe(9)
+  })
+
+  it('regulates the EUR amount to the factor\'s price year when index regulation is on, but not the own factor', () => {
+    const priced = [{ ...spend('obs', 0.5), priceYear: 2019 }]
+    const on: Deflation = { ...noDeflation, active: true }
+    const r = investmentResult(onRevenue({ factorId: 'obs' }), currencyRates, year2025, priced, on)
+    expect(r.deflation).toMatchObject({ status: 'applied', baseYear: 2019, indexNow: 100, indexBase: 85.23 })
+    expect(r.revenueEUR).toBeCloseTo(1_000_000, 6)
+    expect(r.deflatedEUR).toBeCloseTo(852_300, 6)
+    expect(r.annualKgCO2e).toBeCloseTo(852_300 * 0.5 * 0.25, 6)
+    expect(investmentResult(onRevenue({ factorId: null }), currencyRates, year2025, priced, on).deflation.status).toBe('not-spend')
+    expect(investmentResult(onRevenue({ factorId: 'obs' }), currencyRates, year2025, priced).annualKgCO2e).toBeCloseTo(1_000_000 * 0.5 * 0.25, 6)
   })
 
   it('offers only spend factors per EUR', () => {

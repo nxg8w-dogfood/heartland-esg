@@ -118,6 +118,19 @@ node scripts/exchange-rates.ts
 A line dated after the table's last day uses the fixed rate in `src/data/currencies.ts` and says
 so; a currency with no fixed rate (GBP, USD, NOK) is left pending until the table is updated.
 
+### Update the Net Price Index
+
+Spend factors are index-regulated to their price year (EXIOBASE: 2019) with Danmarks
+Statistik's Net Price Index, table PRIS05 (ADR 0030). The yearly averages are in
+`src/data/netPriceIndex.ts`. When DST publishes a new year's average (January), refresh the
+file and open a pull request:
+
+```bash
+npm run npi
+```
+
+Until then, lines in the new year use the latest published average and say so.
+
 ### Run it inside Power Platform
 
 This needs a Power Platform environment with code apps enabled. The

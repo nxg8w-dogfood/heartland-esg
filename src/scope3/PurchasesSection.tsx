@@ -3,7 +3,7 @@ import type { Factor } from '../data/factors'
 import { currencyRates } from '../data/currencies'
 import { parseNumber } from '../calc/parseNumber'
 import { category1Groups, type Category1 } from '../calc/scope3'
-import type { Deflation, SpendGroup, SpendLine } from '../calc/spend'
+import { indexPoints, NPI_SERIES, type Deflation, type SpendGroup, type SpendLine } from '../calc/spend'
 import { formatDate, formatFactor, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
@@ -203,13 +203,15 @@ export function AddSpendForm({ defaultDate, onAdd, groups = category1Groups, lab
 
 export function DeflationPanel({ deflation, setDeflation, usedFactors }: { deflation: Deflation; setDeflation: Dispatch<SetStateAction<Deflation>>; usedFactors: Factor[] }) {
   const id = useId()
-  const series = deflation.series.find((s) => s.id === deflation.seriesId) ?? null
+  const seriesId = deflation.seriesId ?? NPI_SERIES
+  const series = deflation.series.find((s) => s.id === seriesId) ?? null
+  const points = series ? indexPoints(series) : []
   const [newYear, setNewYear] = useState('')
   const [newValue, setNewValue] = useState('')
   const [pointError, setPointError] = useState<string | null>(null)
 
   const setPoints = (points: { year: number; value: number }[]) =>
-    setDeflation((d) => ({ ...d, series: d.series.map((s) => (s.id === d.seriesId ? { ...s, points: [...points].sort((a, b) => a.year - b.year) } : s)) }))
+    setDeflation((d) => ({ ...d, series: d.series.map((s) => (s.id === seriesId ? { ...s, points: [...points].sort((a, b) => a.year - b.year) } : s)) }))
   const addPoint = () => {
     const y = Number(newYear)
     const v = parseNumber(newValue)
@@ -234,26 +236,26 @@ export function DeflationPanel({ deflation, setDeflation, usedFactors }: { defla
         <>
           <div className="field">
             <label htmlFor={`${id}-series`}>Indeksserie</label>
-            <select id={`${id}-series`} value={deflation.seriesId ?? ''} onChange={(e) => setDeflation((d) => ({ ...d, seriesId: e.target.value || null }))}>
-              <option value="">Vælg serie</option>
+            <select id={`${id}-series`} value={seriesId} onChange={(e) => setDeflation((d) => ({ ...d, seriesId: e.target.value }))}>
               {deflation.series.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           {series && (
             <div className="field wide">
               <p className="muted">{series.source}. {series.note}</p>
-              {series.points.length === 0 ? (
+              {points.length === 0 ? (
                 <p className="warning">Serien har ingen indeksværdier endnu.</p>
               ) : (
                 <table>
                   <caption className="visually-hidden">Indeksværdier for {series.name}</caption>
-                  <thead><tr><th scope="col">År</th><th scope="col" className="num">Indeks</th><th scope="col"><span className="visually-hidden">Handlinger</span></th></tr></thead>
+                  <thead><tr><th scope="col">År</th><th scope="col" className="num">Indeks</th><th scope="col">Kilde</th><th scope="col"><span className="visually-hidden">Handlinger</span></th></tr></thead>
                   <tbody>
-                    {series.points.map((p) => (
+                    {points.map((p) => (
                       <tr key={p.year}>
                         <td>{p.year}</td>
                         <td className="num">{formatFactor(p.value)}</td>
-                        <td><button type="button" className="link" onClick={() => setPoints(series.points.filter((x) => x.year !== p.year))} aria-label={`Slet indeksværdi for ${p.year}`}>Slet</button></td>
+                        <td>{p.builtin ? series.source : 'Indtastet'}</td>
+                        <td>{!p.builtin && <button type="button" className="link" onClick={() => setPoints(series.points.filter((x) => x.year !== p.year))} aria-label={`Slet indeksværdi for ${p.year}`}>Slet</button>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -283,7 +285,7 @@ export function DeflationPanel({ deflation, setDeflation, usedFactors }: { defla
                   <YearField
                     key={f.id}
                     label={`${f.name}, ${f.region}`}
-                    value={deflation.factorSettings[f.id]?.baseYear ?? null}
+                    value={deflation.factorSettings[f.id]?.baseYear ?? f.priceYear ?? null}
                     onCommit={(baseYear) => setDeflation((d) => ({ ...d, factorSettings: { ...d.factorSettings, [f.id]: { ...d.factorSettings[f.id], baseYear } } }))}
                   />
                 ))}
