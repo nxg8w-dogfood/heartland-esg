@@ -131,6 +131,19 @@ npm run npi
 
 Until then, lines in the new year use the latest published average and say so.
 
+### Update the electricity factors per municipality
+
+A location's location-based electricity factor is its municipality's (ADR 0031). It is computed
+from Energi Data Service into `src/data/municipalityGrid.ts`. When Energinet finalises a year
+(spring), regenerate the file with every year to keep, and open a pull request:
+
+```bash
+npm run municipality-grid 2022 2023 2024 2025
+```
+
+Energi Data Service limits requests, so the script waits when told to and can take 20 minutes.
+Years without a municipality figure use the price area's (DK1/DK2).
+
 ### Run it inside Power Platform
 
 This needs a Power Platform environment with code apps enabled. The

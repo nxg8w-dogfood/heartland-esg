@@ -27,6 +27,8 @@ export type Factor = {
   note?: string
 }
 
+import { municipalityGridFactors } from "./municipalityGridFactors"
+
 export const factors: readonly Factor[] = [
   {id: "f-s1-diesel", scope: "Scope 1", category: "Mobil forbrænding", name: "Diesel (average biofuel blend)", region: "UK/generisk", unit: "kg CO2e/liter", value: 2.57082, source: "BEIS GHG Conversion Factors 2025", reference: "BEIS GHG Conversion Factors 2025", validFrom: "2025-01-01"},
   {id: "f-s1-benzin", scope: "Scope 1", category: "Mobil forbrænding", name: "Benzin (average biofuel blend)", region: "UK/generisk", unit: "kg CO2e/liter", value: 2.06916, source: "BEIS GHG Conversion Factors 2025", reference: "BEIS GHG Conversion Factors 2025", validFrom: "2025-01-01"},
@@ -181,4 +183,6 @@ export const factors: readonly Factor[] = [
   {id: "f-c-cykel", scope: "Scope 3", category: "Kat 7 – pendling", name: "Cykel", region: "—", unit: "kg CO2e/km", value: 0, source: "GHG Protocol Guidance", reference: "GHG Protocol Guidance"},
   {id: "f-c-gaaende", scope: "Scope 3", category: "Kat 7 – pendling", name: "Gående", region: "—", unit: "kg CO2e/km", value: 0, source: "GHG Protocol Guidance", reference: "GHG Protocol Guidance"},
   {id: "f-c-andet", scope: "Scope 3", category: "Kat 7 – pendling", name: "Andet transportmiddel", region: "—", unit: "kg CO2e/km", value: null, source: "Afventer indtastning — må ikke gættes", reference: "Brugerangivet", note: "Afventer indtastning"},
+  // Per municipality, 2022 onwards: generated, see src/data/municipalityGridFactors.ts.
+  ...municipalityGridFactors,
 ]
