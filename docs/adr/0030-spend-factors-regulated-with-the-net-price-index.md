@@ -43,7 +43,8 @@ price index.
    - Category 15 holdings on revenue or amount invested that use a factor from the table. A
      holding's own factor has no known price year, so it isn't regulated.
 6. **Regulation is switched on per account**, as before. Nothing changes until it's ticked
-   under Scope 3 → Indstillinger.
+   under Scope 3 → Indstillinger. (Moved on 2026-11-20 to its own page, Faktorer →
+   Indeksregulering, at @mortengad's request.)
 
 ## Consequences
 

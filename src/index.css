@@ -771,6 +771,133 @@ ul.plain {
   margin-top: var(--hl-sp-4);
 }
 
+.publication-use {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hl-sp-2) var(--hl-sp-3);
+  margin-top: var(--hl-sp-2);
+}
+
+/* A factor's source picker with its source note beside it. */
+.source-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--hl-sp-2);
+}
+
+/* Folds on the Faktorer pages: one line each with a title and its counts, the content when opened. */
+.folds {
+  border-top: var(--hl-rule-w) solid var(--hl-rule);
+}
+
+.fold {
+  border-bottom: var(--hl-rule-w) solid var(--hl-rule);
+}
+
+.fold > summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hl-sp-2);
+  padding: var(--hl-sp-3) 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold > summary::before {
+  content: '▸';
+  color: var(--hl-text-muted);
+  transition: transform 0.15s;
+}
+
+.fold[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.fold-title {
+  font-weight: var(--hl-fw-bold);
+  color: var(--hl-text-strong);
+}
+
+.fold-count {
+  display: inline-flex;
+  gap: var(--hl-sp-3);
+  margin-left: auto;
+  color: var(--hl-text-muted);
+  font-size: var(--hl-fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.fold[open] {
+  padding-bottom: var(--hl-sp-4);
+}
+
+.pending-list > li + li {
+  margin-top: var(--hl-sp-2);
+}
+
+input.year {
+  width: 5rem;
+}
+
+/* A note behind a small "i"; the box is fixed to the window so a scrolling table can't clip it. */
+.infotip {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.infotip-button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  min-height: 0;
+  padding: 0;
+  border: var(--hl-rule-w) solid var(--hl-text-muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--hl-text-muted);
+  font-size: var(--hl-fs-xs);
+  font-style: italic;
+  font-weight: var(--hl-fw-bold);
+  line-height: 1;
+  cursor: help;
+}
+
+.infotip-button:hover,
+.infotip-button[aria-expanded='true'] {
+  border-color: var(--hl-text-strong);
+  color: var(--hl-text-strong);
+  background: transparent;
+}
+
+.infotip-box {
+  position: fixed;
+  z-index: 50;
+  max-width: min(344px, calc(100vw - 16px));
+  padding: var(--hl-sp-2) var(--hl-sp-3);
+  border: var(--hl-rule-w) solid var(--hl-rule-strong);
+  background: var(--hl-surface-raised);
+  color: var(--hl-text);
+  font-size: var(--hl-fs-xs);
+  line-height: var(--hl-lh-xs);
+  font-weight: var(--hl-fw-regular);
+  font-style: normal;
+  letter-spacing: var(--hl-tr-body);
+  text-align: left;
+  white-space: normal;
+  text-transform: none;
+}
+
+.infotip-box[hidden] {
+  display: none;
+}
+
 /* The header's company and period, as text; the selects live in a dialog. */
 .context-switcher {
   display: flex;

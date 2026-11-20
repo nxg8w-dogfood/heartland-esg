@@ -12,7 +12,10 @@ import { resolveScope1Lines, type Vehicle } from './calc/vehicles'
 import { applyFactorSources, type FactorSources } from './calc/factorSources'
 import { factorPublications } from './data/factorPublications'
 import { factors as baseFactors } from './data/factors'
+import { FactorsHeader } from './factors/FactorsHeader'
 import { FactorsPage } from './factors/FactorsPage'
+import { IndexRegulationPage } from './factors/IndexRegulationPage'
+import { factorsSubpageFromHash, type FactorsSubpageId } from './factors/subpages'
 import { GroupPage } from './group/GroupPage'
 import { CompanyOverviewPage } from './overview/CompanyOverviewPage'
 import { LedgerPage } from './ledger/LedgerPage'
@@ -205,7 +208,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
           {page === 'koncern' ? (
             <GroupPage group={group} setGroup={setGroup} period={period} />
           ) : (
-            <Workspace key={active.id} page={page} period={range} scope1Subpage={scope1SubpageFromHash(hash)} scope3Subpage={scope3SubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
+            <Workspace key={active.id} page={page} period={range} scope1Subpage={scope1SubpageFromHash(hash)} scope3Subpage={scope3SubpageFromHash(hash)} factorsSubpage={factorsSubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
           )}
         </main>
       </DocumentsContext.Provider>
@@ -214,7 +217,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 }
 
 /** One company's pages. Reports every change to its account upwards. */
-function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChange }: { page: CompanyPageId; period: Period; scope1Subpage: Scope1SubpageId; scope3Subpage: Scope3SubpageId; initial: AccountData; onChange: (account: AccountData) => void }) {
+function Workspace({ page, period, scope1Subpage, scope3Subpage, factorsSubpage, initial, onChange }: { page: CompanyPageId; period: Period; scope1Subpage: Scope1SubpageId; scope3Subpage: Scope3SubpageId; factorsSubpage: FactorsSubpageId; initial: AccountData; onChange: (account: AccountData) => void }) {
   // Periods are edited on the Koncern page, which this isn't shown with, so they pass through.
   const [periods] = useState(initial.periods)
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
@@ -303,27 +306,32 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, initial, onChan
           cat1Lines={cat1Lines}
           setCat1Lines={setCat1Lines}
           deflation={deflation}
-          setDeflation={setDeflation}
           ledger={ledger}
           setLedger={setLedger}
         />
       )}
       {page === 'kontoplan' && <LedgerPage ledger={ledger} setLedger={setLedger} factors={factors} />}
       {page === 'faktorer' && (
-        <FactorsPage
-          base={baseFactors}
-          factors={factors}
-          publications={factorPublications}
-          sources={factorSources}
-          onChoose={(id, choice) =>
-            setFactorSources((s) => {
-              const next = { ...s }
-              if (choice.kind === 'builtin') delete next[id]
-              else next[id] = choice
-              return next
-            })
-          }
-        />
+        <>
+          <FactorsHeader subpage={factorsSubpage} />
+          {factorsSubpage === 'faktorer' && (
+            <FactorsPage
+              base={baseFactors}
+              factors={factors}
+              publications={factorPublications}
+              sources={factorSources}
+              onChoose={(id, choice) =>
+                setFactorSources((s) => {
+                  const next = { ...s }
+                  if (choice.kind === 'builtin') delete next[id]
+                  else next[id] = choice
+                  return next
+                })
+              }
+            />
+          )}
+          {factorsSubpage === 'indeksregulering' && <IndexRegulationPage deflation={deflation} setDeflation={setDeflation} factors={factors} />}
+        </>
       )}
     </>
   )

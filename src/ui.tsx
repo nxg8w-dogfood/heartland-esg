@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { formatRange, sortPeriods, type FiscalPeriod } from './calc/periods'
 import { parseNumber } from './calc/parseNumber'
 import { formatFactor, formatNumber } from './format'
@@ -120,5 +120,48 @@ export function NumberField({ label, hint, value, onCommit, hideLabel, placehold
       />
       {error && <p id={`${id}-err`} className="error">{error}</p>}
     </div>
+  )
+}
+
+/**
+ * A note or remark behind a small "i": the box shows on hover, on focus and on a tap, so the
+ * note is there when wanted without crowding the page. The box is placed against the window,
+ * so a scrolling table around it can't clip it. Screen readers get the note as the button's
+ * description.
+ */
+export function InfoTip({ label, children }: { label: string; children: ReactNode }) {
+  const id = useId()
+  const button = useRef<HTMLButtonElement>(null)
+  const [place, setPlace] = useState<CSSProperties | null>(null)
+  const show = () => {
+    const r = button.current?.getBoundingClientRect()
+    if (r) setPlace({ top: r.bottom + 6, left: Math.max(8, Math.min(r.left - 8, window.innerWidth - 360)) })
+  }
+  const hide = () => setPlace(null)
+  useEffect(() => {
+    if (!place) return
+    // The box is fixed to the window, so it would drift from its button on scroll.
+    window.addEventListener('scroll', hide, true)
+    return () => window.removeEventListener('scroll', hide, true)
+  }, [place])
+  return (
+    <span className="infotip" onMouseEnter={show} onMouseLeave={hide}>
+      <button
+        ref={button}
+        type="button"
+        className="infotip-button"
+        aria-label={label}
+        aria-describedby={id}
+        aria-expanded={!!place}
+        // Inside a fold's summary, a click would also open or close the fold.
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); show() }}
+        onFocus={show}
+        onBlur={hide}
+        onKeyDown={(e) => { if (e.key === 'Escape') hide() }}
+      >
+        i
+      </button>
+      <span role="tooltip" id={id} className="infotip-box" hidden={!place} style={place ?? undefined}>{children}</span>
+    </span>
   )
 }
