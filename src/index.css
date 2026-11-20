@@ -779,6 +779,73 @@ ul.plain {
   margin-top: var(--hl-sp-2);
 }
 
+/* A factor's name opens its details in a row below. */
+.row-toggle {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--hl-text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-toggle::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: var(--hl-sp-2);
+  color: var(--hl-text-muted);
+  transition: transform 0.15s;
+}
+
+.row-toggle[aria-expanded='true']::before {
+  transform: rotate(90deg);
+}
+
+.row-toggle:hover {
+  background: transparent;
+  color: var(--hl-link);
+  text-decoration: underline;
+}
+
+.factor-row.expanded > * {
+  border-bottom-color: transparent;
+}
+
+.factor-details > td {
+  background: var(--hl-surface-sunken);
+  padding: var(--hl-sp-4) var(--hl-sp-5);
+}
+
+.factor-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--hl-sp-4) var(--hl-sp-6);
+  font-size: var(--hl-fs-sm);
+  line-height: var(--hl-lh-sm);
+}
+
+.factor-detail-grid .facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--hl-sp-1) var(--hl-sp-4);
+  margin: 0;
+}
+
+.factor-detail-grid .facts dt {
+  color: var(--hl-text-muted);
+}
+
+.factor-detail-grid .facts dd {
+  margin: 0;
+}
+
+.factor-detail-grid .strong {
+  margin: 0 0 var(--hl-sp-1);
+}
+
 /* A factor's source picker with its source note beside it. */
 .source-cell {
   display: flex;
