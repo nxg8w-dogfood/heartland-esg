@@ -3,8 +3,8 @@ import type { Factor } from '../data/factors'
 import { currencyRates } from '../data/currencies'
 import { parseNumber } from '../calc/parseNumber'
 import { category1Groups, type Category1 } from '../calc/scope3'
-import { indexPoints, NPI_SERIES, type Deflation, type SpendGroup, type SpendLine } from '../calc/spend'
-import { formatDate, formatFactor, formatNumber } from '../format'
+import type { SpendGroup, SpendLine } from '../calc/spend'
+import { formatDate, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
@@ -198,124 +198,5 @@ export function AddSpendForm({ defaultDate, onAdd, groups = category1Groups, lab
         <button type="submit">{label}</button>
       </div>
     </form>
-  )
-}
-
-export function DeflationPanel({ deflation, setDeflation, usedFactors }: { deflation: Deflation; setDeflation: Dispatch<SetStateAction<Deflation>>; usedFactors: Factor[] }) {
-  const id = useId()
-  const seriesId = deflation.seriesId ?? NPI_SERIES
-  const series = deflation.series.find((s) => s.id === seriesId) ?? null
-  const points = series ? indexPoints(series) : []
-  const [newYear, setNewYear] = useState('')
-  const [newValue, setNewValue] = useState('')
-  const [pointError, setPointError] = useState<string | null>(null)
-
-  const setPoints = (points: { year: number; value: number }[]) =>
-    setDeflation((d) => ({ ...d, series: d.series.map((s) => (s.id === seriesId ? { ...s, points: [...points].sort((a, b) => a.year - b.year) } : s)) }))
-  const addPoint = () => {
-    const y = Number(newYear)
-    const v = parseNumber(newValue)
-    if (!Number.isInteger(y) || y < 1990 || y > 2100) return setPointError('Angiv et årstal, fx 2020.')
-    if (v === null || Number.isNaN(v) || v <= 0) return setPointError('Angiv en indeksværdi over 0.')
-    setPointError(null)
-    setPoints([...(series?.points ?? []).filter((p) => p.year !== y), { year: y, value: v }])
-    setNewYear('')
-    setNewValue('')
-  }
-
-  return (
-    <fieldset className="params">
-      <legend>Indeksregulering af spendfaktorer</legend>
-      <div className="field wide">
-        <label className="check">
-          <input type="checkbox" checked={deflation.active} onChange={(e) => setDeflation((d) => ({ ...d, active: e.target.checked }))} />
-          Omregn beløb til faktorens prisår (beløb ÷ indeks for linjens år × indeks for basisåret)
-        </label>
-      </div>
-      {deflation.active && (
-        <>
-          <div className="field">
-            <label htmlFor={`${id}-series`}>Indeksserie</label>
-            <select id={`${id}-series`} value={seriesId} onChange={(e) => setDeflation((d) => ({ ...d, seriesId: e.target.value }))}>
-              {deflation.series.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          {series && (
-            <div className="field wide">
-              <p className="muted">{series.source}. {series.note}</p>
-              {points.length === 0 ? (
-                <p className="warning">Serien har ingen indeksværdier endnu.</p>
-              ) : (
-                <table>
-                  <caption className="visually-hidden">Indeksværdier for {series.name}</caption>
-                  <thead><tr><th scope="col">År</th><th scope="col" className="num">Indeks</th><th scope="col">Kilde</th><th scope="col"><span className="visually-hidden">Handlinger</span></th></tr></thead>
-                  <tbody>
-                    {points.map((p) => (
-                      <tr key={p.year}>
-                        <td>{p.year}</td>
-                        <td className="num">{formatFactor(p.value)}</td>
-                        <td>{p.builtin ? series.source : 'Indtastet'}</td>
-                        <td>{!p.builtin && <button type="button" className="link" onClick={() => setPoints(series.points.filter((x) => x.year !== p.year))} aria-label={`Slet indeksværdi for ${p.year}`}>Slet</button>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <div className="add-line">
-                <div className="field">
-                  <label htmlFor={`${id}-year`}>År</label>
-                  <input id={`${id}-year`} inputMode="numeric" value={newYear} onChange={(e) => setNewYear(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label htmlFor={`${id}-value`}>Indeksværdi</label>
-                  <input id={`${id}-value`} inputMode="decimal" value={newValue} onChange={(e) => setNewValue(e.target.value)} aria-invalid={!!pointError} aria-describedby={pointError ? `${id}-perr` : undefined} />
-                </div>
-                <div className="field end">
-                  <button type="button" className="secondary" onClick={addPoint}>Tilføj indeksværdi</button>
-                </div>
-                {pointError && <p id={`${id}-perr`} className="error">{pointError}</p>}
-              </div>
-            </div>
-          )}
-          {usedFactors.length > 0 && (
-            <div className="field wide">
-              <p className="strong">Basisår for de spendfaktorer, der bruges i perioden</p>
-              <div className="location-settings">
-                {usedFactors.map((f) => (
-                  <YearField
-                    key={f.id}
-                    label={`${f.name}, ${f.region}`}
-                    value={deflation.factorSettings[f.id]?.baseYear ?? f.priceYear ?? null}
-                    onCommit={(baseYear) => setDeflation((d) => ({ ...d, factorSettings: { ...d.factorSettings, [f.id]: { ...d.factorSettings[f.id], baseYear } } }))}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </fieldset>
-  )
-}
-
-/** A year, written without a thousands separator. Commits on blur or Enter. */
-function YearField({ label, value, onCommit }: { label: string; value: number | null; onCommit: (year: number | null) => void }) {
-  const id = useId()
-  const [text, setText] = useState(value === null ? '' : String(value))
-  const [error, setError] = useState<string | null>(null)
-  function commit() {
-    const t = text.trim()
-    if (t === '') { setError(null); return onCommit(null) }
-    const y = Number(t)
-    if (!/^\d{4}$/.test(t) || y < 1990 || y > 2100) return setError('Angiv et årstal, fx 2020.')
-    setError(null)
-    onCommit(y)
-  }
-  return (
-    <div className="field">
-      <label htmlFor={id}>{label} <span className="optional">(prisår)</span></label>
-      <input id={id} inputMode="numeric" autoComplete="off" value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') commit() }} aria-invalid={!!error} aria-describedby={error ? `${id}-err` : undefined} />
-      {error && <p id={`${id}-err`} className="error">{error}</p>}
-    </div>
   )
 }

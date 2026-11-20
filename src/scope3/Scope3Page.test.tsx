@@ -40,7 +40,6 @@ function render(hash: string, edit: (a: ReturnType<typeof emptyAccount>) => void
       cat1Lines={a.cat1Lines}
       setCat1Lines={noop}
       deflation={a.deflation}
-      setDeflation={noop}
       ledger={a.ledger}
       setLedger={noop}
     />,
@@ -125,11 +124,12 @@ describe('Scope3Page', () => {
     expect(render('#/scope3/kategori-4', (a) => { a.relevance[4] = { ...a.relevance[4], relevant: true } })).not.toContain('er markeret ikke relevant')
   })
 
-  it('collects relevance, the category 3 parameters and the index regulation under the settings', () => {
+  it('collects relevance and the category 3 parameters under the settings, and points to the index regulation under Faktorer', () => {
     const html = render('#/scope3/indstillinger')
     expect(current(html)).toEqual(['#/scope3/indstillinger', 'Indstillinger'])
-    expect(headings(html)).toEqual(['Kategorier og relevans', 'Kategori 3 — parametre for el', 'Indeksregulering af spendfaktorer'])
-    expect(html.match(/type="checkbox"/g)?.length).toBe(15 + 1) // one per category, and index regulation on/off
+    expect(headings(html)).toEqual(['Kategorier og relevans', 'Kategori 3 — parametre for el'])
+    expect(html.match(/type="checkbox"/g)?.length).toBe(15) // one per category
+    expect(html).toContain('href="#/faktorer/indeksregulering"')
     expect(html).toContain('Begrundelse for kategori 15')
     expect(html).toContain('Nettab i elnettet')
     expect(html).toContain('WTT-ratio for el')

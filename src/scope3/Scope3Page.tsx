@@ -20,7 +20,7 @@ import { CommutingSection } from './CommutingSection'
 import { InvestmentsSection } from './InvestmentsSection'
 import { WasteCharts } from './WasteCharts'
 import { WasteImport } from './WasteImport'
-import { DeflationPanel, PurchasesSection } from './PurchasesSection'
+import { PurchasesSection } from './PurchasesSection'
 import { formatFactor, formatNumber } from '../format'
 import { Tile } from '../ui'
 import type { Relevance } from './relevance'
@@ -53,21 +53,15 @@ type Props = {
   cat1Lines: SpendLine[]
   setCat1Lines: Dispatch<SetStateAction<SpendLine[]>>
   deflation: Deflation
-  setDeflation: Dispatch<SetStateAction<Deflation>>
   /** The postings imported on the Kontoplan screen, tagged by the rules (ADR 0015) */
   ledger: LedgerState
   setLedger: Dispatch<SetStateAction<LedgerState>>
 }
 
-/** The spend factors category 1 uses in the period: the ones a base year can be set for. */
-/** The spend factors the period's lines and holdings use, each once */
-const spendFactorsUsed = (used: readonly { factor: Factor | null }[]): Factor[] =>
-  [...new Map(used.filter((r) => r.factor?.method === 'spend').map((r) => [r.factor!.id, r.factor!])).values()]
-
 const pendingNote = (n: number) => (n === 0 ? undefined : n === 1 ? '1 linje afventer faktor' : `${n} linjer afventer faktor`)
 
 export function Scope3Page(props: Props) {
-  const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, setDeflation, ledger, setLedger } = props
+  const { subpage, period, factors, scope1Lines, locations, scope2Lines, relevance, setRelevance, params, setParams, cat4Lines, setCat4Lines, cat4SpendLines, setCat4SpendLines, cat5Lines, setCat5Lines, cat6Lines, setCat6Lines, surveys, setSurveys, investments, setInvestments, cat1Lines, setCat1Lines, deflation, ledger, setLedger } = props
   const scope2 = useMemo(() => scope2Summary(locations, scope2Lines, factors, period), [locations, scope2Lines, factors, period])
   const cat3 = useMemo(() => category3(scope1Lines, scope2, factors, period, params), [scope1Lines, scope2, factors, period, params])
   const cat4 = useMemo(() => category4(cat4Lines, cat4SpendLines, factors, appRates, deflation, period), [cat4Lines, cat4SpendLines, factors, deflation, period])
@@ -286,11 +280,7 @@ export function Scope3Page(props: Props) {
             <ElectricityParams params={params} setParams={setParams} />
           </section>
 
-          <section aria-labelledby="s3-deflation">
-            <h2 id="s3-deflation">Indeksregulering af spendfaktorer</h2>
-            <p className="muted">Gælder alle spendbaserede linjer (kategori 1, 2, kurér og pakker i 4, og 6) og investeringer i kategori 15, der bruger en spendfaktor.</p>
-            <DeflationPanel deflation={deflation} setDeflation={setDeflation} usedFactors={spendFactorsUsed([...cat1.lines, ...cat2.lines, ...cat4.courier, ...cat6Spend.lines, ...cat15.rows])} />
-          </section>
+          <p className="muted">Indeksregulering af spendfaktorer sættes under <a href="#/faktorer/indeksregulering">Faktorer → Indeksregulering</a>.</p>
         </>
       )}
     </>

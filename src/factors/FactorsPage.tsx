@@ -1,10 +1,11 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import type { Factor } from '../data/factors'
 import { isMunicipalityGrid } from '../data/municipalityGridFactors'
 import type { FactorPublication } from '../data/factorPublications'
 import { apiProviders, sourceOptions, type FactorSourceChoice, type FactorSources } from '../calc/factorSources'
 import { parseNumber } from '../calc/parseNumber'
 import { formatDate, formatFactor } from '../format'
+import { InfoTip } from '../ui'
 
 type Props = {
   /** The factor table as shipped */
@@ -18,16 +19,27 @@ type Props = {
 
 export function FactorsPage({ base, factors, publications, sources, onChoose }: Props) {
   const pending = factors.filter((f) => f.value === null)
+  const pendingIds = new Set(pending.map((f) => f.id))
   const scopes = ['Scope 1', 'Scope 2', 'Scope 3'] as const
-  // Hundreds of rows, each with a source picker: drawn only once the group is opened.
-  const [municipalitiesOpen, setMunicipalitiesOpen] = useState(false)
+  // The open folds. A fold's table, with a source picker on every row, is drawn only once it's
+  // opened: the factors per municipality alone are hundreds of rows.
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (key: string, isOpen: boolean) =>
+    setOpen((o) => (o.has(key) === isOpen ? o : isOpen ? new Set(o).add(key) : new Set([...o].filter((k) => k !== key))))
+  const [jumpTo, setJumpTo] = useState<string | null>(null)
+  useEffect(() => {
+    if (!jumpTo) return
+    document.getElementById(`factor-${jumpTo}`)?.scrollIntoView()
+    setJumpTo(null)
+  }, [jumpTo])
+  const groupKey = (f: Factor) => (isMunicipalityGrid(f) ? `${f.scope}|kommune` : `${f.scope}|${f.category}`)
+
   const table = (list: readonly Factor[]) => (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
             <th scope="col">Faktor</th>
-            <th scope="col">Kategori</th>
             <th scope="col" className="num">Værdi</th>
             <th scope="col">Enhed</th>
             <th scope="col">Kilde</th>
@@ -42,16 +54,20 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
               <tr key={f.id} id={`factor-${f.id}`}>
                 <th scope="row">
                   {f.name}
+                  {f.note && <> <InfoTip label={`Note om ${f.name}, ${f.region}`}>{f.note}</InfoTip></>}
                   <span className="sub">{f.region}</span>
                 </th>
-                <td>{f.category}</td>
                 <td className="num">
                   {applied.value === null ? <span className="pending">Afventer</span> : formatFactor(applied.value)}
                 </td>
                 <td>{f.unit}</td>
                 <td>
-                  <SourcePicker key={optionKey(sources[f.id])} factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
-                  <span className="sub">{applied.source}{applied.reference && applied.reference !== f.reference ? ` · ${applied.reference}` : ''}</span>
+                  <div className="source-cell">
+                    <SourcePicker key={optionKey(sources[f.id])} factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
+                    <InfoTip label={`Kilde for ${f.name}, ${f.region}`}>
+                      {applied.source}{applied.reference && applied.reference !== applied.source ? `. ${applied.reference}` : ''}
+                    </InfoTip>
+                  </div>
                 </td>
                 <td>{validity(f)}</td>
                 <td className="num">{f.priceYear ?? '—'}</td>
@@ -62,85 +78,121 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
       </table>
     </div>
   )
+
+  // A fold of factors: its name and counts on one line, the table once opened.
+  const fold = (key: string, title: string, list: readonly Factor[], note?: string) => {
+    const waiting = list.filter((f) => pendingIds.has(f.id)).length
+    return (
+      <details key={key} className="fold" open={open.has(key)} onToggle={(e) => toggle(key, e.currentTarget.open)}>
+        <summary>
+          <span className="fold-title">{title}</span>
+          {note && <> <InfoTip label={`Om ${title}`}>{note}</InfoTip></>}
+          <span className="fold-count">
+            {list.length} {list.length === 1 ? 'faktor' : 'faktorer'}
+            {waiting > 0 && <span className="pending">{waiting} afventer</span>}
+          </span>
+        </summary>
+        {open.has(key) && table(list)}
+      </details>
+    )
+  }
+
   return (
     <>
-      <h1>Emissionsfaktorer</h1>
       <p className="lead">
-        Faktortabellen fra det oprindelige klimaregnskab: {base.length} faktorer med kilde,
-        enhed og gyldighed. For hver faktor vælger du, hvor værdien kommer fra: den indbyggede
-        tabel, en officiel publikation, et API eller en anden kilde, du angiver selv. Valget
-        gemmes med kilde og dato. Faktorer uden værdi må ikke gættes.
+        {base.length} emissionsfaktorer. Vælg for hver faktor, hvor værdien kommer fra.{' '}
+        <InfoTip label="Om faktortabellen">
+          Faktortabellen fra det oprindelige klimaregnskab, med kilde, enhed og gyldighed. Værdien kan
+          komme fra den indbyggede tabel, en officiel publikation, et API eller en anden kilde, du
+          angiver selv. Valget gemmes med kilde og dato. Faktorer uden værdi må ikke gættes.
+        </InfoTip>
       </p>
 
-      <section aria-labelledby="publications">
-        <h2 id="publications">Publikationer</h2>
-        <p className="muted">Vælg en publikation for den enkelte faktor nedenfor, eller for alle de faktorer, den indeholder.</p>
-        <ul className="plain publications">
-          {publications.map((p) => {
-            const ids = Object.keys(p.values)
-            const using = ids.filter((id) => { const c = sources[id]; return c?.kind === 'publication' && c.publicationId === p.id }).length
-            return (
-              <li key={p.id}>
-                <strong>{p.name}</strong> <span className="muted">({p.publisher}, udgivet {formatDate(p.published)}, kontrolleret {formatDate(p.checked)})</span>
-                <p>{p.note}{p.url && <> <a href={p.url} target="_blank" rel="noreferrer">Kilde</a></>}</p>
-                <p className="muted" role="status">Bruges for {using} af {ids.length} faktorer.</p>
-                <div className="databar-actions">
-                  <button type="button" className="secondary" disabled={using === ids.length} onClick={() => ids.forEach((id) => onChoose(id, { kind: 'publication', publicationId: p.id }))}>
-                    Brug for alle {ids.length}
-                  </button>
-                  <button type="button" className="secondary" disabled={using === 0} onClick={() => ids.forEach((id) => { const c = sources[id]; if (c?.kind === 'publication' && c.publicationId === p.id) onChoose(id, { kind: 'builtin' }) })}>
-                    Tilbage til indbygget tabel
-                  </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
-      </section>
+      <div className="folds">
+        <details className="fold" open={open.has('pending')} onToggle={(e) => toggle('pending', e.currentTarget.open)}>
+          <summary>
+            <span className="fold-title">Afventer en kilde</span>
+            <span className="fold-count">{pending.length === 0 ? 'Alle faktorer har en værdi' : <span className="pending">{pending.length} faktorer</span>}</span>
+          </summary>
+          {pending.length > 0 && (
+            <ul className="plain pending-list">
+              {pending.map((f) => (
+                <li key={f.id}>
+                  <a href={`#factor-${f.id}`} onClick={(e) => { e.preventDefault(); toggle(groupKey(f), true); setJumpTo(f.id) }}>
+                    {f.name}
+                  </a>{' '}
+                  <span className="muted">{f.region}</span>
+                  {f.note && <> <InfoTip label={`Note om ${f.name}, ${f.region}`}>{f.note}</InfoTip></>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </details>
 
-      <section aria-labelledby="api-sources">
-        <h2 id="api-sources">API-kilder</h2>
-        <ul>
-          {apiProviders.map((a) => (
-            <li key={a.id}>
-              <strong>{a.name}:</strong> {a.unavailable ? <>ikke tilgængelig endnu. {a.unavailable}</> : 'tilgængelig.'}
-            </li>
-          ))}
-        </ul>
-      </section>
+        <details className="fold" open={open.has('publications')} onToggle={(e) => toggle('publications', e.currentTarget.open)}>
+          <summary>
+            <span className="fold-title">Publikationer</span>{' '}
+            <InfoTip label="Om publikationer">Vælg en publikation for den enkelte faktor nedenfor, eller for alle de faktorer, den indeholder.</InfoTip>
+            <span className="fold-count">{publications.length}</span>
+          </summary>
+          <ul className="plain publications">
+            {publications.map((p) => {
+              const ids = Object.keys(p.values)
+              const using = ids.filter((id) => { const c = sources[id]; return c?.kind === 'publication' && c.publicationId === p.id }).length
+              return (
+                <li key={p.id}>
+                  <strong>{p.name}</strong>{' '}
+                  <InfoTip label={`Om ${p.name}`}>
+                    {p.publisher}, udgivet {formatDate(p.published)}, kontrolleret {formatDate(p.checked)}. {p.note}
+                  </InfoTip>
+                  {p.url && <> <a href={p.url} target="_blank" rel="noreferrer">Kilde</a></>}
+                  <div className="publication-use">
+                    <span className="muted" role="status">Bruges for {using} af {ids.length} faktorer.</span>
+                    <button type="button" className="secondary" disabled={using === ids.length} onClick={() => ids.forEach((id) => onChoose(id, { kind: 'publication', publicationId: p.id }))}>
+                      Brug for alle {ids.length}
+                    </button>
+                    <button type="button" className="secondary" disabled={using === 0} onClick={() => ids.forEach((id) => { const c = sources[id]; if (c?.kind === 'publication' && c.publicationId === p.id) onChoose(id, { kind: 'builtin' }) })}>
+                      Tilbage til indbygget tabel
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </details>
 
-      <section aria-labelledby="pending-factors">
-        <h2 id="pending-factors">Afventer en kilde ({pending.length})</h2>
-        {pending.length === 0 ? (
-          <p className="muted">Alle faktorer har en værdi.</p>
-        ) : (
-          <ul>
-            {pending.map((f) => (
-              <li key={f.id}>
-                <a href={`#factor-${f.id}`} onClick={(e) => { e.preventDefault(); document.getElementById(`factor-${f.id}`)?.scrollIntoView() }}>
-                  {f.name}
-                </a>{' '}
-                <span className="muted">({f.region}{f.note ? `. ${f.note}` : ''})</span>
+        <details className="fold" open={open.has('api')} onToggle={(e) => toggle('api', e.currentTarget.open)}>
+          <summary>
+            <span className="fold-title">API-kilder</span>
+            <span className="fold-count">{apiProviders.filter((a) => !a.unavailable).length} af {apiProviders.length} tilgængelige</span>
+          </summary>
+          <ul className="plain pending-list">
+            {apiProviders.map((a) => (
+              <li key={a.id}>
+                <strong>{a.name}</strong>{' '}
+                {a.unavailable ? <><span className="muted">ikke tilgængelig endnu</span> <InfoTip label={`Om ${a.name}`}>{a.unavailable}</InfoTip></> : <span className="muted">tilgængelig</span>}
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </details>
+      </div>
 
       {scopes.map((scope) => {
         const own = base.filter((f) => f.scope === scope && !isMunicipalityGrid(f))
         const perMunicipality = base.filter((f) => f.scope === scope && isMunicipalityGrid(f))
+        const categories = [...new Set(own.map((f) => f.category))]
         return (
           <section key={scope} aria-labelledby={`factors-${scope}`}>
             <h2 id={`factors-${scope}`}>{scope}</h2>
-            {table(own)}
-            {perMunicipality.length > 0 && (
-              <details className="factor-group" onToggle={(e) => setMunicipalitiesOpen(e.currentTarget.open)}>
-                <summary>Elmiks pr. kommune ({perMunicipality.length} faktorer)</summary>
-                <p className="muted">Energinets lokationsbaserede deklaration for hver kommune og hvert år. En lokation med en kommune bruger kommunens faktor; år uden den bruger prisområdets.</p>
-                {municipalitiesOpen && table(perMunicipality)}
-              </details>
-            )}
+            <div className="folds">
+              {categories.map((c) => fold(`${scope}|${c}`, c, own.filter((f) => f.category === c)))}
+              {perMunicipality.length > 0 && fold(
+                `${scope}|kommune`,
+                'Elmiks pr. kommune',
+                perMunicipality,
+                'Energinets lokationsbaserede deklaration for hver kommune og hvert år. En lokation med en kommune bruger kommunens faktor; år uden den bruger prisområdets.',
+              )}
+            </div>
           </section>
         )
       })}
