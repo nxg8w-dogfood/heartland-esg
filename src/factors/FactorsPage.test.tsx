@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { factors } from '../data/factors'
-import { FactorsPage } from './FactorsPage'
+import { FactorDetails, FactorsPage } from './FactorsPage'
 
 const render = () => renderToStaticMarkup(<FactorsPage base={factors} factors={factors} publications={[]} sources={{}} onChoose={() => {}} />)
 const titles = (html: string) => [...html.matchAll(/<span class="fold-title">([^<]*)<\/span>/g)].map((m) => m[1])
@@ -29,4 +29,16 @@ it('keeps notes behind a tooltip, hidden until asked for', () => {
   const html = render()
   expect(html).toContain('aria-label="Om faktortabellen"')
   expect(html).toMatch(/<span role="tooltip" id="[^"]+" class="infotip-box" hidden="">Faktortabellen fra det oprindelige klimaregnskab/)
+})
+
+it("shows a factor's built-in figures, its current value and the family's other years", () => {
+  const f = factors.find((x) => x.id === 'f-s2-el-residual-2025')!
+  const publication = { id: 'p', name: 'Energinet 2025', publisher: 'Energinet', published: '2026-06-01', checked: '2026-06-01', note: '', values: { [f.id]: 0.35 }, rows: { [f.id]: 'Drivhusgasser' } }
+  const applied = { ...f, value: 0.35, source: 'Energinet 2025' }
+  const html = renderToStaticMarkup(<FactorDetails factor={f} applied={applied} base={factors} publications={[publication]} choice={{ kind: 'publication', publicationId: 'p' }} />)
+  expect(html).toContain('<dt>Indbygget værdi</dt><dd>0,34807 kg CO2e/kWh</dd>')
+  expect(html).toContain('<dt>Bruges nu</dt><dd>0,35 kg CO2e/kWh, Energinet 2025')
+  expect(html).toContain('Energinet 2025, Drivhusgasser')
+  expect(html).toContain('Andre år')
+  expect(html).toContain('<code>f-s2-el-residual-2025</code>')
 })

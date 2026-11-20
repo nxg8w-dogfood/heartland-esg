@@ -1,5 +1,6 @@
-import { useEffect, useId, useState } from 'react'
+import { Fragment, useEffect, useId, useState } from 'react'
 import type { Factor } from '../data/factors'
+import { derivedFactors } from '../data/derivedFactors'
 import { isMunicipalityGrid } from '../data/municipalityGridFactors'
 import type { FactorPublication } from '../data/factorPublications'
 import { apiProviders, sourceOptions, type FactorSourceChoice, type FactorSources } from '../calc/factorSources'
@@ -26,6 +27,8 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const toggle = (key: string, isOpen: boolean) =>
     setOpen((o) => (o.has(key) === isOpen ? o : isOpen ? new Set(o).add(key) : new Set([...o].filter((k) => k !== key))))
+  // The factors whose details are unfolded below their row.
+  const [shown, setShown] = useState<ReadonlySet<string>>(new Set())
   const [jumpTo, setJumpTo] = useState<string | null>(null)
   useEffect(() => {
     if (!jumpTo) return
@@ -50,28 +53,42 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
         <tbody>
           {list.map((f) => {
             const applied = factors.find((x) => x.id === f.id) ?? f
+            const expanded = shown.has(f.id)
             return (
-              <tr key={f.id} id={`factor-${f.id}`}>
-                <th scope="row">
-                  {f.name}
-                  {f.note && <> <InfoTip label={`Note om ${f.name}, ${f.region}`}>{f.note}</InfoTip></>}
-                  <span className="sub">{f.region}</span>
-                </th>
-                <td className="num">
-                  {applied.value === null ? <span className="pending">Afventer</span> : formatFactor(applied.value)}
-                </td>
-                <td>{f.unit}</td>
-                <td>
-                  <div className="source-cell">
+              <Fragment key={f.id}>
+                <tr id={`factor-${f.id}`} className={expanded ? 'factor-row expanded' : 'factor-row'}>
+                  <th scope="row">
+                    <button
+                      type="button"
+                      className="row-toggle"
+                      aria-expanded={expanded}
+                      aria-controls={`factor-${f.id}-details`}
+                      onClick={() => setShown((o) => { const n = new Set(o); if (expanded) n.delete(f.id); else n.add(f.id); return n })}
+                    >
+                      <span className="visually-hidden">{expanded ? 'Skjul detaljer for ' : 'Vis detaljer for '}</span>
+                      {f.name}
+                    </button>
+                    {f.note && <> <InfoTip label={`Note om ${f.name}, ${f.region}`}>{f.note}</InfoTip></>}
+                    <span className="sub">{f.region}</span>
+                  </th>
+                  <td className="num">
+                    {applied.value === null ? <span className="pending">Afventer</span> : formatFactor(applied.value)}
+                  </td>
+                  <td>{f.unit}</td>
+                  <td>
                     <SourcePicker key={optionKey(sources[f.id])} factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
-                    <InfoTip label={`Kilde for ${f.name}, ${f.region}`}>
-                      {applied.source}{applied.reference && applied.reference !== applied.source ? `. ${applied.reference}` : ''}
-                    </InfoTip>
-                  </div>
-                </td>
-                <td>{validity(f)}</td>
-                <td className="num">{f.priceYear ?? '—'}</td>
-              </tr>
+                  </td>
+                  <td>{validity(f)}</td>
+                  <td className="num">{f.priceYear ?? '—'}</td>
+                </tr>
+                {expanded && (
+                  <tr id={`factor-${f.id}-details`} className="factor-details">
+                    <td colSpan={6}>
+                      <FactorDetails factor={f} applied={applied} base={base} publications={publications} choice={sources[f.id]} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             )
           })}
         </tbody>
@@ -197,6 +214,56 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
         )
       })}
     </>
+  )
+}
+
+/** Everything known about a factor: the built-in figures, what each source offers, and the family's other years. */
+export function FactorDetails({ factor: f, applied, base, publications, choice }: {
+  factor: Factor
+  applied: Factor
+  base: readonly Factor[]
+  publications: readonly FactorPublication[]
+  choice: FactorSourceChoice | undefined
+}) {
+  const value = (v: number | null) => (v === null ? <span className="pending">ingen værdi</span> : <>{formatFactor(v)} {f.unit}</>)
+  const derived = derivedFactors.find((d) => d.id === f.id)
+  const family = f.family ? base.filter((x) => x.family === f.family && x.id !== f.id) : []
+  const offered = publications.filter((p) => f.id in p.values)
+  return (
+    <div className="factor-detail-grid">
+      <dl className="facts">
+        <dt>Indbygget værdi</dt><dd>{value(f.value)}</dd>
+        <dt>Indbygget kilde</dt><dd>{f.source}</dd>
+        {f.reference && f.reference !== f.source && <><dt>Reference</dt><dd>{f.reference}</dd></>}
+        {derived && <><dt>Beregnet</dt><dd>{formatFactor(derived.kWhPerKm)} kWh/km ({derived.basis}) × elfaktoren {derived.gridId}</dd></>}
+        <dt>Bruges nu</dt>
+        <dd>
+          {value(applied.value)}, {choice?.kind === 'manual' ? `indtastet: ${choice.source}${choice.date ? `, ${formatDate(choice.date)}` : ''}` : applied.source}
+          {applied.reference && applied.reference !== applied.source && choice?.kind !== 'manual' && <span className="sub">{applied.reference}</span>}
+        </dd>
+        <dt>Metode</dt><dd>{f.method === 'spend' ? 'Spendbaseret' : 'Aktivitetsbaseret'}</dd>
+        <dt>Gyldig</dt><dd>{validity(f)}</dd>
+        {f.priceYear && <><dt>Faktorår</dt><dd>{f.priceYear}</dd></>}
+        {f.note && <><dt>Note</dt><dd>{f.note}</dd></>}
+        <dt>Faktor-ID</dt><dd><code>{f.id}</code></dd>
+      </dl>
+      {offered.length > 0 && (
+        <div>
+          <p className="strong">Publikationer med en værdi</p>
+          <ul className="plain">
+            {offered.map((p) => <li key={p.id}>{value(p.values[f.id])} <span className="muted">{p.name}{p.rows?.[f.id] ? `, ${p.rows[f.id]}` : ''}</span></li>)}
+          </ul>
+        </div>
+      )}
+      {family.length > 0 && (
+        <div>
+          <p className="strong">Andre år</p>
+          <ul className="plain">
+            {family.map((x) => <li key={x.id}>{validity(x)}: {value(x.value)}</li>)}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 
