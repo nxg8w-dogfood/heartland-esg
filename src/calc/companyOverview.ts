@@ -106,7 +106,8 @@ export function companyOverview(account: AccountData, factors: readonly Factor[]
 
   const scopes = [
     { ...leaf('s1', 'Scope 1', totals.scope1), children: scope1 },
-    { ...leaf('s2', `Scope 2, ${method}-based`, method === 'market' ? totals.scope2Market : totals.scope2Location), children: scope2 },
+    // The same label in both methods: the overview shows the two trees side by side.
+    { ...leaf('s2', 'Scope 2', method === 'market' ? totals.scope2Market : totals.scope2Location), children: scope2 },
     { ...leaf('s3', 'Scope 3', totals.scope3), children: scope3 },
   ]
   return {
