@@ -1,5 +1,5 @@
-import { useId, useMemo, useState } from 'react'
-import { companyOverview, findNode, monthlyTrees, monthlyValues, sharePct, type Method } from '../calc/companyOverview'
+import { useMemo, useState } from 'react'
+import { companyOverview, findNode, monthlyTrees, monthlyValues, sharePct } from '../calc/companyOverview'
 import type { Period } from '../calc/dates'
 import type { Factor } from '../data/factors'
 import { formatNumber } from '../format'
@@ -16,14 +16,17 @@ const pct = (v: number | null) => (v === null ? '—' : `${formatNumber(v, 1)} %
 
 /** One company's climate account at a glance: the three scopes, what each is made of, and what's missing. */
 export function CompanyOverviewPage({ account, factors, period }: Props) {
-  const id = useId()
-  const [method, setMethod] = useState<Method>('market')
   const [selected, setSelected] = useState('')
-  const o = useMemo(() => companyOverview(account, factors, period, method), [account, factors, period, method])
-  const months = useMemo(() => monthlyTrees(account, factors, period, method), [account, factors, period, method])
-  // A part can disappear when the data or the method changes; then the chart starts from the top.
+  // Scope 2 is reported both ways (GHG Protocol's dual reporting), so every figure is worked
+  // out with each method; they differ only in Scope 2 and the totals above it.
+  const o = useMemo(() => companyOverview(account, factors, period, 'market'), [account, factors, period])
+  const byLocation = useMemo(() => companyOverview(account, factors, period, 'location').tree, [account, factors, period])
+  const months = useMemo(() => monthlyTrees(account, factors, period, 'market'), [account, factors, period])
+  const locationMonths = useMemo(() => monthlyTrees(account, factors, period, 'location'), [account, factors, period])
+  // A part can disappear when the data changes; then the chart starts from the top.
   const current = findNode(o.tree, selected) ? selected : ''
   const monthValues = useMemo(() => monthlyValues(months, current), [months, current])
+  const locationMonthValues = useMemo(() => monthlyValues(locationMonths, current), [locationMonths, current])
 
   const { totals } = o
   const scopes = [
@@ -55,17 +58,11 @@ export function CompanyOverviewPage({ account, factors, period }: Props) {
 
       <section aria-labelledby="overview-drill">
         <h2 id="overview-drill">Hvor kommer udledningen fra?</h2>
-        <p className="muted">Klik på en del for at se, hvad den består af: scope, kilde, lokation eller kategori, og videre ned.</p>
-        <fieldset className="method-toggle">
-          <legend>Scope 2-metode</legend>
-          {(['market', 'location'] as const).map((m) => (
-            <label key={m}>
-              <input type="radio" name={`${id}-method`} value={m} checked={method === m} onChange={() => setMethod(m)} />
-              {m === 'market' ? 'Market-based' : 'Location-based'}
-            </label>
-          ))}
-        </fieldset>
-        <DrillChart tree={o.tree} selected={current} onSelect={setSelected} months={monthValues} />
+        <p className="muted">
+          Klik på en del for at se, hvad den består af: scope, kilde, lokation eller kategori, og videre ned.
+          Scope 2 vises både market-based og location-based.
+        </p>
+        <DrillChart tree={o.tree} locationTree={byLocation} selected={current} onSelect={setSelected} months={monthValues} locationMonths={locationMonthValues} />
       </section>
 
       <section aria-labelledby="overview-scopes">

@@ -1306,6 +1306,40 @@ input.year {
   background: var(--hl-sage);
 }
 
+/* Location-based, under the market-based bar where the two differ (Scope 2 and its totals). */
+.drill-bars .bar.location {
+  height: 6px;
+  margin-top: 2px;
+  background: var(--hl-bark);
+}
+
+.bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hl-sp-1) var(--hl-sp-4);
+  font-size: var(--hl-fs-xs);
+  font-weight: var(--hl-fw-regular);
+  color: var(--hl-text-muted);
+}
+
+.bar-legend .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: var(--hl-moss);
+}
+
+.bar-legend .swatch.location {
+  background: var(--hl-bark);
+}
+
+/* The selected figure month by month, once per Scope 2 method. */
+.month-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0 var(--hl-sp-6);
+}
+
 .month-chart {
   margin: var(--hl-sp-6) 0 0;
 }

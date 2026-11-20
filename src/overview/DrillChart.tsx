@@ -1,4 +1,4 @@
-import { nodePath, sharePct, type DrillNode, type MonthValue } from '../calc/companyOverview'
+import { findNode, nodePath, sharePct, type DrillNode, type MonthValue } from '../calc/companyOverview'
 import { MonthChart } from '../charts/MonthChart'
 import { formatNumber } from '../format'
 import { nodeHref } from './nodeHref'
@@ -6,22 +6,34 @@ import { nodeHref } from './nodeHref'
 const t = (v: number) => formatNumber(v, 3)
 const pct = (v: number | null) => (v === null ? '—' : `${formatNumber(v, 1)} %`)
 
+/** Values this close are the same figure, rounding aside. */
+const same = (a: number, b: number) => Math.abs(a - b) < 1e-9
+
 /**
  * A bar per part of the selected figure, largest first; a part that has parts of its own is a
  * button that drills into it. The path back up is above, and the selected figure month by month
  * below. The bars sit in a table, so every value can be read without the chart.
+ *
+ * `tree` is market-based and `locationTree` the same tree location-based: each part shows both
+ * figures, and a part whose figures differ (Scope 2 and what it's in) gets a second bar.
  */
-export function DrillChart({ tree, selected, onSelect, months }: {
+export function DrillChart({ tree, locationTree, selected, onSelect, months, locationMonths }: {
   tree: DrillNode
+  locationTree: DrillNode
   selected: string
   onSelect: (id: string) => void
   months: MonthValue[]
+  locationMonths: MonthValue[]
 }) {
   const path = nodePath(tree, selected)
   const node = path[path.length - 1]
   const parts = node.children
-  const max = Math.max(0, ...parts.map((p) => p.value))
+  const loc = (n: DrillNode) => findNode(locationTree, n.id)?.value ?? 0
+  const max = Math.max(0, ...parts.flatMap((p) => [p.value, loc(p)]))
+  const width = (v: number) => (max > 0 ? `${(Math.max(0, v) / max) * 100}%` : 0)
   const href = nodeHref(node)
+  const nodeDiffers = !same(node.value, loc(node))
+  const anyDiffers = nodeDiffers || parts.some((p) => !same(p.value, loc(p)))
 
   return (
     <div className="drill">
@@ -39,7 +51,7 @@ export function DrillChart({ tree, selected, onSelect, months }: {
         </ol>
       </nav>
       <p className="drill-figure">
-        <strong>{t(node.value)}</strong> tCO2e
+        <strong>{t(node.value)}</strong> tCO2e{nodeDiffers && <> market-based · <strong>{t(loc(node))}</strong> tCO2e location-based</>}
         {node.excluded && <span className="muted"> — markeret ikke relevant, tæller ikke med</span>}
         {href && <> · <a href={href}>Gå til siden</a></>}
       </p>
@@ -53,9 +65,21 @@ export function DrillChart({ tree, selected, onSelect, months }: {
             <thead>
               <tr>
                 <th scope="col">Del</th>
-                <th scope="col"><span className="visually-hidden">Søjle</span></th>
-                <th scope="col" className="num">tCO2e</th>
-                <th scope="col" className="num">Andel</th>
+                <th scope="col">
+                  {anyDiffers ? (
+                    <span className="bar-legend" aria-hidden="true">
+                      <span><span className="swatch" /> Market-based</span>
+                      <span><span className="swatch location" /> Location-based</span>
+                    </span>
+                  ) : <span className="visually-hidden">Søjle</span>}
+                </th>
+                {anyDiffers ? (
+                  <>
+                    <th scope="col" className="num">Market-based<span className="sub">tCO2e</span></th>
+                    <th scope="col" className="num">Location-based<span className="sub">tCO2e</span></th>
+                  </>
+                ) : <th scope="col" className="num">tCO2e</th>}
+                <th scope="col" className="num">Andel{anyDiffers && <span className="sub">market-based</span>}</th>
               </tr>
             </thead>
             <tbody>
@@ -69,9 +93,11 @@ export function DrillChart({ tree, selected, onSelect, months }: {
                     {p.note && <span className="muted"> ({p.note.toLowerCase()})</span>}
                   </th>
                   <td className="bar-cell" aria-hidden="true">
-                    <span className="bar" style={{ width: max > 0 ? `${(Math.max(0, p.value) / max) * 100}%` : 0 }} />
+                    <span className="bar" style={{ width: width(p.value) }} />
+                    {!same(p.value, loc(p)) && <span className="bar location" style={{ width: width(loc(p)) }} />}
                   </td>
                   <td className="num">{t(p.value)}</td>
+                  {anyDiffers && <td className="num">{t(loc(p))}</td>}
                   <td className="num">{p.excluded ? '—' : pct(sharePct(p.value, node.value))}</td>
                 </tr>
               ))}
@@ -80,7 +106,14 @@ export function DrillChart({ tree, selected, onSelect, months }: {
         </div>
       )}
 
-      <MonthChart title="Måned for måned" subtitle={`${node.label}, tCO2e`} unit="tCO2e" months={months} />
+      {nodeDiffers ? (
+        <div className="month-pair">
+          <MonthChart title="Måned for måned" subtitle={`${node.label}, market-based, tCO2e`} unit="tCO2e" months={months} />
+          <MonthChart title="Måned for måned" subtitle={`${node.label}, location-based, tCO2e`} unit="tCO2e" months={locationMonths} />
+        </div>
+      ) : (
+        <MonthChart title="Måned for måned" subtitle={`${node.label}, tCO2e`} unit="tCO2e" months={months} />
+      )}
     </div>
   )
 }
