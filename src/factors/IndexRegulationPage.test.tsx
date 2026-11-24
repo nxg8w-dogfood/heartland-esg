@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { expect, it } from 'vitest'
 import { factors } from '../data/factors'
 import { noDeflation } from '../calc/spend'
-import { periodYears } from '../calc/dates'
+import { periodYearsList } from '../calc/dates'
 import { IndexRegulationPage } from './IndexRegulationPage'
 
 const render = (active: boolean) =>
@@ -33,6 +33,6 @@ it('lists each spend factor with a value regulated to the period\'s year', () =>
 })
 
 it('takes every year a period touches', () => {
-  expect(periodYears({ start: '2025-01-01', end: '2025-12-31' })).toEqual([2025])
-  expect(periodYears({ start: '2024-07-01', end: '2025-06-30' })).toEqual([2024, 2025])
+  expect(periodYearsList({ start: '2025-01-01', end: '2025-12-31' })).toEqual([2025])
+  expect(periodYearsList({ start: '2024-07-01', end: '2025-06-30' })).toEqual([2024, 2025])
 })

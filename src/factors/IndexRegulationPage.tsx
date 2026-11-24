@@ -1,7 +1,7 @@
 import { useId, useState, type Dispatch, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
 import { parseNumber } from '../calc/parseNumber'
-import { periodYears, type Period } from '../calc/dates'
+import { periodYearsList, type Period } from '../calc/dates'
 import { deflationFor, deflationWarning, indexPoints, NPI_SERIES, regulateFactor, type Deflation } from '../calc/spend'
 import { formatFactor } from '../format'
 import { InfoTip } from '../ui'
@@ -158,7 +158,7 @@ export function IndexRegulationPage({ deflation, setDeflation, factors, period }
 
 /** Each spend factor regulated to each year of the selected period. */
 function RegulatedFactors({ id, deflation, factors, period }: { id: string; deflation: Deflation; factors: readonly Factor[]; period: Period }) {
-  const years = periodYears(period)
+  const years = periodYearsList(period)
   const withValue = factors.filter((f) => f.value !== null)
   return (
     <section aria-labelledby={`${id}-reg-h`}>
