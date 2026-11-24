@@ -145,7 +145,8 @@ async function securityRoles() {
     }
     for (const [name] of [...current].filter(([name]) => !wanted.has(name))) {
       const id = (await values(`privileges?$select=privilegeid&$filter=name eq ${q(name)}`))[0]?.privilegeid
-      await change(`role ${role.name}: remove ${name}`, 'POST', `roles(${roleId})/Microsoft.Dynamics.CRM.RemovePrivilegeRole`, { PrivilegeId: id }, false)
+      // The action takes the privilege as an entity reference, not its id (RemovePrivilegeRole in $metadata).
+      await change(`role ${role.name}: remove ${name}`, 'POST', `roles(${roleId})/Microsoft.Dynamics.CRM.RemovePrivilegeRole`, { Privilege: { '@odata.type': 'Microsoft.Dynamics.CRM.privilege', privilegeid: id } }, false)
     }
   }
 }

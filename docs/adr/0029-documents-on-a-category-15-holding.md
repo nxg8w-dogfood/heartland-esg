@@ -53,9 +53,7 @@ support polymorphic lookups, which notes need.
 
 - `hlesg_dokument` and its privileges have to be applied to each environment (ADR 0007) before
   this ships there; the deploy stops if the table is missing (ADR 0020). Dev has the table from
-  2026-11-18. Its privileges are not yet in dev's roles: `hlesg_maaler`, added by an unmerged
-  branch, would lose its privileges if the roles were applied from this branch. Until they're
-  applied, only a System Administrator can add documents on dev.
+  2026-11-18, and its privileges are in dev's roles from 2026-11-24 (ADR 0035).
 - The table is registered by hand in `dataSourcesInfo.ts` and `deploy/dev/power.config.json`, as
   `pa app add data-source` would; the CLI's sign-in had expired. A test checks every table is in
   both.
