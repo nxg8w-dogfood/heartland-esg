@@ -72,9 +72,6 @@ export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }
                   </td>
                   <td className="num">
                     {r.excluded ? '—' : r.amountInFactorCurrency === null ? '—' : `${formatNumber(r.amountInFactorCurrency, 0)} ${r.factorCurrency}`}
-                    {r.deflation.status === 'applied' && r.deflatedAmount !== null && (
-                      <span className="sub">{formatNumber(r.deflatedAmount, 0)} i {r.deflation.baseYear}-priser</span>
-                    )}
                   </td>
                   <td className="num">
                     {r.excluded ? (
@@ -84,6 +81,7 @@ export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }
                         value={r.factorValue}
                         factor={r.factor}
                         custom={r.line.customFactor != null}
+                        regulation={{ result: r.deflation, value: r.regulatedFactorValue }}
                         choice={r.source === 'ledger' ? undefined : lineFactorChoice(r.line, r.group.factorId, factors, setLines, `${r.group.label}, ${formatDate(r.line.date)}`)}
                       />
                     )}

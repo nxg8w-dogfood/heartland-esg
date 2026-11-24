@@ -26,7 +26,7 @@ import type { Factor } from '../data/factors'
 import { overlapDays, twelveMonthsTo, type Period } from './dates'
 import { dkkRate, type DkkRate, type RateSource } from './exchangeRates'
 import { findFactor } from './findFactor'
-import { deflationFor, noDeflation, type Deflation, type DeflationResult } from './spend'
+import { deflationFor, noDeflation, regulateFactor, type Deflation, type DeflationResult } from './spend'
 
 export type InvestmentBasis = 'CO2e' | 'Revenue' | 'Investment'
 
@@ -83,8 +83,8 @@ export type InvestmentResult = {
   factorKgPerEUR: number | null
   /** Index regulation of the EUR amount to the factor's price year; only a table factor has one */
   deflation: DeflationResult
-  /** Revenue or amount invested in EUR at the factor's price level; equals it unless deflation is applied */
-  deflatedEUR: number | null
+  /** kg CO2e per EUR index-regulated to the holding's year; equals factorKgPerEUR unless regulation is applied */
+  regulatedKgPerEUR: number | null
   /** The holding's share of the investee's emissions for a whole year */
   annualKgCO2e: number
   /** The 12 months the holding covers, ending on its date; null for an invalid date */
@@ -130,7 +130,7 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
   const eurRate = dkkRate(rates, 'EUR', investment.date)
   const perEUR = eurRate.value
   const d = investment.basis === 'CO2e' ? deflationFor(noDeflation, null, investment.date) : deflationFor(deflation, factor, investment.date)
-  const atPriceLevel = (eur: number | null) => (eur === null ? null : eur / (d.ratio || 1))
+  const regulatedKgPerEUR = regulateFactor(factorKgPerEUR, d)
   let revenueEUR: number | null = null
   let investmentEUR: number | null = null
   let annualKgCO2e: number
@@ -144,21 +144,20 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
         ? finiteOrZero(investment.revenueDKK)
         : finiteOrZero(investment.revenueLocal) * finiteOrZero(investment.rateLocalToDKK)
     revenueEUR = perEUR === null ? null : revenueDKK / perEUR
-    annualKgCO2e = finiteOrZero(atPriceLevel(revenueEUR)) * finiteOrZero(factorKgPerEUR) * share
+    annualKgCO2e = finiteOrZero(revenueEUR) * finiteOrZero(regulatedKgPerEUR) * share
     pending = revenueDKK !== 0 && (factorKgPerEUR === null || perEUR === null)
   } else {
     // A negative amount (a written-down holding, say) would give negative emissions: it waits.
     const amount = investment.investmentDKK
     investmentEUR = amount === null || perEUR === null ? null : amount / perEUR
-    annualKgCO2e = investmentEUR !== null && investmentEUR > 0 ? atPriceLevel(investmentEUR)! * finiteOrZero(factorKgPerEUR) : 0
+    annualKgCO2e = investmentEUR !== null && investmentEUR > 0 ? investmentEUR * finiteOrZero(regulatedKgPerEUR) : 0
     pending = amount === null || amount < 0 || (amount !== 0 && (factorKgPerEUR === null || perEUR === null))
   }
   const covers = twelveMonthsTo(investment.date)
   // A company bought or sold during the 12 months counts for the days it was owned (docs/adr/0027).
   const owned = covers && ownedPart(covers, investment)
   const inPeriod = covers && owned ? overlapDays(owned, period) / overlapDays(covers, covers) : 0
-  const deflatedEUR = atPriceLevel(revenueEUR ?? investmentEUR)
-  return { investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, deflation: d, deflatedEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+  return { investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, deflation: d, regulatedKgPerEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
 }
 
 /** The 12 months, cut to the dates the company was owned. ISO dates compare as text. */

@@ -1,10 +1,11 @@
 /**
- * Faktorer's own pages: the emission factors, and the index regulation of spend factors, which
- * brings amounts to a factor's price year. Each has an address under `#/faktorer/`, like Scope 1's.
+ * Faktorer's own pages: the emission factors, the index regulation of spend factors, and the
+ * built-in factor table, where a factor without a value can be given one. Each has an address under `#/faktorer/`, like Scope 1's.
  */
 export const factorsSubpages = [
   { id: 'faktorer', label: 'Emissionsfaktorer' },
   { id: 'indeksregulering', label: 'Indeksregulering' },
+  { id: 'indbygget', label: 'Indbygget tabel' },
 ] as const
 
 export type FactorsSubpageId = (typeof factorsSubpages)[number]['id']

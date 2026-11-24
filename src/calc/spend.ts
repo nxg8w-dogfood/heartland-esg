@@ -100,6 +100,14 @@ export function deflationFor(deflation: Deflation, factor: Factor | null, date: 
   return { status: 'applied', ratio: indexNow / indexBase, baseYear, year, indexYear: now!.year, indexNow, indexBase, series }
 }
 
+/**
+ * A spend factor index-regulated to a year (docs/adr/0034): the factor is in its base year's
+ * prices, so it is divided by (index for the year ÷ index for the base year). Multiplying the
+ * line's amount by it gives the same as bringing the amount to the base year's prices.
+ */
+export const regulateFactor = (value: number | null, d: DeflationResult): number | null =>
+  value === null ? null : value / (d.ratio || 1)
+
 /** Says when a line's year has no index yet, so the latest published one was used */
 export const deflationNote = (d: DeflationResult): string | null =>
   d.status === 'applied' && d.indexYear !== d.year
@@ -151,8 +159,8 @@ export type SpendResult = {
   /** Date of the daily exchange rate used, when one was; null for fixed rates or no conversion */
   rateDate: string | null
   deflation: DeflationResult
-  /** Amount at the factor's price level; equals the above unless deflation is applied */
-  deflatedAmount: number | null
+  /** The factor index-regulated to the line's year: factor ÷ (index now ÷ index base); equals factorValue unless regulation is applied */
+  regulatedFactorValue: number | null
   tCO2e: number
   pending: boolean
   excluded: boolean
@@ -174,7 +182,7 @@ export function spendLine(
   if (group.excluded) {
     return {
       line, group, share, factor: null, factorValue: null, amountInFactorCurrency: null, factorCurrency: '', rateDate: null,
-      deflation: plain('not-spend'), deflatedAmount: null, tCO2e: 0, pending: false, excluded: true, warning: null,
+      deflation: plain('not-spend'), regulatedFactorValue: null, tCO2e: 0, pending: false, excluded: true, warning: null,
     }
   }
   const factor = findFactor(factors, line.factorId ?? group.factorId, line.date)
@@ -191,13 +199,13 @@ export function spendLine(
   const rateDate = from?.rateDate ?? to?.rateDate ?? null
   const rateNote = [from?.note, to?.note].filter(Boolean).join(' ') || null
   const d = deflationFor(deflation, factor, line.date)
-  const deflatedAmount = amountInFactorCurrency === null ? null : amountInFactorCurrency / (d.ratio || 1)
+  const regulatedFactorValue = regulateFactor(factorValue, d)
 
   const warning = rateNote ?? deflationWarning(d) ?? deflationNote(d)
 
   return {
-    line, group, share, factor, factorValue, amountInFactorCurrency, factorCurrency, rateDate, deflation: d, deflatedAmount,
-    tCO2e: (finiteOrZero(deflatedAmount) * finiteOrZero(factorValue)) / 1000,
+    line, group, share, factor, factorValue, amountInFactorCurrency, factorCurrency, rateDate, deflation: d, regulatedFactorValue,
+    tCO2e: (finiteOrZero(amountInFactorCurrency) * finiteOrZero(regulatedFactorValue)) / 1000,
     pending: (factorValue === null || rateMissing) && finiteOrZero(line.amount) !== 0,
     excluded: false,
     warning,

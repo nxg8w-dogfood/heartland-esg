@@ -281,7 +281,9 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
               <p className="field">
                 {result.factorKgPerEUR === null
                   ? <span className="pending">Faktorens værdi mangler — angiv den på Faktorer-siden</span>
-                  : <>{formatFactor(result.factorKgPerEUR)} kg CO2e pr. EUR</>}
+                  : result.deflation.status === 'applied' && result.regulatedKgPerEUR !== null
+                    ? <>{formatFactor(result.regulatedKgPerEUR)} kg CO2e pr. EUR <span className="sub"><a href="#/faktorer/indeksregulering">Indeksreguleret</a> til {result.deflation.year}</span></>
+                    : <>{formatFactor(result.factorKgPerEUR)} kg CO2e pr. EUR</>}
                 {result.factor && <span className="sub">{result.factor.source}</span>}
               </p>
             ) : (
@@ -305,7 +307,6 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
         {inv.basis === 'Investment' && result.investmentEUR !== null && <>Investeret {formatNumber(result.investmentEUR, 0)} EUR · </>}
         {inv.basis !== 'CO2e' && <>{rateLabel(result.eurRate, inv.date)} · </>}
-        {result.deflation.status === 'applied' && result.deflatedEUR !== null && <>{formatNumber(result.deflatedEUR, 0)} EUR i {result.deflation.baseYear}-priser ({result.deflation.series!.name}) · </>}
         {(deflationWarning(result.deflation) ?? deflationNote(result.deflation)) && <>{deflationWarning(result.deflation) ?? deflationNote(result.deflation)} · </>}
         Ejerandel {formatNumber(result.share * 100, 1)} % · hele {coverLabel(result.covers)}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
         {trimmed && <> · ejet {ownedLabel(result.owned!)}</>}
