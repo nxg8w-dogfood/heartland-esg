@@ -165,7 +165,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 
   const current = pages.find((p) => p.id === page)!
   const saved = group === savedGroup
-  const documents = useMemo(() => (store.documents ? { store: store.documents, saved } : null), [store.documents, saved])
+  const documents = useMemo(() => (store.documents ? { stores: store.documents, saved } : null), [store.documents, saved])
 
   return (
     <>

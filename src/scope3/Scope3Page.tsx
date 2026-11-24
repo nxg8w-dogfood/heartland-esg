@@ -195,6 +195,7 @@ export function Scope3Page(props: Props) {
           collapsible
           groupable
           locations={locations}
+          documentExample="affaldsselskabets opgørelse"
         />
       )}
       {subpage === 'kategori-5' && <WasteImport groups={category5Groups} locations={locations} lines={cat5Lines} setLines={setCat5Lines} />}
@@ -210,6 +211,7 @@ export function Scope3Page(props: Props) {
           setLines={setCat6Lines}
           defaultDate={period.start}
           emptyText="Ingen forretningsrejser i perioden."
+          documentExample="rejsebureauets opgørelse"
         />
       )}
       {subpage === 'kategori-6' && (

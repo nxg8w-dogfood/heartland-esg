@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { activitySummary, type ActivityGroup, type ActivityLine } from '../calc/activity'
 import { factors } from '../data/factors'
 import { category4Groups } from '../calc/scope3'
+import { DocumentsContext, type Documents, type DocumentStores } from '../storage/documents'
 import { ActivityLinesSection } from './ActivityLinesSection'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
@@ -105,5 +106,36 @@ describe('Grouping the lines', () => {
     const html = renderGroupable(false)
     expect(html).not.toContain('Gruppér linjerne')
     expect(html).not.toContain('line-group')
+  })
+})
+
+describe('Documents on a line (ADR 0035)', () => {
+  const stores = { investment: {}, line: { list: async () => [] }, survey: {} } as unknown as DocumentStores
+  const withDocuments = (documentExample?: string, documents: Documents | null = { stores, saved: true }) =>
+    renderToStaticMarkup(
+      <DocumentsContext.Provider value={documents}>
+        <ActivityLinesSection
+          title="Fragt"
+          groups={category4Groups as readonly ActivityGroup[]}
+          factors={factors}
+          summary={activitySummary([line], category4Groups, factors, year2025)}
+          lines={[line]}
+          setLines={noop}
+          defaultDate={year2025.start}
+          emptyText="Ingen fragt i perioden."
+          documentExample={documentExample}
+        />
+      </DocumentsContext.Provider>,
+    )
+
+  it('gives each Scope 3 line a Dokumenter button next to Slet, closed until clicked', () => {
+    const html = withDocuments('fragtbrevet')
+    expect(html).toMatch(/<div class="row-actions"><button type="button" class="link" aria-expanded="false" aria-controls="docs-line-l1">Dokumenter<span class="visually-hidden"> for [^<]+<\/span><\/button><button[^>]*>Slet<\/button>/)
+    expect(html).not.toContain('id="docs-line-l1"')
+  })
+
+  it('offers none outside Power Apps, or where the lines take no documents (Scope 1)', () => {
+    expect(withDocuments('fragtbrevet', null)).not.toContain('Dokumenter')
+    expect(withDocuments(undefined)).not.toContain('Dokumenter')
   })
 })

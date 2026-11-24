@@ -42,8 +42,8 @@ function build(...grants: readonly Grant[]): Role['privileges'] {
 
 const read = (names: readonly string[], reach: Reach): Grant[] => names.map((n) => [n, ['Read'], reach])
 
-/** Lines, surveys, investments, their documents and cars: entered by contributors (ADR 0005; cars ADR 0009; documents ADR 0029). */
-const entered = [t('linje'), t('pendling'), t('investering'), t('dokument'), t('koeretoej')]
+/** Lines, surveys, investments, their documents and cars: entered by contributors (ADR 0005; cars ADR 0009; documents ADR 0029, 0035). */
+const entered = [t('linje'), t('pendling'), t('investering'), t('dokument'), t('linjedokument'), t('pendlingsdokument'), t('koeretoej')]
 
 const laeser: Grant[] = [
   ...read(companyTables, 'unit'),
@@ -63,6 +63,8 @@ const bidragyder: Grant[] = [
   [t('lokation'), ['AppendTo'], 'unit'],
   [t('koeretoej'), ['AppendTo'], 'unit'],
   [t('investering'), ['AppendTo'], 'unit'],
+  [t('linje'), ['AppendTo'], 'unit'],
+  [t('pendling'), ['AppendTo'], 'unit'],
 ]
 
 const ansvarlig: Grant[] = [

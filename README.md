@@ -96,6 +96,11 @@ own ESG report (ADR 0029). Files are saved in Dataverse the moment they're added
 each, and can be downloaded or deleted from the holding. Deleting a holding deletes its documents.
 Documents need Dataverse, so `npm run dev` on its own doesn't offer them.
 
+The lines in Scope 3 categories 1, 4, 5 and 6 have documents too, behind a **Dokumenter** button
+on each line, and so does each commuting survey in category 7 (ADR 0035). They're kept in tables of
+their own, `hlesg_linjedokument` and `hlesg_pendlingsdokument`, and deleted with their line or
+survey.
+
 ### Update the exchange rates
 
 Spend lines are converted at the exchange rate on their date (ADR 0016), from a table of the

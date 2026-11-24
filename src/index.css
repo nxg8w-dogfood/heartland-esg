@@ -1463,3 +1463,26 @@ input.year {
   align-items: center;
   margin-bottom: var(--hl-sp-2);
 }
+
+/* A row's actions side by side: its documents and its delete (ADR 0035). */
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hl-sp-1) var(--hl-sp-3);
+  justify-content: flex-end;
+}
+
+/* A line's documents, opened in the row below it. */
+.documents-row > td {
+  background: var(--hl-surface-raised);
+  padding: var(--hl-sp-3) var(--hl-sp-4) var(--hl-sp-4);
+}
+
+.documents-row .documents h3,
+.card .documents h3 {
+  margin-top: 0;
+}
+
+.card .documents {
+  margin-top: var(--hl-sp-4);
+}

@@ -56,6 +56,6 @@ export const localViewPrefs: ViewPrefs = {
 /** Dataverse inside Power Apps, the browser draft on its own. Throws if Power Apps doesn't answer. */
 export async function chooseStore(): Promise<GroupStore> {
   if ((await host()) === 'standalone') return browserStore()
-  const [{ dataverseStore }, { generatedApi }, { dataverseDocuments }] = await Promise.all([import('./dataverse/store'), import('./dataverse/generated'), import('./dataverse/documents')])
-  return { ...dataverseStore(generatedApi(), localViewPrefs), documents: dataverseDocuments() }
+  const [{ dataverseStore }, { generatedApi }, { dataverseDocumentStores }] = await Promise.all([import('./dataverse/store'), import('./dataverse/generated'), import('./dataverse/documents')])
+  return { ...dataverseStore(generatedApi(), localViewPrefs), documents: dataverseDocumentStores() }
 }

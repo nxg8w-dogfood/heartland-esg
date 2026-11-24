@@ -112,6 +112,16 @@
           "entitySetName": "hlesg_dokuments",
           "logicalName": "hlesg_dokument",
           "isHidden": false
+        },
+        "linjedokumenter": {
+          "entitySetName": "hlesg_linjedokuments",
+          "logicalName": "hlesg_linjedokument",
+          "isHidden": false
+        },
+        "pendlerdokumenter": {
+          "entitySetName": "hlesg_pendlingsdokuments",
+          "logicalName": "hlesg_pendlingsdokument",
+          "isHidden": false
         }
       },
       "environmentVariableName": ""
