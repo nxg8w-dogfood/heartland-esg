@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { companyOverview, findNode, monthlyTrees, monthlyValues, sharePct } from '../calc/companyOverview'
-import type { Period } from '../calc/dates'
+import { filteredPeriod, type DateFilter as Filter, type Period } from '../calc/dates'
 import type { Factor } from '../data/factors'
-import { formatNumber } from '../format'
+import { formatDate, formatNumber } from '../format'
 import { scope3Href } from '../scope3/subpages'
 import type { AccountData } from '../storage/account'
 import { Tile } from '../ui'
@@ -15,8 +15,12 @@ const t = (v: number) => formatNumber(v, 3)
 const pct = (v: number | null) => (v === null ? '—' : `${formatNumber(v, 1)} %`)
 
 /** One company's climate account at a glance: the three scopes, what each is made of, and what's missing. */
-export function CompanyOverviewPage({ account, factors, period }: Props) {
+export function CompanyOverviewPage({ account, factors, period: selectedPeriod }: Props) {
   const [selected, setSelected] = useState('')
+  // A date filter for this page only: the other pages keep the selected period.
+  const [filter, setFilter] = useState({ from: '', to: '' })
+  const { period, error: filterError } = filteredPeriod(selectedPeriod, filter)
+  const filtered = period !== selectedPeriod
   // Scope 2 is reported both ways (GHG Protocol's dual reporting), so every figure is worked
   // out with each method; they differ only in Scope 2 and the totals above it.
   const o = useMemo(() => companyOverview(account, factors, period, 'market'), [account, factors, period])
@@ -44,6 +48,13 @@ export function CompanyOverviewPage({ account, factors, period }: Props) {
         Virksomhedens klimaregnskab for perioden, fordelt på de tre scopes. Det er de tal, virksomheden
         tæller med på koncernsiden, før ejerandelen.
       </p>
+
+      <DateFilter period={selectedPeriod} filter={filter} setFilter={setFilter} error={filterError} />
+      {filtered && (
+        <p className="warning" role="status">
+          Oversigten viser {formatDate(period.start)} – {formatDate(period.end)}, ikke hele perioden. Filteret gælder kun denne side.
+        </p>
+      )}
 
       <section aria-labelledby="overview-totals">
         <h2 id="overview-totals" className="visually-hidden">Totaler</h2>
@@ -145,5 +156,24 @@ export function CompanyOverviewPage({ account, factors, period }: Props) {
         {issues.length === 0 ? <p>Ingen mangler fundet for perioden.</p> : <ul>{issues.map((i) => <li key={i}>{i}</li>)}</ul>}
       </section>
     </>
+  )
+}
+
+function DateFilter({ period, filter, setFilter, error }: { period: Period; filter: Filter; setFilter: (f: Filter) => void; error: string | null }) {
+  const id = useId()
+  return (
+    <fieldset className="period">
+      <legend>Datofilter <span className="optional">(kun oversigten)</span></legend>
+      <div className="field">
+        <label htmlFor={`${id}-from`}>Fra</label>
+        <input id={`${id}-from`} type="date" value={filter.from || period.start} onChange={(e) => setFilter({ ...filter, from: e.target.value === period.start ? '' : e.target.value })} aria-invalid={!!error} aria-describedby={error ? `${id}-err` : undefined} />
+      </div>
+      <div className="field">
+        <label htmlFor={`${id}-to`}>Til</label>
+        <input id={`${id}-to`} type="date" value={filter.to || period.end} onChange={(e) => setFilter({ ...filter, to: e.target.value === period.end ? '' : e.target.value })} aria-invalid={!!error} aria-describedby={error ? `${id}-err` : undefined} />
+      </div>
+      <button type="button" className="secondary" disabled={!filter.from && !filter.to} onClick={() => setFilter({ from: '', to: '' })}>Hele perioden</button>
+      {error && <p id={`${id}-err`} className="error" role="alert">{error}</p>}
+    </fieldset>
   )
 }
