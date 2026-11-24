@@ -47,6 +47,7 @@ function render(hash: string, edit: (a: ReturnType<typeof emptyAccount>) => void
 }
 
 const headings = (html: string) => [...html.matchAll(/<h2[^>]*>([^<]*)<\/h2>/g)].map((m) => m[1])
+const nav = (html: string) => html.match(/<nav aria-label="Scope 3"[\s\S]*?<\/nav>/)?.[0] ?? ''
 const current = (html: string) => html.match(/<a href="([^"]*)" aria-current="page">([^<]*)<\/a>/)?.slice(1)
 
 describe('Scope 3 addresses', () => {
@@ -91,8 +92,9 @@ describe('Scope3Page', () => {
   })
 
   it('lists the same sub-pages on every page, so any page can be reached from any other', () => {
+    const allRelevant = (a: ReturnType<typeof emptyAccount>) => { for (const k of Object.keys(a.relevance)) a.relevance[Number(k)].relevant = true }
     for (const p of scope3Subpages) {
-      const html = render(scope3Href(p.id))
+      const html = nav(render(scope3Href(p.id), allRelevant))
       for (const q of scope3Subpages) expect(html).toContain(`href="${scope3Href(q.id)}"`)
     }
   })
@@ -116,6 +118,14 @@ describe('Scope3Page', () => {
     const html = render(`#/scope3/${id}`)
     expect(current(html)?.[0]).toBe(`#/scope3/${id}`)
     expect(headings(html)[0]).toBe(heading)
+  })
+
+  it('has no tab for a category marked not relevant, unless it is the page shown', () => {
+    const notRelevant = (a: ReturnType<typeof emptyAccount>) => { a.relevance[4] = { ...a.relevance[4], relevant: false } }
+    const relevant = (a: ReturnType<typeof emptyAccount>) => { a.relevance[4] = { ...a.relevance[4], relevant: true } }
+    expect(nav(render('#/scope3', notRelevant))).not.toContain('href="#/scope3/kategori-4"')
+    expect(nav(render('#/scope3', relevant))).toContain('href="#/scope3/kategori-4"')
+    expect(current(render('#/scope3/kategori-4', notRelevant))).toEqual(['#/scope3/kategori-4', '4 — Transport'])
   })
 
   it('says on a category page when the category is marked not relevant', () => {
