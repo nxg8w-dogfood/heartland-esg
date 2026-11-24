@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayValue, overlapDays, periodShare, twelveMonthsTo } from './dates'
+import { dayValue, filteredPeriod, overlapDays, periodShare, twelveMonthsTo } from './dates'
 
 const year2025 = { start: '2025-01-01', end: '2025-12-31' }
 
@@ -90,5 +90,21 @@ describe('twelveMonthsTo', () => {
   it('is null for an invalid date', () => {
     expect(twelveMonthsTo('')).toBeNull()
     expect(twelveMonthsTo('ukendt')).toBeNull()
+  })
+})
+
+describe('filteredPeriod', () => {
+  const year = { start: '2025-01-01', end: '2025-12-31' }
+  it('is the period itself without a filter', () => {
+    expect(filteredPeriod(year, { from: '', to: '' })).toEqual({ period: year, error: null })
+    expect(filteredPeriod(year, { from: '', to: '' }).period).toBe(year)
+  })
+  it('replaces the start, the end or both', () => {
+    expect(filteredPeriod(year, { from: '2025-03-01', to: '' }).period).toEqual({ start: '2025-03-01', end: '2025-12-31' })
+    expect(filteredPeriod(year, { from: '', to: '2025-06-30' }).period).toEqual({ start: '2025-01-01', end: '2025-06-30' })
+    expect(filteredPeriod(year, { from: '2024-07-01', to: '2025-06-30' }).period).toEqual({ start: '2024-07-01', end: '2025-06-30' })
+  })
+  it('reports and ignores a filter that ends before it starts', () => {
+    expect(filteredPeriod(year, { from: '2025-06-01', to: '2025-05-01' })).toEqual({ period: year, error: 'Til-datoen ligger før fra-datoen.' })
   })
 })

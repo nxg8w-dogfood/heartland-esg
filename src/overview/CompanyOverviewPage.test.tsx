@@ -29,6 +29,14 @@ describe('CompanyOverviewPage', () => {
     expect(html).toContain('beregnes ikke i appen endnu')
   })
 
+  it('has a date filter for the overview, set to the period until changed', () => {
+    const html = renderToStaticMarkup(<CompanyOverviewPage account={emptyAccount()} factors={factors} period={year2025} />)
+    expect(html).toContain('Datofilter')
+    expect(html).toContain('value="2025-01-01"')
+    expect(html).toContain('value="2025-12-31"')
+    expect(html).not.toContain('ikke hele perioden')
+  })
+
   it('lists what makes the figures incomplete', () => {
     const a = emptyAccount()
     a.relevance = { ...a.relevance, 8: { relevant: true, reason: '' } }
