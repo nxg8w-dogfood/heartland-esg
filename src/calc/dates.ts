@@ -89,3 +89,10 @@ export function periodYearsList(period: Period): number[] {
   const last = new Date(end).getUTCFullYear()
   return Array.from({ length: last - first + 1 }, (_, i) => first + i)
 }
+
+/** The years a period touches, first to last */
+export const periodYears = (period: Period): number[] => {
+  const from = Number(period.start.slice(0, 4))
+  const to = Number(period.end.slice(0, 4))
+  return Array.from({ length: Math.max(0, to - from) + 1 }, (_, i) => from + i)
+}

@@ -54,10 +54,12 @@ describe('spendLine', () => {
 })
 
 describe('price deflation', () => {
-  it('deflates to the factor’s price year: amount ÷ (index now ÷ index base)', () => {
+  it('regulates the factor to the line’s year: factor ÷ (index now ÷ index base)', () => {
     const r = spendLine(line(), consulting, factors, currencyRates, deflating(), year2025)
     expect(r.deflation).toMatchObject({ status: 'applied', ratio: 1.25, baseYear: 2020, year: 2025 })
-    expect(r.deflatedAmount).toBeCloseTo(80_000, 6)
+    expect(r.factorValue).toBeCloseTo(0.1272, 12)
+    expect(r.regulatedFactorValue).toBeCloseTo(0.1272 / 1.25, 12)
+    // The same as bringing the amount to the base year's prices
     expect(r.tCO2e).toBeCloseTo((80_000 * 0.1272) / 1000, 9)
   })
 
@@ -78,7 +80,7 @@ describe('price deflation', () => {
     const noPoint = spendLine(line(), consulting, factors, currencyRates, deflating({ factorSettings: { 'f-exio-obs-dk': { baseYear: 2018 } } }), year2025)
     expect(noPoint.deflation.status).toBe('no-index-point')
     expect(noPoint.warning).toBe('Indeksserien mangler værdi for linjens år eller for faktorens basisår.')
-    expect(noPoint.deflatedAmount).toBeCloseTo(100_000, 6)
+    expect(noPoint.regulatedFactorValue).toBe(noPoint.factorValue)
   })
 
   it('uses the latest published year, and says so, until the line\'s own year is out', () => {
@@ -91,7 +93,7 @@ describe('price deflation', () => {
     const on: Deflation = { ...noDeflation, active: true }
     const r = spendLine(line(), consulting, factors, currencyRates, on, year2025)
     expect(r.deflation).toMatchObject({ status: 'applied', baseYear: 2021, year: 2025, indexBase: 86.79, indexNow: 100 })
-    expect(r.deflatedAmount).toBeCloseTo(100_000 * (86.79 / 100), 6)
+    expect(r.tCO2e).toBeCloseTo((100_000 * (86.79 / 100) * r.factorValue!) / 1000, 9)
     expect(r.tCO2e).toBeCloseTo((86_790 * 0.1272) / 1000, 9)
     expect(r.warning).toBeNull()
   })
