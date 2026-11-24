@@ -46,9 +46,9 @@ Dataverse lets a table have only one parental relationship, and deleting with th
 ## Consequences
 
 - Both tables were applied to dev on 2026-11-24 with `npm run dataverse:apply -- --no-roles`. As
-  for ADR 0029, the roles' privileges for them aren't applied yet (`hlesg_maaler` from an
-  unmerged branch would lose its own), so until they are only a System Administrator can add
-  documents on dev. Test and production need the tables and the roles before this ships there.
+  for ADR 0029, the roles' privileges for them followed on 2026-11-24, applied from `main`; that
+  removed the privileges for `hlesg_maaler`, which only the unmerged PR 85 uses, from dev's roles.
+  Test and production need the tables and the roles before this ships there.
 - The tables are registered by hand in `dataSourcesInfo.ts` and `deploy/dev/power.config.json`,
   as `pa app add data-source` would; the CLI's sign-in had expired. A test checks every table is
   in both.
