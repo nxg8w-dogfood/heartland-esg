@@ -9,12 +9,13 @@ import type { Scope1Line } from './calc/scope1'
 import type { Location, Scope2Line } from './calc/scope2'
 import type { Category3Params } from './calc/scope3'
 import { resolveScope1Lines, type Vehicle } from './calc/vehicles'
-import { applyFactorSources, type FactorSources } from './calc/factorSources'
+import { applyFactorSources, type FactorSourceChoice, type FactorSources } from './calc/factorSources'
 import { factorPublications } from './data/factorPublications'
 import { factors as baseFactors } from './data/factors'
 import { FactorsHeader } from './factors/FactorsHeader'
 import { FactorsPage } from './factors/FactorsPage'
 import { IndexRegulationPage } from './factors/IndexRegulationPage'
+import { BuiltinTablePage } from './factors/BuiltinTablePage'
 import { factorsSubpageFromHash, type FactorsSubpageId } from './factors/subpages'
 import { GroupPage } from './group/GroupPage'
 import { CompanyOverviewPage } from './overview/CompanyOverviewPage'
@@ -228,6 +229,13 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, factorsSubpage,
   const [scope2Lines, setScope2Lines] = useState<Scope2Line[]>(initial.scope2Lines)
   // Where each factor's value comes from: built-in, a publication, an API or entered by hand.
   const [factorSources, setFactorSources] = useState<FactorSources>(initial.factorSources)
+  const chooseFactorSource = (id: string, choice: FactorSourceChoice) =>
+    setFactorSources((s) => {
+      const next = { ...s }
+      if (choice.kind === 'builtin') delete next[id]
+      else next[id] = choice
+      return next
+    })
   const [relevance, setRelevance] = useState<Relevance>(initial.relevance)
   const [category3Params, setCategory3Params] = useState<Category3Params>(initial.category3Params)
   const [cat4Lines, setCat4Lines] = useState<ActivityLine[]>(initial.cat4Lines)
@@ -320,17 +328,11 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, factorsSubpage,
               factors={factors}
               publications={factorPublications}
               sources={factorSources}
-              onChoose={(id, choice) =>
-                setFactorSources((s) => {
-                  const next = { ...s }
-                  if (choice.kind === 'builtin') delete next[id]
-                  else next[id] = choice
-                  return next
-                })
-              }
+              onChoose={chooseFactorSource}
             />
           )}
           {factorsSubpage === 'indeksregulering' && <IndexRegulationPage deflation={deflation} setDeflation={setDeflation} factors={factors} period={period} />}
+          {factorsSubpage === 'indbygget' && <BuiltinTablePage base={baseFactors} factors={factors} sources={factorSources} onChoose={chooseFactorSource} />}
         </>
       )}
     </>
