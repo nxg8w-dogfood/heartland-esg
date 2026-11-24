@@ -1,4 +1,5 @@
 import type { Factor } from '../data/factors'
+import type { DeflationResult } from '../calc/spend'
 import { formatFactor } from '../format'
 import { factorLabel } from './label'
 
@@ -20,10 +21,14 @@ type Props = {
   custom?: boolean
   /** Shown as a dropdown when there is more than one factor to choose from */
   choice?: FactorChoice
+  /** A spend factor's index regulation; when applied, the regulated value is shown instead */
+  regulation?: { result: DeflationResult; value: number | null }
 }
 
 /** A line's emission factor: its value, which factor it is, and where the value comes from. */
-export function FactorCell({ value, factor, custom = false, choice }: Props) {
+export function FactorCell({ value: own, factor, custom = false, choice, regulation }: Props) {
+  const regulated = regulation?.result.status === 'applied'
+  const value = regulated ? regulation!.value : own
   const name = choice && choice.options.length > 1 ? <FactorSelect {...choice} /> : <FactorName factor={factor} />
   if (value === null) {
     return (
@@ -39,6 +44,11 @@ export function FactorCell({ value, factor, custom = false, choice }: Props) {
       {formatFactor(value)}
       {name}
       {source && <span className="sub">{source}</span>}
+      {regulated && (
+        <span className="sub">
+          <a href="#/faktorer/indeksregulering">Indeksreguleret</a> til {regulation!.result.year}
+        </span>
+      )}
     </>
   )
 }

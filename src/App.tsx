@@ -330,7 +330,7 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, factorsSubpage,
               }
             />
           )}
-          {factorsSubpage === 'indeksregulering' && <IndexRegulationPage deflation={deflation} setDeflation={setDeflation} factors={factors} />}
+          {factorsSubpage === 'indeksregulering' && <IndexRegulationPage deflation={deflation} setDeflation={setDeflation} factors={factors} period={period} />}
         </>
       )}
     </>
