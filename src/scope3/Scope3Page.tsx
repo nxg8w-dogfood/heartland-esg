@@ -101,7 +101,8 @@ export function Scope3Page(props: Props) {
 
       <nav aria-label="Scope 3" className="subnav">
         <ul>
-          {scope3Subpages.map((p) => (
+          {/* A category marked not relevant has no tab; its address still opens it, with a warning. */}
+          {scope3Subpages.filter((p) => !('nr' in p) || isIncluded(p.nr) || p.id === subpage).map((p) => (
             <li key={p.id}>
               <a href={scope3Href(p.id)} aria-current={p.id === subpage ? 'page' : undefined}>{p.label}</a>
             </li>
