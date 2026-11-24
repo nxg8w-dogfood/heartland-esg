@@ -4,9 +4,9 @@ import { derivedFactors } from '../data/derivedFactors'
 import { isMunicipalityGrid } from '../data/municipalityGridFactors'
 import type { FactorPublication } from '../data/factorPublications'
 import { apiProviders, sourceOptions, type FactorSourceChoice, type FactorSources } from '../calc/factorSources'
-import { parseNumber } from '../calc/parseNumber'
 import { formatDate, formatFactor } from '../format'
 import { InfoTip } from '../ui'
+import { ManualEntry } from './ManualEntry'
 
 type Props = {
   /** The factor table as shipped */
@@ -312,44 +312,5 @@ function SourcePicker({ factor, publications, choice, onChoose }: {
         <ManualEntry factor={factor} initial={choice?.kind === 'manual' ? choice : undefined} onSave={onChoose} />
       )}
     </div>
-  )
-}
-
-function ManualEntry({ factor, initial, onSave }: {
-  factor: Factor
-  initial: Extract<FactorSourceChoice, { kind: 'manual' }> | undefined
-  onSave: (c: FactorSourceChoice) => void
-}) {
-  const id = useId()
-  const [value, setValue] = useState(initial ? formatFactor(initial.value) : '')
-  const [source, setSource] = useState(initial?.source ?? '')
-  const [date, setDate] = useState(initial?.date ?? '')
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(!!initial)
-
-  function save(e: React.FormEvent) {
-    e.preventDefault()
-    const v = parseNumber(value)
-    if (v === null || Number.isNaN(v)) return setError('Angiv værdien som et tal.')
-    if (!source.trim()) return setError('Angiv, hvor værdien kommer fra.')
-    setError(null)
-    setSaved(true)
-    onSave({ kind: 'manual', value: v, source: source.trim(), date })
-  }
-
-  const edited = () => setSaved(false)
-
-  return (
-    <form className="manual-entry" onSubmit={save} aria-label={`Anden kilde for ${factor.name}`}>
-      <label htmlFor={`${id}-v`}>Værdi ({factor.unit})</label>
-      <input id={`${id}-v`} inputMode="decimal" autoComplete="off" value={value} onChange={(e) => { setValue(e.target.value); edited() }} />
-      <label htmlFor={`${id}-s`}>Kilde</label>
-      <input id={`${id}-s`} autoComplete="off" placeholder="Fx leverandørens deklaration 2025" value={source} onChange={(e) => { setSource(e.target.value); edited() }} />
-      <label htmlFor={`${id}-d`}>Kildens dato</label>
-      <input id={`${id}-d`} type="date" value={date} onChange={(e) => { setDate(e.target.value); edited() }} />
-      <button type="submit" className="secondary">Gem</button>
-      {saved && !error && <span className="muted" role="status">Gemt</span>}
-      {error && <p className="error" role="alert">{error}</p>}
-    </form>
   )
 }
