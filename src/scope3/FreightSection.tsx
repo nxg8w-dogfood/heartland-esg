@@ -1,4 +1,4 @@
-import { useId, type Dispatch, type SetStateAction } from 'react'
+import { Fragment, useId, type Dispatch, type SetStateAction } from 'react'
 import { ActivityLinesSection } from '../activity/ActivityLinesSection'
 import type { ActivityLine } from '../calc/activity'
 import { category4Groups, category4SpendGroups, type Category4 } from '../calc/scope3'
@@ -9,6 +9,7 @@ import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
 import { AddSpendForm } from './PurchasesSection'
+import { useRowDocuments } from '../documents/useRowDocuments'
 
 type Props = {
   cat4: Category4
@@ -24,8 +25,11 @@ type Props = {
 export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLines, factors, defaultDate }: Props) {
   const id = useId()
   const hidden = spendLines.length - cat4.courier.length
+  const docs = useRowDocuments('line', 'linjen', 'fakturaen')
+  const lineName = (date: string) => `kurérlinje, ${formatDate(date)}`
   return (
     <>
+      {docs.dialog}
       <ActivityLinesSection
         title="Kategori 4 — upstream transport og distribution"
         groups={category4Groups}
@@ -35,6 +39,7 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
         setLines={setLines}
         defaultDate={defaultDate}
         emptyText="Ingen fragt i perioden."
+        documentExample="fragtbrevet eller transportørens opgørelse"
       />
 
       <section aria-labelledby={`${id}-courier`}>
@@ -55,7 +60,8 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
               </thead>
               <tbody>
                 {cat4.courier.map((r) => (
-                  <tr key={r.line.id}>
+                  <Fragment key={r.line.id}>
+                  <tr>
                     <td>
                       {formatDate(r.line.date)}
                       {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
@@ -68,11 +74,16 @@ export function FreightSection({ cat4, lines, setLines, spendLines, setSpendLine
                       {r.warning && <span className="sub warning-text">{r.warning}</span>}
                     </td>
                     <td>
-                      <button type="button" className="link" onClick={() => setSpendLines((ls) => ls.filter((l) => l.id !== r.line.id))} aria-label={`Slet kurérlinje, ${formatDate(r.line.date)}`}>
-                        Slet
-                      </button>
+                      <div className="row-actions">
+                        {docs.toggle(r.line.id, lineName(r.line.date))}
+                        <button type="button" className="link" onClick={async () => { if (await docs.confirmDelete(r.line.id, lineName(r.line.date))) setSpendLines((ls) => ls.filter((l) => l.id !== r.line.id)) }} aria-label={`Slet ${lineName(r.line.date)}`}>
+                          Slet
+                        </button>
+                      </div>
                     </td>
                   </tr>
+                  {docs.panel(r.line.id, lineName(r.line.date), 6)}
+                  </Fragment>
                 ))}
               </tbody>
               <tfoot>

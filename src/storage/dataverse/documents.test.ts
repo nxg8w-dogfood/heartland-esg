@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { dataverseDocuments } from './documents'
+import { dataverseDocuments, dataverseDocumentStores } from './documents'
 
 const ok = <T,>(data: T) => ({ success: true, data })
 const failed = (message: string) => ({ success: false, data: undefined as never, error: new Error(message) })
@@ -18,7 +18,7 @@ const file = (name: string, size: number, type = 'application/pdf') => new File(
 describe('dataverseDocuments', () => {
   it('saves a row on the holding, then uploads the file to its file column', async () => {
     const client = fakeClient()
-    const doc = await dataverseDocuments(client as never).add('inv-1', file('ESG-rapport 2025.pdf', 2048))
+    const doc = await dataverseDocuments('investment', client as never).add('inv-1', file('ESG-rapport 2025.pdf', 2048))
     const [table, record] = client.createRecordAsync.mock.calls[0] as [string, Record<string, unknown>]
     expect(table).toBe('hlesg_dokuments')
     expect(record).toMatchObject({
@@ -26,13 +26,13 @@ describe('dataverseDocuments', () => {
       'hlesg_Investeringid@odata.bind': '/hlesg_investerings(inv-1)',
     })
     expect(client.uploadFileToRecord).toHaveBeenCalledWith('hlesg_dokuments', record.hlesg_dokumentid, 'hlesg_fil', 'ESG-rapport 2025.pdf', expect.any(File))
-    expect(doc).toMatchObject({ id: record.hlesg_dokumentid, investmentId: 'inv-1', name: 'ESG-rapport 2025.pdf', size: 2048 })
+    expect(doc).toMatchObject({ id: record.hlesg_dokumentid, parentId: 'inv-1', name: 'ESG-rapport 2025.pdf', size: 2048 })
   })
 
   it('deletes the row again when the upload fails, and says why', async () => {
     const client = fakeClient()
     client.uploadFileToRecord.mockResolvedValueOnce(failed('Attachment file size is too big.'))
-    await expect(dataverseDocuments(client as never).add('inv-1', file('a.pdf', 10))).rejects.toThrow('Kunne ikke uploade a.pdf: Attachment file size is too big.')
+    await expect(dataverseDocuments('investment', client as never).add('inv-1', file('a.pdf', 10))).rejects.toThrow('Kunne ikke uploade a.pdf: Attachment file size is too big.')
     const id = (client.createRecordAsync.mock.calls[0][1] as Record<string, unknown>).hlesg_dokumentid
     expect(client.deleteRecordAsync).toHaveBeenCalledWith('hlesg_dokuments', id)
   })
@@ -40,7 +40,7 @@ describe('dataverseDocuments', () => {
   it('refuses a file over 32 MB before sending anything', async () => {
     const client = fakeClient()
     const big = { name: 'stor.pdf', size: 32 * 1024 * 1024 + 1, type: 'application/pdf' } as File
-    await expect(dataverseDocuments(client as never).add('inv-1', big)).rejects.toThrow('stor.pdf er større end 32 MB.')
+    await expect(dataverseDocuments('investment', client as never).add('inv-1', big)).rejects.toThrow('stor.pdf er større end 32 MB.')
     expect(client.createRecordAsync).not.toHaveBeenCalled()
   })
 
@@ -49,21 +49,41 @@ describe('dataverseDocuments', () => {
     client.retrieveMultipleRecordsAsync
       .mockResolvedValueOnce({ ...ok([{ hlesg_dokumentid: 'd1', hlesg_navn: 'a.pdf', hlesg_stoerrelse: 5, hlesg_filtype: 'application/pdf', createdon: '2026-11-18T10:00:00Z', _hlesg_investeringid_value: 'inv-1' }]), skipToken: 'next' } as never)
       .mockResolvedValueOnce(ok([{ hlesg_dokumentid: 'd2', hlesg_navn: 'b.xlsx', _hlesg_investeringid_value: 'inv-2' }]))
-    const docs = await dataverseDocuments(client as never).list()
+    const docs = await dataverseDocuments('investment', client as never).list()
     expect(docs).toEqual([
-      { id: 'd1', investmentId: 'inv-1', name: 'a.pdf', size: 5, type: 'application/pdf', uploadedOn: '2026-11-18T10:00:00Z' },
-      { id: 'd2', investmentId: 'inv-2', name: 'b.xlsx', size: null, type: '', uploadedOn: null },
+      { id: 'd1', parentId: 'inv-1', name: 'a.pdf', size: 5, type: 'application/pdf', uploadedOn: '2026-11-18T10:00:00Z' },
+      { id: 'd2', parentId: 'inv-2', name: 'b.xlsx', size: null, type: '', uploadedOn: null },
     ])
     expect(client.retrieveMultipleRecordsAsync.mock.calls[1]).toEqual(['hlesg_dokuments', expect.objectContaining({ skipToken: 'next' })])
   })
 
   it('downloads the file as a blob of its type, and deletes the row', async () => {
     const client = fakeClient()
-    const store = dataverseDocuments(client as never)
-    const blob = await store.download({ id: 'd1', investmentId: 'inv-1', name: 'a.pdf', size: 3, type: 'application/pdf', uploadedOn: null })
+    const store = dataverseDocuments('investment', client as never)
+    const blob = await store.download({ id: 'd1', parentId: 'inv-1', name: 'a.pdf', size: 3, type: 'application/pdf', uploadedOn: null })
     expect(blob.type).toBe('application/pdf')
     expect(blob.size).toBe(3)
     await store.remove('d1')
     expect(client.deleteRecordAsync).toHaveBeenCalledWith('hlesg_dokuments', 'd1')
+  })
+})
+
+describe('documents on a line or a commuting survey (ADR 0035)', () => {
+  it('saves a line\'s document in its own table, pointing to the line', async () => {
+    const client = fakeClient()
+    const doc = await dataverseDocuments('line', client as never).add('line-1', file('Faktura.pdf', 100))
+    const [table, record] = client.createRecordAsync.mock.calls[0] as [string, Record<string, unknown>]
+    expect(table).toBe('hlesg_linjedokuments')
+    expect(record).toMatchObject({ 'hlesg_Linjeid@odata.bind': '/hlesg_linjes(line-1)' })
+    expect(client.uploadFileToRecord).toHaveBeenCalledWith('hlesg_linjedokuments', record.hlesg_linjedokumentid, 'hlesg_fil', 'Faktura.pdf', expect.any(File))
+    expect(doc.parentId).toBe('line-1')
+  })
+
+  it('reads a survey\'s documents from its own table, with the survey as parent', async () => {
+    const client = fakeClient()
+    client.retrieveMultipleRecordsAsync.mockResolvedValueOnce(ok([{ hlesg_pendlingsdokumentid: 'p1', hlesg_navn: 'svar.xlsx', _hlesg_pendlingid_value: 'survey-1' }]))
+    const [d] = await dataverseDocumentStores(client as never).survey.list()
+    expect((client.retrieveMultipleRecordsAsync.mock.calls[0] as unknown[])[0]).toBe('hlesg_pendlingsdokuments')
+    expect(d).toMatchObject({ id: 'p1', parentId: 'survey-1', name: 'svar.xlsx' })
   })
 })

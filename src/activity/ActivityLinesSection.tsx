@@ -1,4 +1,4 @@
-import { useId, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
+import { Fragment, useId, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
 import { factorOptions, type ActivityGroup, type ActivityLine, type ActivityResult, type ActivitySummary } from '../calc/activity'
 import { parseNumber } from '../calc/parseNumber'
@@ -8,6 +8,7 @@ import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
+import { useRowDocuments } from '../documents/useRowDocuments'
 
 type Props = {
   title: string
@@ -25,6 +26,8 @@ type Props = {
   locations?: readonly { id: string; name: string }[]
   /** Lets the reader group the lines by type, then date, or by month, then type */
   groupable?: boolean
+  /** Each line can have documents (Scope 3, ADR 0035), e.g. "en fragtfaktura" as the example */
+  documentExample?: string
 }
 
 const groupings: { id: LineGrouping; label: string }[] = [
@@ -34,7 +37,8 @@ const groupings: { id: LineGrouping; label: string }[] = [
 ]
 
 /** Add, list and delete activity lines for one category: quantity × factor per row type. */
-export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText, collapsible = false, locations, groupable = false }: Props) {
+export function ActivityLinesSection({ title, intro, groups, factors, summary, lines, setLines, defaultDate, emptyText, collapsible = false, locations, groupable = false, documentExample }: Props) {
+  const docs = useRowDocuments(documentExample ? 'line' : null, 'linjen', documentExample ?? '')
   const id = useId()
   const [grouping, setGrouping] = useState<LineGrouping>(groupable ? 'type' : 'none')
   const sections = groupLines(summary.lines, grouping)
@@ -42,8 +46,10 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
   const locationName = (locationId: string | null | undefined) => locations?.find((l) => l.id === locationId)?.name
   const columns = locations ? 8 : 7
 
+  const lineName = (r: ActivityResult) => `${r.group.label}, ${formatDate(r.line.date)}`
   const row = (r: ActivityResult) => (
-    <tr key={r.line.id}>
+    <Fragment key={r.line.id}>
+    <tr>
       <td>
         {formatDate(r.line.date)}
         {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
@@ -68,16 +74,21 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
         {r.warning && <span className="sub warning-text">{r.warning}</span>}
       </td>
       <td>
-        <button
-          type="button"
-          className="link"
-          onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))}
-          aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}
-        >
-          Slet
-        </button>
+        <div className="row-actions">
+          {docs.toggle(r.line.id, lineName(r))}
+          <button
+            type="button"
+            className="link"
+            onClick={async () => { if (await docs.confirmDelete(r.line.id, lineName(r))) setLines((ls) => ls.filter((l) => l.id !== r.line.id)) }}
+            aria-label={`Slet linje: ${lineName(r)}`}
+          >
+            Slet
+          </button>
+        </div>
       </td>
     </tr>
+    {docs.panel(r.line.id, lineName(r), columns)}
+    </Fragment>
   )
 
   const table = (
@@ -125,6 +136,7 @@ export function ActivityLinesSection({ title, intro, groups, factors, summary, l
 
   return (
     <section aria-labelledby={`${id}-heading`}>
+      {docs.dialog}
       <h2 id={`${id}-heading`}>{title}</h2>
       {intro && <p className="muted">{intro}</p>}
 

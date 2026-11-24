@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { useId, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
@@ -12,8 +12,8 @@ import { formatDate, formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
 import { useConfirm } from '../confirm'
-import { useDocuments, type StoredDocument } from '../storage/documents'
-import { InvestmentDocuments } from './InvestmentDocuments'
+import { useDocumentList } from '../storage/documents'
+import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { InvestmentsImport } from './InvestmentsImport'
 
 const blank = (date: string): Investment => ({
@@ -44,23 +44,9 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
   const update = (invId: string, patch: Partial<Investment>) =>
     setInvestments((is) => is.map((i) => (i.id === invId ? { ...i, ...patch } : i)))
   const { confirm, dialog } = useConfirm()
-  const documents = useDocuments()
-  const [docs, setDocs] = useState<StoredDocument[] | null>(null)
-  const [docsError, setDocsError] = useState<string | null>(null)
-  // Every holding's documents in one request, so each folded holding can say how many it has.
-  const docStore = documents?.store
-  useEffect(() => {
-    if (!docStore) return
-    let cancelled = false
-    docStore.list().then(
-      (ds) => { if (!cancelled) setDocs(ds) },
-      (e: unknown) => { if (!cancelled) setDocsError(e instanceof Error ? e.message : 'Kunne ikke hente dokumenterne.') },
-    )
-    return () => { cancelled = true }
-  }, [docStore])
-  const docsOf = (invId: string) => docs && docs.filter((d) => d.investmentId === invId)
+  const documents = useDocumentList('investment')
   /** Deleting a holding deletes its documents too (the lookup cascades), so the question says so. */
-  const andDocuments = (ids: ReadonlySet<string>, whose: 'Dens' | 'Deres') => (docs?.some((d) => ids.has(d.investmentId)) ? ` ${whose} dokumenter slettes også.` : '')
+  const andDocuments = (ids: ReadonlySet<string>, whose: 'Dens' | 'Deres') => ([...ids].some((i) => documents.count(i) > 0) ? ` ${whose} dokumenter slettes også.` : '')
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -128,12 +114,12 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
             if (await confirm(`Slet ${inv.company || 'investeringen'}?${andDocuments(new Set([inv.id]), 'Dens')}`)) setInvestments((is) => is.filter((i) => i.id !== inv.id))
           }}
           documents={
-            <InvestmentDocuments
-              investmentId={inv.id} company={inv.company} documents={documents} list={docsOf(inv.id)} loadError={docsError}
-              onChange={(f) => setDocs((ds) => f(ds ?? []))} confirm={confirm}
+            <DocumentsPanel
+              parentId={inv.id} owner={inv.company} what="investeringen" example="selskabets ESG-rapport"
+              documents={documents} confirm={confirm}
             />
           }
-          documentCount={docsOf(inv.id)?.length ?? 0}
+          documentCount={documents.count(inv.id)}
         />
       ))}
 

@@ -380,6 +380,36 @@ export const tables: readonly Table[] = [
     ],
   },
   {
+    name: n('linjedokument'),
+    label: 'Linjedokument',
+    pluralLabel: 'Linjedokumenter',
+    description: 'Dokumentation for en Scope 3-linje, fx en faktura eller en leverandørs opgørelse (ADR 0035).',
+    primary: { name: n('navn'), label: 'Filnavn', maxLength: 260, required: false },
+    separate: true,
+    // Belongs to its line, which belongs to the company; a table can have only one parental
+    // relationship, so lines and surveys each have their own document table.
+    columns: [
+      { kind: 'lookup', name: n('linjeid'), label: 'Linje', target: n('linje'), required: true, onDelete: 'Cascade' },
+      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: 32_768 },
+      { kind: 'integer', name: n('stoerrelse'), label: 'Størrelse (bytes)', min: 0, max: 2_147_483_647 },
+      text('filtype', 'Filtype', 200),
+    ],
+  },
+  {
+    name: n('pendlingsdokument'),
+    label: 'Pendlerdokument',
+    pluralLabel: 'Pendlerdokumenter',
+    description: 'Dokumentation for en pendlerundersøgelse, fx svarene (ADR 0035).',
+    primary: { name: n('navn'), label: 'Filnavn', maxLength: 260, required: false },
+    separate: true,
+    columns: [
+      { kind: 'lookup', name: n('pendlingid'), label: 'Pendlerundersøgelse', target: n('pendling'), required: true, onDelete: 'Cascade' },
+      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: 32_768 },
+      { kind: 'integer', name: n('stoerrelse'), label: 'Størrelse (bytes)', min: 0, max: 2_147_483_647 },
+      text('filtype', 'Filtype', 200),
+    ],
+  },
+  {
     name: n('regel'),
     label: 'Regel',
     pluralLabel: 'Regler',

@@ -1,23 +1,27 @@
-// The DocumentStore (../documents.ts) on Dataverse: a hlesg_dokument row per document, with the
-// file in its file column (docs/adr/0029). The Power Apps client uploads and downloads the file
+// The DocumentStores (../documents.ts) on Dataverse: a row per document, with the file in its
+// file column. Documents on a holding are hlesg_dokument (docs/adr/0029); on a line
+// hlesg_linjedokument and on a commuting survey hlesg_pendlingsdokument (docs/adr/0035), since a
+// table can have only one parental relationship. The Power Apps client uploads and downloads the file
 // on its own request; Dataverse doesn't take it with the row.
 
 import { getClient, type DataClient } from '@microsoft/power-apps/data'
 import { dataSourcesInfo } from '../../../.power/schemas/appschemas/dataSourcesInfo'
 import { schemaName } from '../../dataverse/metadata'
 import { newId } from '../../newId'
-import { MAX_DOCUMENT_BYTES, type DocumentStore, type StoredDocument } from '../documents'
+import { MAX_DOCUMENT_BYTES, type DocumentKind, type DocumentStore, type DocumentStores, type StoredDocument } from '../documents'
 import { entitySet } from './store'
 
 type Client = Pick<DataClient, 'createRecordAsync' | 'retrieveMultipleRecordsAsync' | 'deleteRecordAsync' | 'uploadFileToRecord' | 'downloadFileFromRecord'>
 type Result<T> = { success: boolean; data: T; error?: unknown; skipToken?: string }
 type DocumentRecord = Record<string, unknown>
 
-const TABLE = 'hlesg_dokument'
-/** The data source the client knows the table by: its entity set */
-const SOURCE = entitySet(TABLE)
+/** Per kind: the document table, its lookup to the parent, and the parent's table */
+export const documentTables: Record<DocumentKind, { table: string; lookup: string; parent: string }> = {
+  investment: { table: 'hlesg_dokument', lookup: 'hlesg_investeringid', parent: 'hlesg_investering' },
+  line: { table: 'hlesg_linjedokument', lookup: 'hlesg_linjeid', parent: 'hlesg_linje' },
+  survey: { table: 'hlesg_pendlingsdokument', lookup: 'hlesg_pendlingid', parent: 'hlesg_pendling' },
+}
 const FILE = 'hlesg_fil'
-const LOOKUP = 'hlesg_investeringid'
 
 function check<T>(r: Result<T>, what: string): T {
   if (!r.success) {
@@ -27,16 +31,19 @@ function check<T>(r: Result<T>, what: string): T {
   return r.data
 }
 
-const fromRecord = (r: DocumentRecord): StoredDocument => ({
+const fromRecord = (TABLE: string, LOOKUP: string) => (r: DocumentRecord): StoredDocument => ({
   id: String(r[`${TABLE}id`]),
-  investmentId: String(r[`_${LOOKUP}_value`] ?? ''),
+  parentId: String(r[`_${LOOKUP}_value`] ?? ''),
   name: typeof r.hlesg_navn === 'string' ? r.hlesg_navn : '',
   size: typeof r.hlesg_stoerrelse === 'number' ? r.hlesg_stoerrelse : null,
   type: typeof r.hlesg_filtype === 'string' ? r.hlesg_filtype : '',
   uploadedOn: typeof r.createdon === 'string' ? r.createdon : null,
 })
 
-export function dataverseDocuments(client: Client = getClient(dataSourcesInfo)): DocumentStore {
+export function dataverseDocuments(kind: DocumentKind, client: Client = getClient(dataSourcesInfo)): DocumentStore {
+  const { table: TABLE, lookup: LOOKUP, parent } = documentTables[kind]
+  /** The data source the client knows the table by: its entity set */
+  const SOURCE = entitySet(TABLE)
   return {
     async list() {
       const out: StoredDocument[] = []
@@ -47,13 +54,13 @@ export function dataverseDocuments(client: Client = getClient(dataSourcesInfo)):
           maxPageSize: 5000,
           skipToken,
         })
-        out.push(...check(r, 'Kunne ikke læse dokumenterne').map(fromRecord))
+        out.push(...check(r, 'Kunne ikke læse dokumenterne').map(fromRecord(TABLE, LOOKUP)))
         skipToken = r.skipToken
       } while (skipToken)
       return out
     },
 
-    async add(investmentId, file) {
+    async add(parentId, file) {
       if (file.size > MAX_DOCUMENT_BYTES) throw new Error(`${file.name} er større end ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB.`)
       const id = newId()
       const record = {
@@ -61,7 +68,7 @@ export function dataverseDocuments(client: Client = getClient(dataSourcesInfo)):
         hlesg_navn: file.name.slice(0, 260),
         hlesg_stoerrelse: file.size,
         hlesg_filtype: file.type.slice(0, 200),
-        [`${schemaName(LOOKUP)}@odata.bind`]: `/${entitySet('hlesg_investering')}(${investmentId})`,
+        [`${schemaName(LOOKUP)}@odata.bind`]: `/${entitySet(parent)}(${parentId})`,
       }
       check(await client.createRecordAsync(SOURCE, record), `Kunne ikke gemme ${file.name}`)
       // A row without its file documents nothing, so it goes again if the upload fails.
@@ -70,7 +77,7 @@ export function dataverseDocuments(client: Client = getClient(dataSourcesInfo)):
         await client.deleteRecordAsync(SOURCE, id).catch(() => {})
         check(uploaded, `Kunne ikke uploade ${file.name}`)
       }
-      return { id, investmentId, name: record.hlesg_navn, size: file.size, type: file.type, uploadedOn: new Date().toISOString() }
+      return { id, parentId, name: record.hlesg_navn, size: file.size, type: file.type, uploadedOn: new Date().toISOString() }
     },
 
     async download(document) {
@@ -82,4 +89,9 @@ export function dataverseDocuments(client: Client = getClient(dataSourcesInfo)):
       check(await client.deleteRecordAsync(SOURCE, id), 'Kunne ikke slette dokumentet')
     },
   }
+}
+
+/** Every kind's store, sharing one client */
+export function dataverseDocumentStores(client: Client = getClient(dataSourcesInfo)): DocumentStores {
+  return { investment: dataverseDocuments('investment', client), line: dataverseDocuments('line', client), survey: dataverseDocuments('survey', client) }
 }

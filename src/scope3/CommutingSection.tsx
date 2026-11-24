@@ -1,4 +1,4 @@
-import { useId, type Dispatch, type SetStateAction } from 'react'
+import { useId, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { surveyResult, type Category7, type CommutingModeId, type ModeAnswers, type Survey, type SurveyResult } from '../calc/commuting'
@@ -7,6 +7,8 @@ import { factorLabel } from '../factors/label'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
 import { useConfirm } from '../confirm'
+import { DocumentsPanel } from '../documents/DocumentsPanel'
+import { useDocumentList } from '../storage/documents'
 
 type Props = {
   cat7: Category7
@@ -31,6 +33,7 @@ export function CommutingSection({ cat7, surveys, setSurveys, factors, period }:
     )
   const counted = new Set(cat7.surveys.map((r) => r.survey.id))
   const { confirm, dialog } = useConfirm()
+  const documents = useDocumentList('survey')
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -77,21 +80,28 @@ export function CommutingSection({ cat7, surveys, setSurveys, factors, period }:
           onChange={(patch) => update(s.id, patch)}
           onModeChange={(modeId, patch) => updateMode(s.id, modeId, patch)}
           onDelete={async () => {
-            if (await confirm(`Slet ${s.label}?`)) setSurveys((ss) => ss.filter((x) => x.id !== s.id))
+            const n = documents.count(s.id)
+            const andDocuments = n === 0 ? '' : n === 1 ? ' Dens dokument slettes også.' : ` Dens ${n} dokumenter slettes også.`
+            if (await confirm(`Slet ${s.label}?${andDocuments}`)) setSurveys((ss) => ss.filter((x) => x.id !== s.id))
           }}
+          documents={documents.store && (
+            <DocumentsPanel parentId={s.id} owner={s.label} what="undersøgelsen" example="svarene fra undersøgelsen" documents={documents} confirm={confirm} />
+          )}
         />
       ))}
     </section>
   )
 }
 
-function SurveyCard({ result, counted, factors, onChange, onModeChange, onDelete }: {
+function SurveyCard({ result, counted, factors, onChange, onModeChange, onDelete, documents }: {
   result: SurveyResult
   counted: boolean
   factors: readonly Factor[]
   onChange: (patch: Partial<Survey>) => void
   onModeChange: (modeId: CommutingModeId, patch: Partial<ModeAnswers>) => void
   onDelete: () => void
+  /** The survey's documentation (ADR 0035), where documents can be kept */
+  documents: ReactNode
 }) {
   const id = useId()
   const { survey } = result
@@ -198,6 +208,7 @@ function SurveyCard({ result, counted, factors, onChange, onModeChange, onDelete
           {pendingModes.map((m) => m.mode.label).join(', ')} mangler en faktor og tæller ikke med endnu.
         </p>
       )}
+      {documents}
     </article>
   )
 }

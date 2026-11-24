@@ -148,6 +148,7 @@ describe('data sources', () => {
   it('keep separate tables out of the group store', () => {
     expect(tables.find((t) => t.name === 'hlesg_dokument')?.separate).toBe(true)
     expect(storedTables.map((t) => t.name)).not.toContain('hlesg_dokument')
-    expect(storedTables.length).toBe(tables.length - 1)
+    for (const t of ['hlesg_linjedokument', 'hlesg_pendlingsdokument']) expect(storedTables.map((x) => x.name)).not.toContain(t)
+    expect(storedTables.length).toBe(tables.length - 3)
   })
 })

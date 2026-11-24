@@ -1,4 +1,4 @@
-import { useId, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
+import { Fragment, useId, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
 import { currencyRates } from '../data/currencies'
 import { parseNumber } from '../calc/parseNumber'
@@ -8,6 +8,7 @@ import { formatDate, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
 import { newId } from '../newId'
+import { useRowDocuments } from '../documents/useRowDocuments'
 
 type Props = {
   cat1: Category1
@@ -20,10 +21,13 @@ type Props = {
 export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }: Props) {
   const id = useId()
   const hiddenCount = lines.length - cat1.lines.filter((r) => r.source === 'manual').length
+  const docs = useRowDocuments('line', 'linjen', 'fakturaen')
+  const lineName = (r: Category1['lines'][number]) => `${r.group.label}, ${formatDate(r.line.date)}`
   const blankGroups = category1Groups.filter((g) => !g.excluded && factors.find((f) => f.id === g.factorId)?.value == null)
 
   return (
     <section aria-labelledby={`${id}-heading`}>
+      {docs.dialog}
       <h2 id={`${id}-heading`}>Kategori 1 — indkøbte varer og services</h2>
       {blankGroups.length > 0 && (
         <p className="warning">
@@ -51,7 +55,8 @@ export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }
             </thead>
             <tbody>
               {cat1.lines.map((r) => (
-                <tr key={r.line.id}>
+                <Fragment key={r.line.id}>
+                <tr>
                   <td>
                     {formatDate(r.line.date)}
                     {r.line.dateTo && r.line.dateTo > r.line.date && <> – {formatDate(r.line.dateTo)}</>}
@@ -91,12 +96,17 @@ export function PurchasesSection({ cat1, lines, setLines, factors, defaultDate }
                     {r.source === 'ledger' ? (
                       <a href="#/kontoplan" className="muted">Fra kontoplan</a>
                     ) : (
-                      <button type="button" className="link" onClick={() => setLines((ls) => ls.filter((l) => l.id !== r.line.id))} aria-label={`Slet linje: ${r.group.label}, ${formatDate(r.line.date)}`}>
-                        Slet
-                      </button>
+                      <div className="row-actions">
+                        {docs.toggle(r.line.id, lineName(r))}
+                        <button type="button" className="link" onClick={async () => { if (await docs.confirmDelete(r.line.id, lineName(r))) setLines((ls) => ls.filter((l) => l.id !== r.line.id)) }} aria-label={`Slet linje: ${lineName(r)}`}>
+                          Slet
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
+                {r.source !== 'ledger' && docs.panel(r.line.id, lineName(r), 8)}
+                </Fragment>
               ))}
             </tbody>
             <tfoot>

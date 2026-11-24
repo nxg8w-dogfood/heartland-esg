@@ -134,6 +134,13 @@ export const dataSourcesInfo = {
     "dataSourceType": "Dataverse",
     "apis": {}
   },
+  "hlesg_linjedokuments": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "hlesg_linjedokumentid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
   "hlesg_linjes": {
     "tableId": "",
     "version": "",
@@ -145,6 +152,13 @@ export const dataSourcesInfo = {
     "tableId": "",
     "version": "",
     "primaryKey": "hlesg_lokationid",
+    "dataSourceType": "Dataverse",
+    "apis": {}
+  },
+  "hlesg_pendlingsdokuments": {
+    "tableId": "",
+    "version": "",
+    "primaryKey": "hlesg_pendlingsdokumentid",
     "dataSourceType": "Dataverse",
     "apis": {}
   },
