@@ -89,3 +89,18 @@ export function periodYearsList(period: Period): number[] {
   const last = new Date(end).getUTCFullYear()
   return Array.from({ length: last - first + 1 }, (_, i) => first + i)
 }
+
+/** A from and to date, each empty when not set */
+export type DateFilter = { from: string; to: string }
+
+/**
+ * The period the overview shows: the selected one, with its start and end replaced by the
+ * filter's dates where they're set. A filter that ends before it starts is reported and ignored.
+ */
+export function filteredPeriod(period: Period, { from, to }: DateFilter): { period: Period; error: string | null } {
+  if (!from && !to) return { period, error: null }
+  const start = from || period.start
+  const end = to || period.end
+  if (end < start) return { period, error: 'Til-datoen ligger før fra-datoen.' }
+  return { period: { start, end }, error: null }
+}
