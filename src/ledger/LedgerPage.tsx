@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type SetSta
 import { factorRegions, factorsInRegion, searchFactors } from '../calc/factorSearch'
 import { textRule } from './textRule'
 import type { Factor } from '../data/factors'
+import type { Rule } from '../calc/ledger'
 import {
   classifyLedger, guessMapping, hitLabel, isCurrencyCode, postingStatusLabels, ledgerFieldLabels, ledgerSummary, parseCsv, rowsToPostings, tableToRows,
   type ClassifiedPosting, type ColumnMapping, type PostingStatus,
@@ -12,7 +13,8 @@ import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { Tile } from '../ui'
 import { useConfirm } from '../confirm'
-import { RulesSection } from './RulesSection'
+import { ExceptionsSection, RuleEditor, StandardRulesSection } from './RulesSection'
+import { ledgerHref, ledgerSubpages, type LedgerSubpageId } from './subpages'
 import { emptyPostingFilter, filterOptions, filterPostings, isFiltered, type FilterOption, type PostingFilter } from '../calc/postingFilter'
 
 const exampleCsv = `Bilagsdato;Kontonr.;Kontotekst;Kreditor;Posteringstekst;Beløb;Valuta
@@ -25,20 +27,13 @@ const exampleCsv = `Bilagsdato;Kontonr.;Kontotekst;Kreditor;Posteringstekst;Bel�
 15.08.2025;6100;Revision;Deloitte;Halvårsgennemgang;45.000,00;DKK
 01.09.2025;6500;Husleje;Ejendomsselskab;Husleje september;95.000,00;DKK`
 
-type Props = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; factors: readonly Factor[] }
+type Props = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; factors: readonly Factor[]; subpage?: LedgerSubpageId }
 
-export function LedgerPage({ ledger, setLedger, factors }: Props) {
+export function LedgerPage({ ledger, setLedger, factors, subpage = 'posteringer' }: Props) {
   const classified = useMemo(() => classifyLedger(ledger), [ledger])
   const summary = ledgerSummary(classified)
   const spendFactors = factors.filter((f) => f.method === 'spend')
   const { confirm, dialog } = useConfirm()
-  /** The rule just made from a posting's text: its card scrolls into view with the name focused */
-  const [newRuleId, setNewRuleId] = useState<string | null>(null)
-  const createTextRule = (text: string, category: number | null) => {
-    const rule = textRule(text, category)
-    setLedger((l) => ({ ...l, rules: [...l.rules, rule] }))
-    setNewRuleId(rule.id)
-  }
   // Postings per import, to spot an import whose save was cut short (e.g. by closing the app).
   const stored = useMemo(() => {
     const m = new Map<string, number>()
@@ -50,72 +45,97 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
     <>
       {dialog}
       <h1>Kontoplan</h1>
-      <p className="lead">
-        Importer posteringer fra finanssystemet. ESG-ansvarliges kontoregler giver hver konto en
-        Scope 3-kategori og en EXIOBASE-faktor, og posteringsreglerne finjusterer enkelte posteringer
-        ud fra et søgeord; du kan rette en posteringsregel for denne virksomhed. Dine egne
-        undtagelser går forud for begge, og en manuel handling på en postering går forud for alt. En postering medtages eller udelades;
-        medtagne posteringer indgår i deres kategori i Scope 3.
-      </p>
+      <nav aria-label="Kontoplan" className="subnav">
+        <ul>
+          {ledgerSubpages.map((p) => (
+            <li key={p.id}>
+              <a href={ledgerHref(p.id)} aria-current={p.id === subpage ? 'page' : undefined}>
+                {p.label}{p.id === 'undtagelser' && ledger.rules.length > 0 ? ` (${ledger.rules.length})` : ''}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-      <ImportSection
-        onImport={(fileName, rows) =>
-          setLedger((l) => {
-            const importId = newId()
-            const postings = rows.map((r) => ({ ...r, id: newId(), importId }))
-            return { ...l, postings: [...l.postings, ...postings], imports: [...l.imports, { id: importId, fileName, importedAt: new Date().toISOString(), count: postings.length }] }
-          })
-        }
-      />
+      {subpage === 'regler' && <StandardRulesSection ledger={ledger} setLedger={setLedger} classified={classified} spendFactors={spendFactors} />}
+      {subpage === 'undtagelser' && <ExceptionsSection ledger={ledger} setLedger={setLedger} classified={classified} spendFactors={spendFactors} />}
+      {subpage === 'posteringer' && (
+        <>
+          <p className="lead">
+            Importer posteringer fra finanssystemet. ESG-ansvarliges kontoregler giver hver konto en
+            Scope 3-kategori og en EXIOBASE-faktor, og posteringsreglerne finjusterer enkelte posteringer
+            ud fra et søgeord (se <a href={ledgerHref('regler')}>Regler</a>). Dine
+            egne <a href={ledgerHref('undtagelser')}>undtagelser</a> går forud for begge, og en manuel
+            handling på en postering går forud for alt. En postering medtages eller udelades; medtagne
+            posteringer indgår i deres kategori i Scope 3.
+          </p>
 
-      {ledger.imports.length > 0 && (
-        <section aria-labelledby="imports-heading">
-          <h2 id="imports-heading">Importer</h2>
-          <ul className="plain">
-            {ledger.imports.map((b) => (
-              <li key={b.id}>
-                {b.fileName} · {formatNumber(b.count, 0)} posteringer · {new Date(b.importedAt).toLocaleString('da-DK')}{' '}
-                {(stored.get(b.id) ?? 0) < b.count && (
-                  <span className="warning-text">
-                    Kun {formatNumber(stored.get(b.id) ?? 0, 0)} er gemt. Importen blev afbrudt, før den var gemt: slet den og importér filen igen.{' '}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="link"
-                  onClick={async () => {
-                    if (!(await confirm(`Slet importen ${b.fileName} og dens ${b.count} posteringer?`, 'Slet import'))) return
-                    setLedger((l) => {
-                      const gone = new Set(l.postings.filter((p) => p.importId === b.id).map((p) => p.id))
-                      return {
-                        ...l,
-                        postings: l.postings.filter((p) => p.importId !== b.id),
-                        imports: l.imports.filter((i) => i.id !== b.id),
-                        manual: Object.fromEntries(Object.entries(l.manual).filter(([id]) => !gone.has(id))),
-                      }
-                    })
-                  }}
-                >
-                  Slet import<span className="visually-hidden">: {b.fileName}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
+          <ImportSection
+            onImport={(fileName, rows) =>
+              setLedger((l) => {
+                const importId = newId()
+                const postings = rows.map((r) => ({ ...r, id: newId(), importId }))
+                return { ...l, postings: [...l.postings, ...postings], imports: [...l.imports, { id: importId, fileName, importedAt: new Date().toISOString(), count: postings.length }] }
+              })
+            }
+          />
+
+          {ledger.imports.length > 0 && (
+            <section aria-labelledby="imports-heading">
+              <h2 id="imports-heading">Importer</h2>
+              <ul className="plain">
+                {ledger.imports.map((b) => (
+                  <li key={b.id}>
+                    {b.fileName} · {formatNumber(b.count, 0)} posteringer · {new Date(b.importedAt).toLocaleString('da-DK')}{' '}
+                    {(stored.get(b.id) ?? 0) < b.count && (
+                      <span className="warning-text">
+                        Kun {formatNumber(stored.get(b.id) ?? 0, 0)} er gemt. Importen blev afbrudt, før den var gemt: slet den og importér filen igen.{' '}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={async () => {
+                        if (!(await confirm(`Slet importen ${b.fileName} og dens ${b.count} posteringer?`, 'Slet import'))) return
+                        setLedger((l) => {
+                          const gone = new Set(l.postings.filter((p) => p.importId === b.id).map((p) => p.id))
+                          return {
+                            ...l,
+                            postings: l.postings.filter((p) => p.importId !== b.id),
+                            imports: l.imports.filter((i) => i.id !== b.id),
+                            manual: Object.fromEntries(Object.entries(l.manual).filter(([id]) => !gone.has(id))),
+                          }
+                        })
+                      }}
+                    >
+                      Slet import<span className="visually-hidden">: {b.fileName}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {ledger.postings.length > 0 && (
+            <dl className="tiles" aria-live="polite">
+              <Tile label="Posteringer" value={summary.total} unit="" decimals={0} />
+              <Tile label="Medtaget" value={summary.included} unit="" decimals={0} accent />
+              <Tile label="Udeladt" value={summary.excluded} unit="" decimals={0} />
+              <Tile label="Utagget" value={summary.untagged} unit="" decimals={0} note={summary.manual ? `${summary.manual} håndteret manuelt` : undefined} />
+            </dl>
+          )}
+
+          {ledger.postings.length > 0 && (
+            <PostingsSection
+              classified={classified}
+              postings={ledger.postings}
+              setLedger={setLedger}
+              spendFactors={spendFactors}
+              onSaveRule={(rule) => setLedger((l) => ({ ...l, rules: [...l.rules, rule] }))}
+            />
+          )}
+        </>
       )}
-
-      {ledger.postings.length > 0 && (
-        <dl className="tiles" aria-live="polite">
-          <Tile label="Posteringer" value={summary.total} unit="" decimals={0} />
-          <Tile label="Medtaget" value={summary.included} unit="" decimals={0} accent />
-          <Tile label="Udeladt" value={summary.excluded} unit="" decimals={0} />
-          <Tile label="Utagget" value={summary.untagged} unit="" decimals={0} note={summary.manual ? `${summary.manual} håndteret manuelt` : undefined} />
-        </dl>
-      )}
-
-      <RulesSection ledger={ledger} setLedger={setLedger} classified={classified} spendFactors={spendFactors} focusRuleId={newRuleId} onFocused={() => setNewRuleId(null)} />
-
-      {ledger.postings.length > 0 && <PostingsSection classified={classified} setLedger={setLedger} spendFactors={spendFactors} onCreateRule={createTextRule} />}
     </>
   )
 }
@@ -269,11 +289,18 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
 
 const PAGE = 200
 
-function PostingsSection({ classified, setLedger, spendFactors, onCreateRule }: {
-  classified: ClassifiedPosting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; spendFactors: Factor[]
-  onCreateRule: (text: string, category: number | null) => void
+function PostingsSection({ classified, postings, setLedger, spendFactors, onSaveRule }: {
+  classified: ClassifiedPosting[]; postings: readonly Posting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; spendFactors: Factor[]
+  onSaveRule: (rule: Rule) => void
 }) {
   const id = useId()
+  /** An exception being made from a posting's text, and the posting it came from: nothing is saved until Gem */
+  const [draft, setDraft] = useState<{ rule: Rule; postingId: string } | null>(null)
+  const [savedRule, setSavedRule] = useState<string | null>(null)
+  const closeDraft = (postingId: string) => {
+    setDraft(null)
+    requestAnimationFrame(() => document.getElementById(`${id}-${postingId}-rule`)?.focus())
+  }
   /** The posting whose factor is being picked, and where focus goes back to after */
   const [picking, setPicking] = useState<ClassifiedPosting | null>(null)
   const returnTo = useRef<string | null>(null)
@@ -361,6 +388,22 @@ function PostingsSection({ classified, setLedger, spendFactors, onCreateRule }: 
           <button type="button" className="secondary" disabled={!isFiltered(filter)} onClick={() => { setFilter(emptyPostingFilter); document.getElementById(`${id}-search`)?.focus() }}>Nulstil filtre</button>
         </div>
       </div>
+      {draft && (
+        <RuleEditor
+          key={draft.rule.id}
+          rule={draft.rule}
+          title="Ny undtagelse ud fra posteringsteksten"
+          postings={postings}
+          spendFactors={spendFactors}
+          onSave={(rule) => { onSaveRule(rule); setSavedRule(rule.name); closeDraft(draft.postingId) }}
+          onCancel={() => closeDraft(draft.postingId)}
+        />
+      )}
+      {savedRule && (
+        <p className="muted" role="status">
+          Undtagelsen «{savedRule}» er gemt. Den kan ses og rettes under <a href={ledgerHref('undtagelser')}>Undtagelser</a>.
+        </p>
+      )}
       <p className="muted" role="status">
         {isFiltered(filter) ? `${formatNumber(shown.length, 0)} af ${formatNumber(classified.length, 0)} posteringer passer på filtrene.` : `${formatNumber(classified.length, 0)} posteringer.`}
       </p>
@@ -391,7 +434,7 @@ function PostingsSection({ classified, setLedger, spendFactors, onCreateRule }: 
                       {p.text.trim() && (
                         <>
                           {' '}
-                          <button type="button" className="link" onClick={() => onCreateRule(p.text, c.category)}>
+                          <button type="button" className="link" id={`${id}-${p.id}-rule`} onClick={() => { setSavedRule(null); setDraft({ rule: textRule(p.text, c.category), postingId: p.id }) }}>
                             Opret regel<span className="visually-hidden">: posteringstekst indeholder {p.text}</span>
                           </button>
                         </>

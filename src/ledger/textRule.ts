@@ -18,3 +18,8 @@ export function textRule(text: string, category: number | null): Rule {
     reason: '',
   }
 }
+
+/** A new, empty exception, the `n`th. */
+export const blankException = (n: number): Rule => ({
+  id: newId(), name: `Undtagelse ${n}`, type: 'tag', active: true, conditions: [{ id: newId(), field: 'account', operator: 'is', value: '' }], factorId: null, category: 1, reason: '',
+})
