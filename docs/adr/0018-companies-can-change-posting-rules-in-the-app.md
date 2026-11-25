@@ -21,7 +21,7 @@ tables, which made a long list hard to scan.
 
 1. **A posting rule can be changed per company, from Kontoplan.** Each row in *Posteringsregler*
    has *Rediger*, which opens an editor under the row. A change sets the rule's handling (Udelad,
-   Medtag, Medtag – review, Afventer), factor, the category it moves postings to, and reason.
+   Medtag, Medtag – review, Afventer; since ADR 0036 only Udelad and Medtag), factor, the category it moves postings to, and reason.
    The search word, priority and the category it applies to stay as approved, so a change can't
    widen what the rule matches.
 2. **The approved rule stays in code** (`src/data/scope3Rules.ts`, ADR 0015). A change is stored

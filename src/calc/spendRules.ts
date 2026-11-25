@@ -25,8 +25,12 @@ export type AccountRule = {
   reason: string
 }
 
-/** Handling: exclude, include, include but flag for review, or wait for a decision. */
-export type PostingHandling = 'exclude' | 'include' | 'review' | 'pending'
+/**
+ * Handling: include or exclude, nothing in between (docs/adr/0036). The ESG owner's rule files
+ * and older saved changes also have "Medtag – review", read as include, and "Afventer", read as
+ * exclude.
+ */
+export type PostingHandling = 'exclude' | 'include'
 
 /** One row of posteringsregler.csv. */
 export type PostingRule = {
@@ -72,6 +76,11 @@ export function parseScope3Category(value: string): number | null {
 export const handlingLabels: Record<PostingHandling, string> = {
   exclude: 'Udelad',
   include: 'Medtag',
-  review: 'Medtag – review',
-  pending: 'Afventer',
+}
+
+/** A stored or seeded handling, with the retired ones mapped: review → include, pending → exclude. Anything else → null. */
+export function toHandling(value: unknown): PostingHandling | null {
+  if (value === 'include' || value === 'review') return 'include'
+  if (value === 'exclude' || value === 'pending') return 'exclude'
+  return null
 }

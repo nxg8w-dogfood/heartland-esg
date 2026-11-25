@@ -23,7 +23,7 @@ type Props = {
   setLedger: Dispatch<SetStateAction<LedgerState>>
 }
 
-const statusClass = (s: PostingStatus) => (s === 'review' ? 'warning-text' : s === 'pending' || s === 'untagged' ? 'pending' : undefined)
+const statusClass = (s: PostingStatus) => (s === 'untagged' ? 'pending' : undefined)
 const inPeriod = (date: string, period: Period) => date !== '' && date >= period.start && date <= period.end
 
 const PAGE = 200
@@ -58,7 +58,7 @@ export function LedgerPostingsSection({ category, classified, results, period, f
       <h2 id={`${id}-heading`}>Posteringer fra kontoplanen</h2>
       <p className="muted">
         Posteringer importeret på <a href="#/kontoplan">Kontoplan</a> tagges hertil af kontoreglerne
-        og posteringsreglerne. Medtaget og til review tæller med; afventer og udeladt gør ikke. En
+        og posteringsreglerne. Medtagne posteringer tæller med, udeladte gør ikke. En
         undtagelse kan gælde én postering, og går så forud for kontoreglen og alle andre regler,
         eller alle posteringer, der matcher. Begge kan ses og rettes på Kontoplan.
       </p>
@@ -68,15 +68,13 @@ export function LedgerPostingsSection({ category, classified, results, period, f
         <>
           <dl className="tiles" aria-live="polite">
             <Tile label="Medtaget" value={count('included')} unit="" decimals={0} />
-            <Tile label="Til review" value={count('review')} unit="" decimals={0} />
-            <Tile label="Afventer" value={count('pending')} unit="" decimals={0} />
             <Tile label="Udeladt" value={count('excluded')} unit="" decimals={0} />
           </dl>
           <div className="field">
             <label htmlFor={`${id}-filter`}>Vis</label>
             <select id={`${id}-filter`} value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
               <option value="all">Alle ({mine.length})</option>
-              {(['included', 'review', 'pending', 'excluded'] as const).map((s) => <option key={s} value={s}>{postingStatusLabels[s]} ({count(s)})</option>)}
+              {(['included', 'excluded'] as const).map((s) => <option key={s} value={s}>{postingStatusLabels[s]} ({count(s)})</option>)}
             </select>
           </div>
           <div className="table-wrap" ref={table}>

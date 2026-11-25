@@ -18,7 +18,7 @@ function row(p: Partial<Posting>, c: Partial<Omit<ClassifiedPosting, 'posting'>>
 const fx = row({ text: 'FX nr. 6506 DKK/GBP 5.600.000', currency: 'GBP' })
 const train = row({ date: '2026-03-02', account: '240003', accountName: 'Transport', supplier: 'DSB Netbutik', text: 'Billet København–Aarhus' }, { status: 'included', hit: { kind: 'posting', rule: dsb }, category: 6, factorId: 'f-exio-rail' })
 const taxi = row({ date: '2026-03-31', account: '240003', accountName: 'Transport', supplier: 'Taxa 4x35', text: 'Kørsel' }, { status: 'included', hit: { kind: 'account', rule: accountRule }, category: 6 })
-const manual = row({ date: '', account: '210013', accountName: 'Konsulent', supplier: 'Deloitte', text: 'Rådgivning' }, { status: 'review', hit: { kind: 'manual' }, category: 1 })
+const manual = row({ date: '', account: '210013', accountName: 'Konsulent', supplier: 'Deloitte', text: 'Rådgivning' }, { status: 'included', hit: { kind: 'manual' }, category: 1 })
 const all = [fx, train, taxi, manual]
 const ids = (f: Partial<PostingFilter>) => filterPostings(all, { ...emptyPostingFilter, ...f }).map((c) => c.posting.id)
 
@@ -39,7 +39,7 @@ describe('filterPostings', () => {
   })
 
   it('filters by status, account, category, rule and currency', () => {
-    expect(ids({ status: 'included' })).toEqual([train.posting.id, taxi.posting.id])
+    expect(ids({ status: 'included' })).toEqual([train.posting.id, taxi.posting.id, manual.posting.id])
     expect(ids({ account: '240003' })).toEqual([train.posting.id, taxi.posting.id])
     expect(ids({ category: '6' })).toEqual([train.posting.id, taxi.posting.id])
     expect(ids({ category: 'none' })).toEqual([fx.posting.id])

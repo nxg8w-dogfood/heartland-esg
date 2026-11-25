@@ -46,7 +46,7 @@ describe('the rules on Kontoplan', () => {
     const r = row(html, 'R33')
     expect(r).toContain('<td>Medtag</td>')
     expect(r).toContain('Other business services')
-    expect(r).toContain('Ændret 13.11.2026 · godkendt: Afventer')
+    expect(r).toContain('Ændret 13.11.2026 · godkendt: Udelad')
     expect(row(html, 'R34')).toContain('Godkendt')
   })
 })

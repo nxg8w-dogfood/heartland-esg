@@ -255,15 +255,13 @@ export type ManualAction = {
 }
 
 /**
- * Included and for review count in the climate account; for review is flagged for someone to
- * confirm. Pending waits for a decision and doesn't count yet. Untagged has no rule at all.
+ * Included counts in the climate account, excluded doesn't (docs/adr/0036). Untagged has no rule
+ * at all: its account isn't in the account rules.
  */
-export type PostingStatus = 'included' | 'review' | 'pending' | 'excluded' | 'untagged'
+export type PostingStatus = 'included' | 'excluded' | 'untagged'
 
 export const postingStatusLabels: Record<PostingStatus, string> = {
   included: 'Medtaget',
-  review: 'Til review',
-  pending: 'Afventer',
   excluded: 'Udeladt',
   untagged: 'Utagget',
 }
@@ -336,7 +334,7 @@ export function ruleMatches(rule: Rule, posting: Posting): boolean {
   return filled.length > 0 && filled.every((c) => conditionMatches(c, posting))
 }
 
-const statusFor: Record<PostingHandling, PostingStatus> = { exclude: 'excluded', include: 'included', review: 'review', pending: 'pending' }
+const statusFor: Record<PostingHandling, PostingStatus> = { exclude: 'excluded', include: 'included' }
 
 /**
  * Decides one posting, in this order (docs/adr/0015):
@@ -347,9 +345,8 @@ const statusFor: Record<PostingHandling, PostingStatus> = { exclude: 'excluded',
  * 4. for an included account, the first posting rule by priority (with the company's change to it,
  *    if any) whose search word is in the
  *    posting's text or supplier, and that applies to the account's category. It can exclude the
- *    posting, override its factor, move it to another category, or flag it for review or as
- *    pending;
- * 5. otherwise the account rule: included, or for review when its basis is an estimate to confirm.
+ *    posting, or include it, overriding its factor or moving it to another category;
+ * 5. otherwise the account rule: included.
  */
 export function classify(posting: Posting, rules: readonly Rule[], manual: ReadonlyMap<string, ManualAction>, book: RuleBook = builtinRuleBook): ClassifiedPosting {
   const accountRule = book.accountRules.find((r) => r.account === posting.account.trim()) ?? null
@@ -386,7 +383,7 @@ export function classify(posting: Posting, rules: readonly Rule[], manual: Reado
     }
   }
   return {
-    posting, status: accountRule.basis === 'Skøn – bekræft' ? 'review' : 'included', hit: { kind: 'account', rule: accountRule },
+    posting, status: 'included', hit: { kind: 'account', rule: accountRule },
     factorId: book.factorFor(accountRule.factorCode), category: accountRule.category, reason: accountRule.reason,
   }
 }
@@ -401,7 +398,7 @@ export function classifyLedger(
 }
 
 /** Counts in the climate account */
-export const counts = (c: ClassifiedPosting) => c.status === 'included' || c.status === 'review'
+export const counts = (c: ClassifiedPosting) => c.status === 'included'
 
 /** The rule that hit, in a few words, e.g. "R10 «DSB »", "R33 «Dorte Mandrup» (ændret)" or "Kontoregel 240003". */
 export function hitLabel(hit: RuleHit): string {
@@ -417,7 +414,7 @@ export function hitLabel(hit: RuleHit): string {
 export type LedgerSummary = Record<PostingStatus, number> & { total: number; manual: number }
 
 export function ledgerSummary(classified: readonly ClassifiedPosting[]): LedgerSummary {
-  const s: LedgerSummary = { total: classified.length, included: 0, review: 0, pending: 0, excluded: 0, untagged: 0, manual: 0 }
+  const s: LedgerSummary = { total: classified.length, included: 0, excluded: 0, untagged: 0, manual: 0 }
   for (const c of classified) {
     s[c.status] += 1
     if (c.hit.kind === 'manual') s.manual += 1
@@ -449,7 +446,7 @@ export function ledgerSpendLines(classified: readonly ClassifiedPosting[], categ
         group: {
           id: group,
           label: p.accountName || `Konto ${p.account}`,
-          sector: `${hitLabel(c.hit)}${c.status === 'review' ? ' · til review' : ''}`,
+          sector: hitLabel(c.hit),
           factorId: c.factorId ?? '',
         },
       }

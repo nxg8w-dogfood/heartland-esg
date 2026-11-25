@@ -92,9 +92,9 @@ describe('parseAccount', () => {
     const a = emptyAccount()
     const e = (o: Record<string, unknown>) => ({ id: String(o.id), ruleId: 'R33', handling: 'include', factorId: null, moveTo: null, reason: 'x', editedOn: '2026-11-13', ...o })
     const r = parseAccount({ ...a, ledger: { ...a.ledger, ruleEdits: [
-      e({ id: 'a' }), e({ id: 'b', handling: 'review' }), e({ id: 'c', ruleId: 'R34', handling: 'maybe' }), e({ id: 'd', ruleId: 'R35', moveTo: 16 }), e({ id: 'f', ruleId: 'R36', reason: undefined }),
+      e({ id: 'a' }), e({ id: 'b', handling: 'review' }), e({ id: 'c', ruleId: 'R34', handling: 'maybe' }), e({ id: 'g', ruleId: 'R37', handling: 'pending' }), e({ id: 'd', ruleId: 'R35', moveTo: 16 }), e({ id: 'f', ruleId: 'R36', reason: undefined }),
     ] } })
-    expect(r.ok && r.account.ledger.ruleEdits.map((x) => [x.id, x.handling, x.reason])).toEqual([['b', 'review', 'x'], ['f', 'include', '']])
+    expect(r.ok && r.account.ledger.ruleEdits.map((x) => [x.id, x.handling, x.reason])).toEqual([['b', 'include', 'x'], ['g', 'exclude', 'x'], ['f', 'include', '']])
   })
 
   it('reads an account saved before rule changes existed', () => {

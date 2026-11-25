@@ -65,8 +65,8 @@ describe('parsePostingRules', () => {
   ].join('\n')
   const rules = parsePostingRules(text)
 
-  it('sorts by priority and maps the handling', () => {
-    expect(rules.map((r) => [r.id, r.handling])).toEqual([['R01', 'exclude'], ['R10', 'include'], ['R19', 'review'], ['R23', 'include'], ['R25', 'pending']])
+  it('sorts by priority and maps the handling, review to include and pending to exclude', () => {
+    expect(rules.map((r) => [r.id, r.handling])).toEqual([['R01', 'exclude'], ['R10', 'include'], ['R19', 'include'], ['R23', 'include'], ['R25', 'exclude']])
   })
 
   it('keeps the search word exactly, trailing space included', () => {

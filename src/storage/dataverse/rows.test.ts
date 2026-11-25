@@ -60,7 +60,7 @@ function richAccount(): AccountData {
         { id: 'r-b', name: 'Bank', type: 'exclude', active: false, conditions: [{ id: 'c2', field: 'account', operator: 'startsWith', value: '10' }], factorId: null, category: 1, reason: 'Ikke klimarelevant' },
       ],
       ruleEdits: [
-        { id: 're-a', ruleId: 'R23', handling: 'review', factorId: null, moveTo: null, reason: 'Gebyr — tjek', editedOn: '2026-11-13' },
+        { id: 're-a', ruleId: 'R23', handling: 'exclude', factorId: null, moveTo: null, reason: 'Gebyr — tjek', editedOn: '2026-11-13' },
         { id: 're-b', ruleId: 'R33', handling: 'include', factorId: 'f-exio-obs-dk', moveTo: 1, reason: 'Arkitektrådgivning', editedOn: '2026-11-13' },
       ],
       manual: { 'p-b': { postingId: 'p-b', type: 'exclude', factorId: null, category: null, reason: 'Intern' } },
