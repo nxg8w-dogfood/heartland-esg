@@ -55,7 +55,9 @@ A posting is only ever included or excluded (ADR 0036): the files' *Medtag – r
 *Medtag*, and *Afventer* as *Udelad*.
 
 A company can also change a posting rule's handling, factor and category on **Kontoplan →
-Regler → Posteringsregler → Rediger** (ADR 0018). That change is the company's own; the approved
+Regler → Posteringsregler → Rediger** (ADR 0018). Kontoplan has three tabs: *Posteringer*
+(import and the posting list), *Regler* (the ESG owner's rules) and *Undtagelser* (the
+company's own), each rule table with its own filters. That change is the company's own; the approved
 rule stays in the file and can be restored. Account rules change only through the file.
 
 ### Category 15 from the group's consolidation system

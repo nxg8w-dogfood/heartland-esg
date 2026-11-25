@@ -20,6 +20,7 @@ import { factorsSubpageFromHash, type FactorsSubpageId } from './factors/subpage
 import { GroupPage } from './group/GroupPage'
 import { CompanyOverviewPage } from './overview/CompanyOverviewPage'
 import { LedgerPage } from './ledger/LedgerPage'
+import { ledgerSubpageFromHash, type LedgerSubpageId } from './ledger/subpages'
 import type { LedgerState } from './ledger/state'
 import { Scope1Header } from './scope1/Scope1Header'
 import { Scope1Page } from './scope1/Scope1Page'
@@ -209,7 +210,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
           {page === 'koncern' ? (
             <GroupPage group={group} setGroup={setGroup} period={period} />
           ) : (
-            <Workspace key={active.id} page={page} period={range} scope1Subpage={scope1SubpageFromHash(hash)} scope3Subpage={scope3SubpageFromHash(hash)} factorsSubpage={factorsSubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
+            <Workspace key={active.id} page={page} period={range} scope1Subpage={scope1SubpageFromHash(hash)} scope3Subpage={scope3SubpageFromHash(hash)} factorsSubpage={factorsSubpageFromHash(hash)} ledgerSubpage={ledgerSubpageFromHash(hash)} initial={active.account} onChange={onAccountChange} />
           )}
         </main>
       </DocumentsContext.Provider>
@@ -218,7 +219,7 @@ function GroupApp({ store, initial, initialMessage, onReplace }: { store: GroupS
 }
 
 /** One company's pages. Reports every change to its account upwards. */
-function Workspace({ page, period, scope1Subpage, scope3Subpage, factorsSubpage, initial, onChange }: { page: CompanyPageId; period: Period; scope1Subpage: Scope1SubpageId; scope3Subpage: Scope3SubpageId; factorsSubpage: FactorsSubpageId; initial: AccountData; onChange: (account: AccountData) => void }) {
+function Workspace({ page, period, scope1Subpage, scope3Subpage, factorsSubpage, ledgerSubpage, initial, onChange }: { page: CompanyPageId; period: Period; scope1Subpage: Scope1SubpageId; scope3Subpage: Scope3SubpageId; factorsSubpage: FactorsSubpageId; ledgerSubpage: LedgerSubpageId; initial: AccountData; onChange: (account: AccountData) => void }) {
   // Periods are edited on the Koncern page, which this isn't shown with, so they pass through.
   const [periods] = useState(initial.periods)
   const [scope1Lines, setScope1Lines] = useState<Scope1Line[]>(initial.scope1Lines)
@@ -318,7 +319,7 @@ function Workspace({ page, period, scope1Subpage, scope3Subpage, factorsSubpage,
           setLedger={setLedger}
         />
       )}
-      {page === 'kontoplan' && <LedgerPage ledger={ledger} setLedger={setLedger} factors={factors} />}
+      {page === 'kontoplan' && <LedgerPage ledger={ledger} setLedger={setLedger} factors={factors} subpage={ledgerSubpage} />}
       {page === 'faktorer' && (
         <>
           <FactorsHeader subpage={factorsSubpage} />
