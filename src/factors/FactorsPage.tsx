@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useId, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useState } from 'react'
 import type { Factor } from '../data/factors'
 import { derivedFactors } from '../data/derivedFactors'
-import { isMunicipalityGrid } from '../data/municipalityGridFactors'
 import type { FactorPublication } from '../data/factorPublications'
 import { apiProviders, sourceOptions, type FactorSourceChoice, type FactorSources } from '../calc/factorSources'
 import { formatDate, formatFactor } from '../format'
+import { factorRegions, factorYear, matchesQuery } from '../calc/factorSearch'
 import { InfoTip } from '../ui'
 import { ManualEntry } from './ManualEntry'
 
@@ -18,36 +18,58 @@ type Props = {
   onChoose: (id: string, choice: FactorSourceChoice) => void
 }
 
+const PAGE = 100
+
 export function FactorsPage({ base, factors, publications, sources, onChoose }: Props) {
+  const id = useId()
   const pending = factors.filter((f) => f.value === null)
-  const pendingIds = new Set(pending.map((f) => f.id))
-  const scopes = ['Scope 1', 'Scope 2', 'Scope 3'] as const
-  // The open folds. A fold's table, with a source picker on every row, is drawn only once it's
-  // opened: the factors per municipality alone are hundreds of rows.
+  // The open folds above the table: pending factors, publications and API sources.
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const toggle = (key: string, isOpen: boolean) =>
     setOpen((o) => (o.has(key) === isOpen ? o : isOpen ? new Set(o).add(key) : new Set([...o].filter((k) => k !== key))))
   // The factors whose details are unfolded below their row.
   const [shown, setShown] = useState<ReadonlySet<string>>(new Set())
+  // One table of every factor, whatever its scope (Heartland, 2026-11-25), narrowed by search and
+  // filters and drawn a page at a time: with a source picker on every row, 546 rows at once is slow.
+  const [query, setQuery] = useState('')
+  const [region, setRegion] = useState('')
+  const [unit, setUnit] = useState('')
+  const [limit, setLimit] = useState(PAGE)
   const [jumpTo, setJumpTo] = useState<string | null>(null)
   useEffect(() => {
     if (!jumpTo) return
     document.getElementById(`factor-${jumpTo}`)?.scrollIntoView()
     setJumpTo(null)
   }, [jumpTo])
-  const groupKey = (f: Factor) => (isMunicipalityGrid(f) ? `${f.scope}|kommune` : `${f.scope}|${f.category}`)
+  const sorted = useMemo(() => [...base].sort((x, y) =>
+    x.name.localeCompare(y.name, 'da') || x.region.localeCompare(y.region, 'da') || (x.validFrom ?? '').localeCompare(y.validFrom ?? '')), [base])
+  const regions = useMemo(() => factorRegions(base), [base])
+  const units = useMemo(() => [...new Set(base.map((f) => f.unit))].sort((x, y) => x.localeCompare(y, 'da')), [base])
+  const found = useMemo(
+    () => sorted.filter((f) => (!region || f.region === region) && (!unit || f.unit === unit) && matchesQuery(`${f.name} ${f.source} ${f.region} ${f.id}`, query)),
+    [sorted, region, unit, query],
+  )
+  const filtered = query !== '' || region !== '' || unit !== ''
+  const showFactor = (f: Factor) => {
+    setQuery(f.id)
+    setRegion('')
+    setUnit('')
+    setShown((o) => new Set(o).add(f.id))
+    setJumpTo(f.id)
+  }
 
   const table = (list: readonly Factor[]) => (
     <div className="table-wrap">
       <table>
+        <caption className="visually-hidden">Emissionsfaktorer</caption>
         <thead>
           <tr>
-            <th scope="col">Faktor</th>
-            <th scope="col" className="num">Værdi</th>
-            <th scope="col">Enhed</th>
             <th scope="col">Kilde</th>
-            <th scope="col">Gyldig</th>
+            <th scope="col">Navn</th>
+            <th scope="col" className="num">Faktor</th>
+            <th scope="col">Enhed</th>
             <th scope="col" className="num">Faktorår</th>
+            <th scope="col">Værdien kommer fra</th>
           </tr>
         </thead>
         <tbody>
@@ -57,6 +79,7 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
             return (
               <Fragment key={f.id}>
                 <tr id={`factor-${f.id}`} className={expanded ? 'factor-row expanded' : 'factor-row'}>
+                  <td>{applied.source}</td>
                   <th scope="row">
                     <button
                       type="button"
@@ -69,17 +92,16 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
                       {f.name}
                     </button>
                     {f.note && <> <InfoTip label={`Note om ${f.name}, ${f.region}`}>{f.note}</InfoTip></>}
-                    <span className="sub">{f.region}</span>
+                    <span className="sub">{[f.region, f.scope].filter(Boolean).join(' · ')}</span>
                   </th>
                   <td className="num">
                     {applied.value === null ? <span className="pending">Afventer</span> : formatFactor(applied.value)}
                   </td>
                   <td>{f.unit}</td>
+                  <td className="num">{factorYear(f) ?? '—'}</td>
                   <td>
                     <SourcePicker key={optionKey(sources[f.id])} factor={f} publications={publications} choice={sources[f.id]} onChoose={(c) => onChoose(f.id, c)} />
                   </td>
-                  <td>{validity(f)}</td>
-                  <td className="num">{f.priceYear ?? '—'}</td>
                 </tr>
                 {expanded && (
                   <tr id={`factor-${f.id}-details`} className="factor-details">
@@ -95,24 +117,6 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
       </table>
     </div>
   )
-
-  // A fold of factors: its name and counts on one line, the table once opened.
-  const fold = (key: string, title: string, list: readonly Factor[], note?: string) => {
-    const waiting = list.filter((f) => pendingIds.has(f.id)).length
-    return (
-      <details key={key} className="fold" open={open.has(key)} onToggle={(e) => toggle(key, e.currentTarget.open)}>
-        <summary>
-          <span className="fold-title">{title}</span>
-          {note && <> <InfoTip label={`Om ${title}`}>{note}</InfoTip></>}
-          <span className="fold-count">
-            {list.length} {list.length === 1 ? 'faktor' : 'faktorer'}
-            {waiting > 0 && <span className="pending">{waiting} afventer</span>}
-          </span>
-        </summary>
-        {open.has(key) && table(list)}
-      </details>
-    )
-  }
 
   return (
     <>
@@ -135,7 +139,7 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
             <ul className="plain pending-list">
               {pending.map((f) => (
                 <li key={f.id}>
-                  <a href={`#factor-${f.id}`} onClick={(e) => { e.preventDefault(); toggle(groupKey(f), true); setJumpTo(f.id) }}>
+                  <a href={`#factor-${f.id}`} onClick={(e) => { e.preventDefault(); showFactor(f) }}>
                     {f.name}
                   </a>{' '}
                   <span className="muted">{f.region}</span>
@@ -194,25 +198,45 @@ export function FactorsPage({ base, factors, publications, sources, onChoose }: 
         </details>
       </div>
 
-      {scopes.map((scope) => {
-        const own = base.filter((f) => f.scope === scope && !isMunicipalityGrid(f))
-        const perMunicipality = base.filter((f) => f.scope === scope && isMunicipalityGrid(f))
-        const categories = [...new Set(own.map((f) => f.category))]
-        return (
-          <section key={scope} aria-labelledby={`factors-${scope}`}>
-            <h2 id={`factors-${scope}`}>{scope}</h2>
-            <div className="folds">
-              {categories.map((c) => fold(`${scope}|${c}`, c, own.filter((f) => f.category === c)))}
-              {perMunicipality.length > 0 && fold(
-                `${scope}|kommune`,
-                'Elmiks pr. kommune',
-                perMunicipality,
-                'Energinets lokationsbaserede deklaration for hver kommune og hvert år. En lokation med en kommune bruger kommunens faktor; år uden den bruger prisområdets.',
-              )}
-            </div>
-          </section>
-        )
-      })}
+      <section aria-labelledby={`${id}-heading`}>
+        <h2 id={`${id}-heading`}>Alle faktorer</h2>
+        <div className="location-settings" role="search" aria-label="Filtrer faktorer">
+          <div className="field wide">
+            <label htmlFor={`${id}-q`}>Søg</label>
+            <input id={`${id}-q`} type="search" value={query} onChange={(e) => { setQuery(e.target.value); setLimit(PAGE) }} aria-describedby={`${id}-hint`} />
+            <span id={`${id}-hint`} className="muted">Navn, kilde, land eller faktor-ID. Flere ord skal alle passe.</span>
+          </div>
+          <div className="field">
+            <label htmlFor={`${id}-region`}>Land/område</label>
+            <select id={`${id}-region`} value={region} onChange={(e) => { setRegion(e.target.value); setLimit(PAGE) }}>
+              <option value="">Alle</option>
+              {regions.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor={`${id}-unit`}>Enhed</label>
+            <select id={`${id}-unit`} value={unit} onChange={(e) => { setUnit(e.target.value); setLimit(PAGE) }}>
+              <option value="">Alle</option>
+              {units.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div className="field end">
+            <button type="button" className="secondary" disabled={!filtered} onClick={() => { setQuery(''); setRegion(''); setUnit(''); setLimit(PAGE); document.getElementById(`${id}-q`)?.focus() }}>Nulstil filtre</button>
+          </div>
+        </div>
+        <p className="muted" role="status">
+          {filtered ? `${found.length} af ${base.length} faktorer passer på filtrene.` : `${base.length} faktorer.`}
+          {found.length > limit && ` Viser de første ${limit}.`}
+        </p>
+        {found.length > 0 && table(found.slice(0, limit))}
+        {found.length > limit && (
+          <p>
+            <button type="button" className="secondary" onClick={() => setLimit((l) => l + PAGE)}>
+              Vis {Math.min(PAGE, found.length - limit)} mere
+            </button>
+          </p>
+        )}
+      </section>
     </>
   )
 }

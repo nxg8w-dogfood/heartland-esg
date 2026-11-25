@@ -6,23 +6,33 @@ import { FactorDetails, FactorsPage } from './FactorsPage'
 const render = () => renderToStaticMarkup(<FactorsPage base={factors} factors={factors} publications={[]} sources={{}} onChoose={() => {}} />)
 const titles = (html: string) => [...html.matchAll(/<span class="fold-title">([^<]*)<\/span>/g)].map((m) => m[1])
 
-it('folds the factors by category, each closed and drawn only when opened', () => {
+it('lists every factor in one table, not split by scope, a page at a time', () => {
   const html = render()
-  expect(titles(html)).toContain('El (location-based)')
-  expect(titles(html)).toContain('Elmiks pr. kommune')
-  expect(titles(html)).toContain('Spendfaktor (EXIOBASE)')
-  expect(html).toContain('392 faktorer')
-  expect(html).not.toContain(' open=')
-  expect(html).not.toContain('factor-f-s2-el-kommune-101-2025')
-  expect(html).not.toContain('id="factor-f-s2-el-dk1-2025"')
+  expect(html).toContain('<h2 id="_R_')
+  expect(html).not.toMatch(/<h2[^>]*>Scope [123]<\/h2>/)
+  expect(html).toContain(`${factors.length} faktorer. Viser de første 100.`)
+  expect(html.match(/class="factor-row"/g)).toHaveLength(100)
+  expect(html).toContain('>Vis 100 mere</button>')
 })
 
-it('folds the pending factors, the publications and the API sources too', () => {
-  expect(titles(render()).slice(0, 3)).toEqual(['Afventer en kilde', 'Publikationer', 'API-kilder'])
+it('has columns for source, name, factor, unit and factor year', () => {
+  const html = render()
+  expect(html).toContain('<th scope="col">Kilde</th><th scope="col">Navn</th><th scope="col" class="num">Faktor</th><th scope="col">Enhed</th><th scope="col" class="num">Faktorår</th><th scope="col">Værdien kommer fra</th>')
+  // An EXIOBASE factor's year is its price year; its scope is shown with its country.
+  const row = html.slice(html.indexOf('<tr id="factor-f-exio-air"'), html.indexOf('</tr>', html.indexOf('<tr id="factor-f-exio-air"')))
+  expect(row).toContain('<td>Afventer indtastning — må ikke gættes</td>')
+  expect(row).toContain('<span class="sub">Danmark · Scope 3</span></th><td class="num"><span class="pending">Afventer</span></td><td>kg CO2e/EUR</td><td class="num">2021</td>')
 })
 
-it('shows how many factors in a fold await a source', () => {
-  expect(render()).toMatch(/Flugtige udledninger<\/span><span class="fold-count">2 faktorer<span class="pending">1 afventer<\/span>/)
+it('can be searched and filtered by country and unit', () => {
+  const html = render()
+  expect(html).toContain('role="search" aria-label="Filtrer faktorer"')
+  expect(html).toMatch(/<label for="[^"]+-region">Land\/område<\/label>/)
+  expect(html).toContain('<option value="kg CO2e/EUR">kg CO2e/EUR</option>')
+})
+
+it('folds the pending factors, the publications and the API sources above the table', () => {
+  expect(titles(render())).toEqual(['Afventer en kilde', 'Publikationer', 'API-kilder'])
 })
 
 it('keeps notes behind a tooltip, hidden until asked for', () => {
