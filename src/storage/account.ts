@@ -180,7 +180,7 @@ export function parseAccount(input: unknown): LoadResult {
     // A factor id that isn't text is dropped, so the holding falls back to its own factor. Holdings
     // saved before the investment amount existed have none, only imported ones have an
     // OrganizationID and business area, and only one bought or sold during the year has owned dates.
-    investments: list<Investment>(input.investments).map(({ factorId, organizationId, businessArea, ownedFrom, ownedTo, ...i }) => ({
+    investments: list<Investment>(input.investments).map(({ factorId, organizationId, businessArea, ownedFrom, ownedTo, excluded, excludedReason, complete, ...i }) => ({
       ...i,
       investmentDKK: typeof i.investmentDKK === 'number' && Number.isFinite(i.investmentDKK) ? i.investmentDKK : null,
       ...(typeof factorId === 'string' && factorId ? { factorId } : {}),
@@ -188,6 +188,8 @@ export function parseAccount(input: unknown): LoadResult {
       ...(typeof businessArea === 'string' && businessArea ? { businessArea } : {}),
       ...(isIsoDate(ownedFrom) ? { ownedFrom } : {}),
       ...(isIsoDate(ownedTo) ? { ownedTo } : {}),
+      ...(excluded === true ? { excluded, excludedReason: typeof excludedReason === 'string' ? excludedReason : '' } : {}),
+      ...(complete === true ? { complete } : {}),
     })),
     deflation: isObject(input.deflation) && Array.isArray(input.deflation.series)
       ? { ...noDeflation, ...(input.deflation as Partial<Deflation>) }

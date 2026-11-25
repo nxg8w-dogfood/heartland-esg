@@ -1532,3 +1532,17 @@ td button.factor-search-button {
 .card .documents {
   margin-top: var(--hl-sp-4);
 }
+
+/* A holding's status on its folded line: Færdig in the success colour, Ikke færdig muted. */
+.investment-status {
+  color: var(--hl-text-muted);
+}
+
+.investment-status.done {
+  color: var(--hl-success);
+  font-weight: var(--hl-fw-bold);
+}
+
+.investment-decision {
+  margin-bottom: var(--hl-sp-4);
+}

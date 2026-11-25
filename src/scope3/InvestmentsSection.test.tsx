@@ -25,7 +25,7 @@ describe('InvestmentsSection', () => {
   it('folds each holding to one line with its name, year, ownership and tCO2e at the right, in bold', () => {
     const html = render([holding({})])
     expect(html).toContain('<details class="card investment-details">')
-    expect(html).toMatch(/<summary><span class="investment-name">Delejet ApS<\/span><span class="muted"> · 2025\/26 · 40,00 %<\/span><strong class="investment-value">400,000 tCO2e<\/strong><\/summary>/)
+    expect(html).toMatch(/<summary><span class="investment-name">Delejet ApS<\/span><span class="muted"> · 2025\/26 · 40,00 %<\/span><span class="investment-status"> · Ikke færdig<\/span><strong class="investment-value">400,000 tCO2e<\/strong><\/summary>/)
   })
 
   it('shows no value on the folded line while something is missing', () => {
@@ -38,7 +38,7 @@ describe('InvestmentsSection', () => {
   })
 
   it('says in the folded line what is missing', () => {
-    expect(render([onRevenue()])).toMatch(/<summary>.*· Faktor mangler<\/span><\/summary>/)
+    expect(render([onRevenue()])).toMatch(/<summary>.*· Faktor mangler — tæller ikke med<\/span><span class="investment-status"> · Ikke færdig<\/span><\/summary>/)
   })
 
   it('offers the factor search, and a factor of its own', () => {
@@ -55,7 +55,7 @@ describe('InvestmentsSection', () => {
     // 7.475.200 DKK = 1.000.000 EUR × 0,0768 × 40 % = 30,72 t for the whole year
     expect(render([onRevenue({ factorId: 'f-exio-obs-se' })])).toContain('<strong class="investment-value">30,720 tCO2e</strong></summary>')
     const missing = render([onRevenue({ factorId: 'f-exio-computer' })])
-    expect(missing).toContain('· Faktorens værdi mangler</span></summary>')
+    expect(missing).toContain('· Faktorens værdi mangler — tæller ikke med</span>')
     expect(missing).toContain('Faktorens værdi mangler — angiv den på Faktorer-siden')
   })
 
@@ -71,7 +71,7 @@ describe('InvestmentsSection', () => {
     const html = render([holding({ ownedFrom: '2026-02-01' })])
     expect(html).toContain('Ejet fra<span class="optional"> (hvis købt i de 12 mdr.)</span>')
     expect(html).toContain('type="date" min="2025-08-01" max="2026-07-31" value="2026-02-01"')
-    expect(html).toMatch(/<summary>.* · 2025\/26 · købt 01\.02\.2026 · 40,00 %<\/span><strong class="investment-value">198,356 tCO2e<\/strong><\/summary>/)
+    expect(html).toMatch(/<summary>.* · 2025\/26 · købt 01\.02\.2026 · 40,00 %<\/span><span class="investment-status"> · Ikke færdig<\/span><strong class="investment-value">198,356 tCO2e<\/strong><\/summary>/)
     expect(html).toContain('· ejet 01.02.2026–31.07.2026 · 49,6 % af de 12 måneder ejet og i perioden')
   })
 
@@ -96,9 +96,9 @@ describe('a holding on the investment amount', () => {
   })
 
   it('says what is missing', () => {
-    expect(render([onAmount({ investmentDKK: null })])).toContain('· Investeringsbeløb mangler</span></summary>')
-    expect(render([onAmount({ investmentDKK: -1 })])).toContain('· Investeringsbeløbet er negativt — tæller ikke med</span></summary>')
-    expect(render([onAmount()])).toContain('· Faktor mangler</span></summary>')
+    expect(render([onAmount({ investmentDKK: null })])).toContain('· Investeringsbeløb mangler — tæller ikke med</span>')
+    expect(render([onAmount({ investmentDKK: -1 })])).toContain('· Investeringsbeløbet er negativt — tæller ikke med</span>')
+    expect(render([onAmount()])).toContain('· Faktor mangler — tæller ikke med</span>')
   })
 })
 
@@ -111,5 +111,31 @@ describe('Imported data', () => {
 
   it('is left out when nothing was imported', () => {
     expect(render([holding({ dataSource: 'Årsrapport' })])).not.toContain('Importerede data')
+  })
+})
+
+describe('a holding left out or marked complete (ADR 0038)', () => {
+  it('can be left out with a reason, and then counts nothing', () => {
+    const html = render([onRevenue({ revenueDKK: 1_000_000, factorKgPerEUR: 0.1, excluded: true, excludedReason: 'Solgt' })])
+    expect(html).toContain('<span class="muted"> · Medtages ikke: Solgt</span>')
+    expect(html).not.toContain('investment-value')
+    expect(html).toContain('<legend>Medtagelse og status</legend>')
+  })
+
+  it('asks for the reason a holding is left out', () => {
+    expect(render([onRevenue({ excluded: true })])).toContain('Angiv, hvorfor investeringen ikke medtages.')
+  })
+
+  it('can be marked complete only when nothing is missing', () => {
+    const missing = render([onRevenue()])
+    expect(missing).toMatch(/<input type="checkbox" disabled="" aria-describedby="[^"]+"\/>Beregningen er færdig/)
+    expect(missing).toContain('Kan markeres færdig, når der ikke mangler data.')
+    const done = render([onRevenue({ revenueDKK: 1_000_000, factorKgPerEUR: 0.1, complete: true })])
+    expect(done).toContain('<span class="investment-status done"> · Færdig</span>')
+    expect(done).toContain('Alle 1 investeringer er markeret færdige.')
+  })
+
+  it('says a holding on revenue without revenue is missing it', () => {
+    expect(render([onRevenue({ revenueDKK: 0, factorKgPerEUR: 0.1 })])).toContain('· Omsætning mangler — tæller ikke med</span>')
   })
 })

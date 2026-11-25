@@ -266,6 +266,10 @@ export const tables: readonly Table[] = [
       text('forretningsomraade', 'Forretningsområde', 100, 'Selskabets BusinessArea i koncernsystemet, fx Apparel.'),
       date('ejetfra', 'Ejet fra'),
       date('ejettil', 'Ejet til'),
+      // Left out on purpose, with the reason, and marked complete (docs/adr/0038).
+      { kind: 'boolean', name: n('medtagesikke'), label: 'Medtages ikke', trueLabel: 'Ja', falseLabel: 'Nej', default: false },
+      text('begrundelse', 'Begrundelse', 500, 'Hvorfor investeringen ikke medtages.'),
+      { kind: 'boolean', name: n('faerdig'), label: 'Færdig', trueLabel: 'Ja', falseLabel: 'Nej', default: false, description: 'Beregningen er endelig.' },
     ],
   },
   {

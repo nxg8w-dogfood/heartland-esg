@@ -59,9 +59,26 @@ describe('investmentResult', () => {
     expect(r.kgCO2e).toBeCloseTo((6_688_000 / 7.4604) * 0.0768 * 0.25, 6)
   })
 
-  it('is pending on revenue without a factor, but not with zero revenue', () => {
-    expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 1_000_000 }), currencyRates, year2025, []).pending).toBe(true)
-    expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 0 }), currencyRates, year2025, []).pending).toBe(false)
+  it('is pending on revenue without a factor, and without revenue (ADR 0038)', () => {
+    expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 1_000_000 }), currencyRates, year2025, [])).toMatchObject({ pending: true, missing: 'Faktor mangler' })
+    expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 0, factorKgPerEUR: 0.1 }), currencyRates, year2025, [])).toMatchObject({ pending: true, missing: 'Omsætning mangler' })
+    expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: null, revenueLocal: null, factorKgPerEUR: 0.1 }), currencyRates, year2025, [])).toMatchObject({ pending: true, missing: 'Omsætning mangler' })
+    expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 1_000_000, factorKgPerEUR: 0.1 }), currencyRates, year2025, [])).toMatchObject({ pending: false, missing: null })
+  })
+
+  it('counts nothing for a holding left out on purpose, and keeps it out of the missing count', () => {
+    const out = holding({ basis: 'Revenue', revenueDKK: 1_000_000, factorKgPerEUR: 0.1, excluded: true, excludedReason: 'Solgt før perioden' })
+    expect(investmentResult(out, currencyRates, year2025, [])).toMatchObject({ excluded: true, kgCO2e: 0, annualKgCO2e: 0 })
+    const c = category15([out, holding({ id: 'b', basis: 'Revenue', revenueDKK: 0 })], currencyRates, year2025, [])
+    expect(c).toMatchObject({ total: 0, excludedCount: 1, pendingCount: 1 })
+  })
+
+  it('counts the holdings marked complete among those that count or are left out on purpose', () => {
+    const done = holding({ id: 'a', totalKgCO2e: 1000, complete: true })
+    const open = holding({ id: 'b', totalKgCO2e: 1000 })
+    const out = holding({ id: 'c', excluded: true, complete: true })
+    const consolidated = holding({ id: 'd', ownershipPct: 80, complete: true })
+    expect(category15([done, open, out, consolidated], currencyRates, year2025, [])).toMatchObject({ completeCount: 2, decidedCount: 3 })
   })
 
   it("calculates the data manual's method: the amount invested in EUR × the factor, without the ownership share", () => {

@@ -180,6 +180,7 @@ function investmentRow(company: string, i: Investment): Row {
     [c('faktorkilde')]: s(i.factorSource), [c('land')]: s(i.country), [c('faktorid')]: s(i.factorId),
     [c('organisationid')]: s(i.organizationId), [c('forretningsomraade')]: s(i.businessArea),
     [c('ejetfra')]: s(i.ownedFrom), [c('ejettil')]: s(i.ownedTo),
+    [c('medtagesikke')]: i.excluded === true, [c('begrundelse')]: i.excluded ? s(i.excludedReason) : null, [c('faerdig')]: i.complete === true,
   }
 }
 
@@ -416,6 +417,8 @@ function investmentFrom(id: string, r: Row): Investment {
     ...(str(r[c('forretningsomraade')]) ? { businessArea: str(r[c('forretningsomraade')]) } : {}),
     ...(str(r[c('ejetfra')]) ? { ownedFrom: str(r[c('ejetfra')]).slice(0, 10) } : {}),
     ...(str(r[c('ejettil')]) ? { ownedTo: str(r[c('ejettil')]).slice(0, 10) } : {}),
+    ...(r[c('medtagesikke')] === true ? { excluded: true, excludedReason: str(r[c('begrundelse')]) } : {}),
+    ...(r[c('faerdig')] === true ? { complete: true } : {}),
   }
 }
 
