@@ -80,6 +80,23 @@ describe('publications', () => {
     for (const p of factorPublications) if (p.rows) expect(Object.keys(p.rows).sort()).toEqual(Object.keys(p.values).sort())
   })
 
+  it("Heartland's list (25.11.2026 edition) gives every factor ID in it except the duplicate EXIO-APP, each on a factor in its unit", () => {
+    const list = factorPublications.find((p) => p.id === 'heartland-emissionsfaktorer-2025-26')!
+    const ids = Object.values(list.rows!).flatMap((r) => r.match(/^Faktor-ID ([A-Z0-9-]+)/)?.slice(1) ?? [])
+    expect(ids).toHaveLength(47)
+    expect(ids).not.toContain('EXIO-APP')
+    expect(Object.keys(list.values)).toHaveLength(49)
+    for (const id of Object.keys(list.values)) {
+      const unit = byId(factors, id).unit
+      if (id.startsWith('f-exio-')) expect(unit, id).toBe('kg CO2e/EUR')
+    }
+    expect(byId(factors, 'f-s2-fjernvarme-aarhus-2025').unit).toBe('kg CO2e/kWh')
+    expect(list.values['f-s2-fjernvarme-aarhus-2025']).toBe(0.0086)
+    expect(list.values['f-s2-el-residual-2025']).toBe(byId(factors, 'f-s2-el-residual-2025').value)
+    const out = applyFactorSources(factors, { 'f-exio-motor': { kind: 'publication', publicationId: list.id } }, factorPublications)
+    expect(byId(out, 'f-exio-motor')).toMatchObject({ value: 0.237, reference: expect.stringContaining('EXIO-MOTV') })
+  })
+
   it('DESNZ 2026 changes values from 2025 only where the official file does', () => {
     const desnz = factorPublications.find((p) => p.id === 'desnz-ghg-conversion-factors-2026')!
     expect(desnz.values['f-s1-diesel']).toBe(2.58354)
