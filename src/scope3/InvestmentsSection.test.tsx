@@ -41,12 +41,14 @@ describe('InvestmentsSection', () => {
     expect(render([onRevenue()])).toMatch(/<summary>.*· Faktor mangler<\/span><\/summary>/)
   })
 
-  it('offers the spend factors per EUR, and a factor of its own', () => {
+  it('offers the factor search, and a factor of its own', () => {
     const html = render([onRevenue()])
-    expect(html).toContain('>Egen faktor</option>')
-    expect(html).toContain('<option value="f-exio-obs-se">Other business services, Sverige · 0,0768</option>')
-    expect(html).not.toContain('kg CO2e/GBP')
+    expect(html).toMatch(/class="factor-search-button"[^>]*>Egen faktor<\/button>/)
     expect(html).toContain('Egen faktor (kg CO2e pr. EUR)')
+  })
+
+  it('names a chosen factor with its value per EUR', () => {
+    expect(render([onRevenue({ factorId: 'f-exio-obs-se' })])).toMatch(/class="factor-search-button"[^>]*>Other business services \(Sverige\) · 0,0768 kg CO2e\/EUR<\/button>/)
   })
 
   it('counts with the chosen factor, and points to the Faktorer page when its value is missing', () => {

@@ -7,12 +7,11 @@ import { emptyLedger, type LedgerState } from './state'
 import { ExceptionsSection, RuleEditor, StandardRulesSection } from './RulesSection'
 
 const noop = () => {}
-const spendFactors = factors.filter((f) => f.method === 'spend')
 
 const standard = (ledger: LedgerState) =>
-  renderToStaticMarkup(<StandardRulesSection ledger={ledger} setLedger={noop} classified={classifyLedger(ledger)} spendFactors={spendFactors} />)
+  renderToStaticMarkup(<StandardRulesSection ledger={ledger} setLedger={noop} classified={classifyLedger(ledger)} factors={factors} />)
 const exceptions = (ledger: LedgerState) =>
-  renderToStaticMarkup(<ExceptionsSection ledger={ledger} setLedger={noop} classified={classifyLedger(ledger)} spendFactors={spendFactors} />)
+  renderToStaticMarkup(<ExceptionsSection ledger={ledger} setLedger={noop} classified={classifyLedger(ledger)} factors={factors} />)
 
 /** The table row whose header cell starts with `label`. */
 function row(html: string, label: string): string {
@@ -53,7 +52,7 @@ describe('Kontoplan → Undtagelser', () => {
 
 describe('the exception editor', () => {
   const posting = { id: 'p1', importId: 'i', date: '2025-01-01', account: '6300', accountName: 'Kantine', supplier: 'Kantinen ApS', text: 'Frokost', amount: 1, currency: 'DKK' }
-  const html = renderToStaticMarkup(<RuleEditor rule={exception} title="Ny undtagelse" postings={[posting]} spendFactors={spendFactors} onSave={noop} onCancel={noop} />)
+  const html = renderToStaticMarkup(<RuleEditor rule={exception} title="Ny undtagelse" postings={[posting]} factors={factors} onSave={noop} onCancel={noop} />)
 
   it('saves with Gem and leaves the rule as it was with Annullér', () => {
     expect(html).toContain('<button type="submit">Gem</button>')

@@ -65,7 +65,7 @@ describe('Scope 1 line factor cell', () => {
   })
 })
 
-describe('line factor dropdown', () => {
+describe('line factor search', () => {
   const year2025 = { start: '2025-01-01', end: '2025-12-31' }
   const hotel = category6Groups.find((g) => g.id === 'k6-hotel')!
   const renderHotel = (l: ActivityLine) => {
@@ -75,23 +75,33 @@ describe('line factor dropdown', () => {
   }
   const hotelLine = (o: Partial<ActivityLine> = {}): ActivityLine => ({ id: '1', group: 'k6-hotel', date: '2025-03-12', quantity: 4, ...o })
 
-  it('shows the other regions of the same factor, the line’s choice selected, before the source', () => {
+  it('names the line’s factor on a button that opens the search, before the source', () => {
     const html = renderHotel(hotelLine({ factorId: 'f-hotel-de' }))
-    expect(html).toContain('aria-label="Emissionsfaktor for Hotelovernatning, 12.03.2025"')
-    expect(html).toMatch(/<option value="f-hotel-de" selected="">Hotelovernatning \(Tyskland\)<\/option>/)
-    expect(html).toContain('<option value="f-hotel-fr">Hotelovernatning (Frankrig)</option>')
-    expect(html.indexOf('<select')).toBeLessThan(html.indexOf('BEIS GHG Conversion Factors 2025'))
+    expect(html).toContain('class="visually-hidden">Emissionsfaktor for Hotelovernatning, 12.03.2025</label>')
+    expect(html).toMatch(/<button type="button" id="[^"]+" class="factor-search-button" aria-labelledby="[^"]+" aria-haspopup="dialog">Hotelovernatning \(Tyskland\)<\/button>/)
+    expect(html.indexOf('factor-search-button')).toBeLessThan(html.indexOf('BEIS GHG Conversion Factors 2025'))
   })
 
-  it('marks a choice that has no value yet', () => {
-    expect(renderHotel(hotelLine())).toContain('Hotelovernatning (Danmark) (afventer)')
+  it('marks a chosen factor that has no value yet', () => {
+    expect(renderHotel(hotelLine())).toContain('Hotelovernatning (Danmark) (faktor mangler)')
   })
 
-  it('shows the name as text on a Scope 1 line, whose factors have no other region', () => {
+  it('offers every factor with the line’s unit, whatever its scope, and nothing else', () => {
     const r = scope1Line({ id: '1', group: 's1-diesel', date: '2025-03-15', quantity: 2500 }, factors, year2025)
     const choice = lineFactorChoice(r.line, r.group.factorId, factors, () => {}, 'Firmabiler – diesel, 15.03.2025')
+    const fitting = factors.filter(choice.fits)
+    expect(fitting.length).toBeGreaterThan(1)
+    expect(fitting.every((f) => f.unit === 'kg CO2e/liter')).toBe(true)
+    expect(new Set(fitting.map((f) => f.scope)).size).toBeGreaterThan(1)
+    expect(renderToStaticMarkup(<FactorCell value={r.factorValue} factor={r.factor} choice={choice} />)).toContain('factor-search-button')
+  })
+
+  it('shows the name as text when no other factor has the unit', () => {
+    const r = scope1Line({ id: '1', group: 's1-diesel', date: '2025-03-15', quantity: 2500 }, factors, year2025)
+    const only = factors.filter((f) => f.id === r.group.factorId || f.unit !== 'kg CO2e/liter')
+    const choice = lineFactorChoice(r.line, r.group.factorId, only, () => {}, 'Firmabiler – diesel, 15.03.2025')
     const html = renderToStaticMarkup(<FactorCell value={r.factorValue} factor={r.factor} choice={choice} />)
-    expect(html).not.toContain('<select')
+    expect(html).not.toContain('factor-search')
     expect(text(html)).toEqual(['2,57082', 'Diesel (average biofuel blend)', 'BEIS GHG Conversion Factors 2025'])
   })
 })

@@ -4,10 +4,10 @@ import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { appRates, type DkkRate } from '../calc/exchangeRates'
 import { importedBatches, type ImportedBatch } from '../calc/groupExport'
-import { coverLabel, investmentFactors, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
+import { coverLabel, fitsInvestment, investmentResult, type Category15, type Investment, type InvestmentBasis, type InvestmentResult } from '../calc/investments'
 import { deflationNote, deflationWarning, noDeflation, type Deflation } from '../calc/spend'
 import { factorLabel } from '../factors/label'
-import { RegionFactorSelect } from '../factors/RegionFactorSelect'
+import { FactorSearchSelect } from '../factors/FactorSearch'
 import { formatDate, formatFactor, formatNumber } from '../format'
 import { newId } from '../newId'
 import { NumberField } from '../ui'
@@ -39,7 +39,7 @@ const withoutFactor = (i: Investment) => i.basis !== 'CO2e' && !i.factorId && i.
 export function InvestmentsSection({ cat15, investments, setInvestments, period, factors, deflation = noDeflation }: Props) {
   const defaultDate = period.end
   const id = useId()
-  const options = investmentFactors(factors)
+  const options = factors
   const counted = new Set(cat15.rows.map((r) => r.investment.id))
   const update = (invId: string, patch: Partial<Investment>) =>
     setInvestments((is) => is.map((i) => (i.id === invId ? { ...i, ...patch } : i)))
@@ -142,10 +142,10 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
 function BulkFactor({ count, options, onApply }: { count: number; options: readonly Factor[]; onApply: (factorId: string) => void }) {
   const id = useId()
   const [factorId, setFactorId] = useState('')
-  if (count === 0 || options.length === 0) return null
+  if (count === 0 || !options.some(fitsInvestment)) return null
   return (
     <div className="bulk-factor">
-      <RegionFactorSelect id={`${id}-factor`} label="Faktor til investeringer uden faktor" factors={options} value={factorId} emptyLabel="Vælg faktor …" showValue onChange={setFactorId} />
+      <FactorSearchSelect id={`${id}-factor`} label="Faktor til investeringer uden faktor" factors={options} fits={fitsInvestment} misfit="Ikke pr. EUR" value={factorId} emptyLabel="Vælg faktor …" onChange={setFactorId} />
       <button type="button" disabled={!factorId} onClick={() => { onApply(factorId); setFactorId('') }}>
         Brug på {formatNumber(count, 0)} {count === 1 ? 'investering' : 'investeringer'}
       </button>
@@ -273,8 +273,8 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
         )}
         {inv.basis !== 'CO2e' && (
           <>
-            <RegionFactorSelect
-              id={`${id}-factor`} label="Faktor" factors={options} value={inv.factorId ?? ''} emptyLabel="Egen faktor" showValue
+            <FactorSearchSelect
+              id={`${id}-factor`} label="Faktor" factors={options} fits={fitsInvestment} misfit="Ikke pr. EUR" value={inv.factorId ?? ''} emptyLabel="Egen faktor" allowEmpty
               keptLabel={factorLabel(result.factor)} onChange={(v) => onChange({ factorId: v || null })}
             />
             {inv.factorId ? (
