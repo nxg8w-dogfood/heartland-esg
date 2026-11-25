@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { factorRegions, factorsInRegion, searchFactors } from '../calc/factorSearch'
 import { textRule } from './textRule'
+import { alreadyImported } from '../calc/duplicates'
 import type { Factor } from '../data/factors'
 import type { Rule } from '../calc/ledger'
 import {
@@ -71,6 +72,7 @@ export function LedgerPage({ ledger, setLedger, factors, subpage = 'posteringer'
           </p>
 
           <ImportSection
+            existing={ledger.postings}
             onImport={(fileName, rows) =>
               setLedger((l) => {
                 const importId = newId()
@@ -153,8 +155,10 @@ async function readXlsx(file: File): Promise<{ headers: string[]; rows: TableRow
   return tableToRows(await readXlsxSheet(file))
 }
 
-function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<Posting, 'id' | 'importId'>[]) => void }) {
+function ImportSection({ existing, onImport }: { existing: readonly Posting[]; onImport: (fileName: string, rows: Omit<Posting, 'id' | 'importId'>[]) => void }) {
   const id = useId()
+  /** Import rows that are already imported too, which is right only when they really are new */
+  const [withDuplicates, setWithDuplicates] = useState(false)
   const [file, setFile] = useState<{ name: string; headers: string[]; rows: TableRow[] } | null>(null)
   const [mapping, setMapping] = useState<ColumnMapping | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -167,11 +171,14 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
       return
     }
     setError(null)
+    setWithDuplicates(false)
     setFile({ name, ...parsed })
     setMapping(guessMapping(parsed.headers))
   }
 
-  const postings = file && mapping ? rowsToPostings(file.rows, mapping) : []
+  const postings = useMemo(() => (file && mapping ? rowsToPostings(file.rows, mapping) : []), [file, mapping])
+  const duplicates = useMemo(() => alreadyImported(postings, existing), [postings, existing])
+  const toImport = withDuplicates ? postings : postings.filter((_, i) => !duplicates.has(i))
   const missingDates = postings.filter((p) => !p.date).length
   const missingAmounts = postings.filter((p) => p.amount === null).length
   const badCurrencies = [...new Set(postings.filter((p) => !isCurrencyCode(p.currency)).map((p) => p.currency))]
@@ -263,6 +270,33 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
               {missingAmounts > 0 && `${missingAmounts} rækker har et ulæseligt beløb.`}
             </p>
           )}
+          {duplicates.size > 0 && (
+            <div className="warning" id={`${id}-duplicates`}>
+              <p>
+                <strong>
+                  {duplicates.size === postings.length
+                    ? `Alle ${formatNumber(postings.length, 0)} rækker er allerede importeret`
+                    : `${formatNumber(duplicates.size, 0)} af ${formatNumber(postings.length, 0)} rækker er allerede importeret`}
+                </strong>{' '}
+                (samme dato, konto, leverandør, tekst, beløb og valuta som en postering, der er her i
+                forvejen). De springes over, så de ikke tæller dobbelt.
+              </p>
+              <details>
+                <summary>Vis rækkerne</summary>
+                <ul className="plain">
+                  {[...duplicates].slice(0, 20).map((i) => {
+                    const d = postings[i]
+                    return <li key={i}>{d.date ? formatDate(d.date) : 'Uden dato'} · {d.account} · {d.supplier} {d.text} · {d.amount === null ? '—' : `${formatNumber(d.amount, 2)} ${d.currency}`}</li>
+                  })}
+                </ul>
+                {duplicates.size > 20 && <p className="muted">… og {formatNumber(duplicates.size - 20, 0)} mere.</p>}
+              </details>
+              <label className="check">
+                <input type="checkbox" checked={withDuplicates} onChange={(e) => setWithDuplicates(e.target.checked)} />
+                Importér dem alligevel: de er nye posteringer, der blot ligner nogle, der er her
+              </label>
+            </div>
+          )}
           {badCurrencies.length > 0 && (
             <p className="error" id={`${id}-currency-error`} role="alert">
               Kolonnen “{mapping.currency}” indeholder værdier, der ikke er valutakoder
@@ -273,11 +307,11 @@ function ImportSection({ onImport }: { onImport: (fileName: string, rows: Omit<P
           <div className="actions">
             <button
               type="button"
-              disabled={badCurrencies.length > 0}
-              aria-describedby={badCurrencies.length > 0 ? `${id}-currency-error` : undefined}
-              onClick={() => { onImport(file.name, postings); setFile(null); setMapping(null) }}
+              disabled={badCurrencies.length > 0 || toImport.length === 0}
+              aria-describedby={badCurrencies.length > 0 ? `${id}-currency-error` : duplicates.size > 0 ? `${id}-duplicates` : undefined}
+              onClick={() => { onImport(file.name, toImport); setFile(null); setMapping(null) }}
             >
-              Importer {postings.length} posteringer
+              Importer {formatNumber(toImport.length, 0)} {toImport.length === 1 ? 'postering' : 'posteringer'}
             </button>{' '}
             <button type="button" className="secondary" onClick={() => { setFile(null); setMapping(null) }}>Annullér</button>
           </div>
