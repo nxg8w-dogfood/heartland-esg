@@ -3,7 +3,7 @@ import { factors } from '../data/factors'
 import { accountRules, postingRules } from '../data/scope3Rules'
 import { spendFactorRegister } from '../data/spendFactorRegister'
 import { builtinRuleBook, classify, classifyLedger, counts, hitLabel, ledgerSpendLines, ledgerSummary, withRuleEdits, type ManualAction, type Posting, type PostingRuleEdit, type Rule, type RuleBook } from './ledger'
-import { parseScope3Category, postingRuleMatches, type AccountRule, type PostingRule } from './spendRules'
+import { parseScope3Category, postingRuleMatches, toHandling, type AccountRule, type PostingRule } from './spendRules'
 
 const posting = (o: Partial<Posting> = {}): Posting => ({
   id: 'p1', importId: 'i1', date: '2026-03-31', account: '240003', accountName: 'Transport', supplier: '', text: '',
@@ -33,9 +33,9 @@ describe('account rules', () => {
     expect(classify(posting(), [], none, book([account({ basis: 'Bekræftet' })])).status).toBe('included')
   })
 
-  it('flag an estimate to confirm for review, and still count it', () => {
+  it('include an estimate to confirm like any other included account (ADR 0036)', () => {
     const c = classify(posting(), [], none, book([account({ basis: 'Skøn – bekræft' })]))
-    expect(c.status).toBe('review')
+    expect(c.status).toBe('included')
     expect(counts(c)).toBe(true)
   })
 
@@ -78,9 +78,9 @@ describe('posting rules', () => {
   })
 
   it('apply only to postings whose account is in the rule\'s category', () => {
-    const r = prule({ appliesTo: 2, searchWord: 'Volvo', handling: 'pending', factorCode: 'EXIO-VEH' })
+    const r = prule({ appliesTo: 2, searchWord: 'Volvo', handling: 'exclude', factorCode: 'EXIO-VEH' })
     expect(classify(posting({ text: 'Volvo' }), [], none, book([account()], [r])).hit.kind).toBe('account')
-    expect(classify(posting({ text: 'Volvo' }), [], none, book([account({ category: 2 })], [r])).status).toBe('pending')
+    expect(classify(posting({ text: 'Volvo' }), [], none, book([account({ category: 2 })], [r])).status).toBe('excluded')
   })
 
   it('apply to every category when no category is given', () => {
@@ -102,12 +102,12 @@ describe('posting rules', () => {
   })
 
   it('keep the account\'s factor when they give none', () => {
-    const r = prule({ factorCode: null, handling: 'review' })
-    expect(classify(posting({ text: 'DSB ' }), [], none, book([account()], [r]))).toMatchObject({ status: 'review', factorId: 'f-exio-land' })
+    const r = prule({ factorCode: null, handling: 'include' })
+    expect(classify(posting({ text: 'DSB ' }), [], none, book([account()], [r]))).toMatchObject({ status: 'included', factorId: 'f-exio-land' })
   })
 
-  it('leave pending postings out of the spend lines', () => {
-    const r = prule({ handling: 'pending' })
+  it('leave excluded postings out of the spend lines', () => {
+    const r = prule({ handling: 'exclude' })
     expect(ledgerSpendLines([classify(posting({ text: 'DSB ' }), [], none, book([account()], [r]))], 6)).toEqual([])
   })
 
@@ -134,11 +134,11 @@ describe('exceptions and manual actions', () => {
 })
 
 describe('an override on a single posting', () => {
-  it('overrides the account mapping and a pending posting rule: factor, category and status', () => {
-    const r = prule({ id: 'R27', appliesTo: 2, searchWord: 'Volvo', handling: 'pending', factorCode: 'EXIO-VEH' })
+  it('overrides the account mapping and an excluding posting rule: factor, category and status', () => {
+    const r = prule({ id: 'R27', appliesTo: 2, searchWord: 'Volvo', handling: 'exclude', factorCode: 'EXIO-VEH' })
     const b = book([account({ account: '630003', category: 2, factorCode: 'EXIO-CONS' })], [r])
     const volvo = posting({ id: 'v', account: '630003', text: 'Volvo XC60' })
-    expect(classify(volvo, [], none, b).status).toBe('pending')
+    expect(classify(volvo, [], none, b).status).toBe('excluded')
     const manual = new Map([['v', { postingId: 'v', type: 'tag', factorId: 'f-exio-vehicle-repair', category: 1, reason: 'Firmabil' } as ManualAction]])
     const c = classify(volvo, [], manual, b)
     expect(c).toMatchObject({ status: 'included', factorId: 'f-exio-vehicle-repair', category: 1, hit: { kind: 'manual' }, reason: 'Firmabil' })
@@ -161,12 +161,12 @@ describe('an override on a single posting', () => {
 
 describe('summary and labels', () => {
   it('count each status', () => {
-    const b = book([account(), account({ account: '1', include: false }), account({ account: '2', basis: 'Skøn – bekræft' })], [prule({ handling: 'pending' })])
+    const b = book([account(), account({ account: '1', include: false }), account({ account: '2', basis: 'Skøn – bekræft' })], [prule({ handling: 'exclude' })])
     const cs = classifyLedger({
       postings: [posting({ id: 'a' }), posting({ id: 'b', account: '1' }), posting({ id: 'c', account: '2' }), posting({ id: 'd', text: 'DSB ' }), posting({ id: 'e', account: '3' })],
       rules: [], manual: {},
     }, b)
-    expect(ledgerSummary(cs)).toEqual({ total: 5, included: 1, excluded: 1, review: 1, pending: 1, untagged: 1, manual: 0 })
+    expect(ledgerSummary(cs)).toEqual({ total: 5, included: 2, excluded: 2, untagged: 1, manual: 0 })
   })
 
   it('name the rule that hit', () => {
@@ -229,12 +229,12 @@ describe('a company\'s changes to posting rules (ADR 0018)', () => {
   const edit = (o: Partial<PostingRuleEdit> = {}): PostingRuleEdit => ({
     id: 'e1', ruleId: 'R10', handling: 'include', factorId: 'f-exio-obs-dk', moveTo: null, reason: 'Rettet', editedOn: '2026-11-13', ...o,
   })
-  const pendingRule = prule({ handling: 'pending', factorCode: 'EXIO-OBS' })
-  const run = (edits: PostingRuleEdit[], rules = [pendingRule], p = posting({ text: 'DSB ' })) =>
+  const excludingRule = prule({ handling: 'exclude', factorCode: 'EXIO-OBS' })
+  const run = (edits: PostingRuleEdit[], rules = [excludingRule], p = posting({ text: 'DSB ' })) =>
     classifyLedger({ postings: [p], rules: [], manual: {}, ruleEdits: edits }, book([account()], rules))[0]
 
-  it('count a pending rule\'s postings once it is changed to include, with the chosen factor', () => {
-    expect(run([])).toMatchObject({ status: 'pending' })
+  it('count an excluding rule\'s postings once it is changed to include, with the chosen factor', () => {
+    expect(run([])).toMatchObject({ status: 'excluded' })
     const c = run([edit()])
     expect(c).toMatchObject({ status: 'included', factorId: 'f-exio-obs-dk', reason: 'Rettet', hit: { kind: 'posting', rule: { id: 'R10' } } })
     expect(counts(c)).toBe(true)
@@ -244,25 +244,24 @@ describe('a company\'s changes to posting rules (ADR 0018)', () => {
     expect(run([edit({ factorId: null })]).factorId).toBe('f-exio-land')
   })
 
-  it('can exclude, flag for review or move to another category', () => {
+  it('can exclude or move to another category', () => {
     expect(run([edit({ handling: 'exclude' })])).toMatchObject({ status: 'excluded', factorId: null })
-    expect(run([edit({ handling: 'review' })]).status).toBe('review')
     expect(run([edit({ moveTo: 1 })]).category).toBe(1)
   })
 
   it('keep the approved search word, priority and category scope', () => {
     // The rule applies to category 6 only; a change doesn't widen it.
-    expect(run([edit()], [pendingRule], posting({ text: 'DSB ', account: '240003' })).hit.kind).toBe('posting')
-    const other = classifyLedger({ postings: [posting({ text: 'DSB ' })], rules: [], manual: {}, ruleEdits: [edit()] }, book([account({ category: 1 })], [pendingRule]))[0]
+    expect(run([edit()], [excludingRule], posting({ text: 'DSB ', account: '240003' })).hit.kind).toBe('posting')
+    const other = classifyLedger({ postings: [posting({ text: 'DSB ' })], rules: [], manual: {}, ruleEdits: [edit()] }, book([account({ category: 1 })], [excludingRule]))[0]
     expect(other.hit.kind).toBe('account')
   })
 
   it('leave the approved rule as it is, and ignore a change to a rule that no longer exists', () => {
-    const b = book([account()], [pendingRule])
+    const b = book([account()], [excludingRule])
     const changed = withRuleEdits(b, [edit(), edit({ id: 'e2', ruleId: 'R99' })])
     expect(changed.postingRules).toHaveLength(1)
     expect(changed.postingRules[0]).toMatchObject({ handling: 'include', edit: { id: 'e1' } })
-    expect(b.postingRules[0].handling).toBe('pending')
+    expect(b.postingRules[0].handling).toBe('exclude')
     expect(withRuleEdits(b, [])).toBe(b)
   })
 
@@ -270,7 +269,7 @@ describe('a company\'s changes to posting rules (ADR 0018)', () => {
     const p = posting({ text: 'DSB rejse ' })
     const viaException = classifyLedger({ postings: [p], rules: [exception()], manual: {}, ruleEdits: [edit({ ruleId: 'R10' })] }, book([account()], [prule({ searchWord: 'DSB' })]))[0]
     expect(viaException.hit.kind).toBe('exception')
-    const viaManual = classifyLedger({ postings: [p], rules: [], manual: { p1: { postingId: 'p1', type: 'exclude', factorId: null, category: null, reason: 'x' } }, ruleEdits: [edit()] }, book([account()], [pendingRule]))[0]
+    const viaManual = classifyLedger({ postings: [p], rules: [], manual: { p1: { postingId: 'p1', type: 'exclude', factorId: null, category: null, reason: 'x' } }, ruleEdits: [edit()] }, book([account()], [excludingRule]))[0]
     expect(viaManual.hit.kind).toBe('manual')
   })
 
@@ -279,14 +278,24 @@ describe('a company\'s changes to posting rules (ADR 0018)', () => {
     expect(hitLabel(run([]).hit)).toBe('R10 «DSB »')
   })
 
-  it('apply to the real R33 (architect consulting), pending until changed', () => {
+  it('apply to the real R33 (architect consulting), excluded until changed', () => {
     const r33 = postingRules.find((r) => r.id === 'R33')!
-    expect(r33.handling).toBe('pending')
+    expect(r33.handling).toBe('exclude')
     const acc = accountRules.find((a) => a.include && (r33.appliesTo === null || a.category === r33.appliesTo))!
     const p = posting({ account: acc.account, supplier: r33.searchWord })
     const before = classifyLedger({ postings: [p], rules: [], manual: {}, ruleEdits: [] })[0]
-    expect(before).toMatchObject({ status: 'pending', hit: { kind: 'posting', rule: { id: 'R33' } } })
+    expect(before).toMatchObject({ status: 'excluded', hit: { kind: 'posting', rule: { id: 'R33' } } })
     const after = classifyLedger({ postings: [p], rules: [], manual: {}, ruleEdits: [edit({ ruleId: 'R33' })] })[0]
     expect(after).toMatchObject({ status: 'included', factorId: 'f-exio-obs-dk' })
+  })
+})
+
+describe('toHandling (ADR 0036)', () => {
+  it('reads the retired handlings: review as include, pending as exclude', () => {
+    expect(['include', 'review', 'exclude', 'pending', 'maybe', null].map(toHandling)).toEqual(['include', 'include', 'exclude', 'exclude', null, null])
+  })
+
+  it('leaves no review or pending rule in the ESG owner\'s rules', () => {
+    expect(postingRules.filter((r) => r.handling !== 'include' && r.handling !== 'exclude')).toEqual([])
   })
 })

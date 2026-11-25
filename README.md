@@ -51,6 +51,8 @@ node scripts/scope3-rules-seed.ts <path>/kontoregler.csv <path>/posteringsregler
 ```
 
 The script stops on a column or value it doesn't recognise, rather than guessing.
+A posting is only ever included or excluded (ADR 0036): the files' *Medtag – review* is read as
+*Medtag*, and *Afventer* as *Udelad*.
 
 A company can also change a posting rule's handling, factor and category on **Kontoplan →
 Regler → Posteringsregler → Rediger** (ADR 0018). That change is the company's own; the approved

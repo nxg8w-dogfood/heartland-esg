@@ -173,7 +173,7 @@ describe('Scope3Page', () => {
     expect(cat1).toContain('Kontoregel 210011')
     const cat2 = render('#/scope3/kategori-2', withPostings)
     expect(cat2).toContain('R27 «Volvo»')
-    expect(cat2).toContain('Afventer')
+    expect(cat2).toContain('<span>Udeladt</span>')
   })
 
   it('shows a single-posting override and lets it be undone', () => {

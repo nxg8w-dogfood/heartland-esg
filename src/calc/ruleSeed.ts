@@ -68,8 +68,9 @@ function commaFields(line: string): string[] {
 const handlings: Record<string, PostingHandling> = {
   Udelad: 'exclude',
   Medtag: 'include',
-  'Medtag – review': 'review',
-  Afventer: 'pending',
+  // Retired (docs/adr/0036): review is included, pending is excluded.
+  'Medtag – review': 'include',
+  Afventer: 'exclude',
 }
 
 /**

@@ -415,8 +415,7 @@ function PostingRuleEditor({ rule, spendFactors, onSave, onRestore, onCancel }: 
           <input id={`${id}-reason`} value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
       </div>
-      {handling === 'pending' && <p className="muted">Afventer: posteringerne vises, men tæller ikke med, før reglen er afgjort.</p>}
-      {handling !== 'exclude' && handling !== 'pending' && chosen?.value === null && (
+      {handling === 'include' && chosen?.value === null && (
         <p className="warning-text">{chosen.name} har endnu ingen værdi; posteringerne afventer, til den er udfyldt under Faktorer.</p>
       )}
       <div className="actions">

@@ -144,7 +144,7 @@ describe('classify', () => {
   it('counts statuses and manual actions', () => {
     const manual = new Map([['p3', { postingId: 'p3', type: 'tag', factorId: 'f-exio-obs-dk', category: 1, reason: '' } as ManualAction]])
     const cs = [posting(), posting({ id: 'p2', account: '1000' }), posting({ id: 'p3', account: '1000' })].map((p) => classify(p, [rule()], manual))
-    expect(ledgerSummary(cs)).toEqual({ total: 3, included: 2, review: 0, pending: 0, excluded: 0, untagged: 1, manual: 1 })
+    expect(ledgerSummary(cs)).toEqual({ total: 3, included: 2, excluded: 0, untagged: 1, manual: 1 })
   })
 })
 

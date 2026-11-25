@@ -54,8 +54,8 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
         Importer posteringer fra finanssystemet. ESG-ansvarliges kontoregler giver hver konto en
         Scope 3-kategori og en EXIOBASE-faktor, og posteringsreglerne finjusterer enkelte posteringer
         ud fra et søgeord; du kan rette en posteringsregel for denne virksomhed. Dine egne
-        undtagelser går forud for begge, og en manuel handling på en postering går forud for alt. Medtagne posteringer og posteringer til review indgår i deres
-        kategori i Scope 3.
+        undtagelser går forud for begge, og en manuel handling på en postering går forud for alt. En postering medtages eller udelades;
+        medtagne posteringer indgår i deres kategori i Scope 3.
       </p>
 
       <ImportSection
@@ -108,8 +108,6 @@ export function LedgerPage({ ledger, setLedger, factors }: Props) {
         <dl className="tiles" aria-live="polite">
           <Tile label="Posteringer" value={summary.total} unit="" decimals={0} />
           <Tile label="Medtaget" value={summary.included} unit="" decimals={0} accent />
-          <Tile label="Til review" value={summary.review} unit="" decimals={0} />
-          <Tile label="Afventer" value={summary.pending} unit="" decimals={0} />
           <Tile label="Udeladt" value={summary.excluded} unit="" decimals={0} />
           <Tile label="Utagget" value={summary.untagged} unit="" decimals={0} note={summary.manual ? `${summary.manual} håndteret manuelt` : undefined} />
         </dl>
@@ -402,7 +400,7 @@ function PostingsSection({ classified, setLedger, spendFactors, onCreateRule }: 
                   </td>
                   <td className="num">{p.amount === null ? '—' : `${formatNumber(p.amount, 2)} ${p.currency}`}</td>
                   <td>
-                    <span className={c.status === 'review' ? 'warning-text' : c.status === 'pending' || c.status === 'untagged' ? 'pending' : undefined}>{postingStatusLabels[c.status]}</span>
+                    <span className={c.status === 'untagged' ? 'pending' : undefined}>{postingStatusLabels[c.status]}</span>
                     <span className="sub">
                       {[
                         hitLabel(c.hit),

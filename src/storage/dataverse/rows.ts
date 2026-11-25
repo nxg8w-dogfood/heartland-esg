@@ -14,7 +14,7 @@ import type { Survey } from '../../calc/commuting'
 import type { FactorSourceChoice } from '../../calc/factorSources'
 import type { Investment } from '../../calc/investments'
 import type { ImportBatch, ManualAction, Posting, PostingRuleEdit, Rule } from '../../calc/ledger'
-import type { PostingHandling } from '../../calc/spendRules'
+import { toHandling } from '../../calc/spendRules'
 import type { Scope1Line } from '../../calc/scope1'
 import type { TestNorm, Vehicle, VehicleFuel } from '../../calc/vehicles'
 import type { Location, Scope2Line } from '../../calc/scope2'
@@ -303,7 +303,7 @@ export function fromRows(rows: Rows, view: { activeCompanyId?: string; activePer
           })),
           ruleEdits: of(c('regel'), id).filter(([, r]) => optStr(r[c('standardregel')])).map(([key, r]): PostingRuleEdit => ({
             id: key, ruleId: str(r[c('standardregel')]),
-            handling: (fromChoice(c('regel'), c('handling'), r[c('handling')]) ?? 'pending') as PostingHandling,
+            handling: toHandling(fromChoice(c('regel'), c('handling'), r[c('handling')])) ?? 'exclude',
             factorId: optStr(r[c('faktorid')]) ?? null, moveTo: num(r[c('flyttil')]), reason: str(r[c('begrundelse')]), editedOn: str(r[c('aendret')]),
           })).sort((x, y) => x.ruleId.localeCompare(y.ruleId, 'da', { numeric: true }) || x.id.localeCompare(y.id)),
           manual,
