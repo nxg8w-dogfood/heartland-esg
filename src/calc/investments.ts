@@ -114,6 +114,9 @@ const finiteOrZero = (n: number | null | undefined): number =>
   typeof n === 'number' && Number.isFinite(n) ? n : 0
 
 /** The factors a holding can use: spend factors per EUR, which is what revenue and amounts are converted to. */
+/** A factor a holding can use: per EUR, which revenue and amounts are converted to. */
+export const fitsInvestment = (f: Pick<Factor, 'unit'>) => f.unit === 'kg CO2e/EUR'
+
 export const investmentFactors = (factors: readonly Factor[]): Factor[] =>
   factors.filter((f) => f.method === 'spend' && f.unit === 'kg CO2e/EUR')
 

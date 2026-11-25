@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
-import { factorRegions, factorsInRegion, searchFactors } from '../calc/factorSearch'
+import { fitsAmount } from '../calc/factorSearch'
+import { FactorSearchList } from '../factors/FactorSearch'
 import { textRule } from './textRule'
 import { alreadyImported } from '../calc/duplicates'
 import type { Factor } from '../data/factors'
@@ -33,7 +34,6 @@ type Props = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerSta
 export function LedgerPage({ ledger, setLedger, factors, subpage = 'posteringer' }: Props) {
   const classified = useMemo(() => classifyLedger(ledger), [ledger])
   const summary = ledgerSummary(classified)
-  const spendFactors = factors.filter((f) => f.method === 'spend')
   const { confirm, dialog } = useConfirm()
   // Postings per import, to spot an import whose save was cut short (e.g. by closing the app).
   const stored = useMemo(() => {
@@ -58,8 +58,8 @@ export function LedgerPage({ ledger, setLedger, factors, subpage = 'posteringer'
         </ul>
       </nav>
 
-      {subpage === 'regler' && <StandardRulesSection ledger={ledger} setLedger={setLedger} classified={classified} spendFactors={spendFactors} />}
-      {subpage === 'undtagelser' && <ExceptionsSection ledger={ledger} setLedger={setLedger} classified={classified} spendFactors={spendFactors} />}
+      {subpage === 'regler' && <StandardRulesSection ledger={ledger} setLedger={setLedger} classified={classified} factors={factors} />}
+      {subpage === 'undtagelser' && <ExceptionsSection ledger={ledger} setLedger={setLedger} classified={classified} factors={factors} />}
       {subpage === 'posteringer' && (
         <>
           <p className="lead">
@@ -132,7 +132,7 @@ export function LedgerPage({ ledger, setLedger, factors, subpage = 'posteringer'
               classified={classified}
               postings={ledger.postings}
               setLedger={setLedger}
-              spendFactors={spendFactors}
+              factors={factors}
               onSaveRule={(rule) => setLedger((l) => ({ ...l, rules: [...l.rules, rule] }))}
             />
           )}
@@ -323,8 +323,8 @@ function ImportSection({ existing, onImport }: { existing: readonly Posting[]; o
 
 const PAGE = 200
 
-function PostingsSection({ classified, postings, setLedger, spendFactors, onSaveRule }: {
-  classified: ClassifiedPosting[]; postings: readonly Posting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; spendFactors: Factor[]
+function PostingsSection({ classified, postings, setLedger, factors, onSaveRule }: {
+  classified: ClassifiedPosting[]; postings: readonly Posting[]; setLedger: Dispatch<SetStateAction<LedgerState>>; factors: readonly Factor[]
   onSaveRule: (rule: Rule) => void
 }) {
   const id = useId()
@@ -428,7 +428,7 @@ function PostingsSection({ classified, postings, setLedger, spendFactors, onSave
           rule={draft.rule}
           title="Ny undtagelse ud fra posteringsteksten"
           postings={postings}
-          spendFactors={spendFactors}
+          factors={factors}
           onSave={(rule) => { onSaveRule(rule); setSavedRule(rule.name); closeDraft(draft.postingId) }}
           onCancel={() => closeDraft(draft.postingId)}
         />
@@ -482,7 +482,7 @@ function PostingsSection({ classified, postings, setLedger, spendFactors, onSave
                       {[
                         hitLabel(c.hit),
                         c.category ? `kategori ${c.category}` : '',
-                        c.status !== 'excluded' && c.status !== 'untagged' ? (spendFactors.find((f) => f.id === c.factorId)?.name ?? 'ingen faktor') : '',
+                        c.status !== 'excluded' && c.status !== 'untagged' ? (factors.find((f) => f.id === c.factorId)?.name ?? 'ingen faktor') : '',
                       ].filter(Boolean).join(' · ')}
                     </span>
                   </td>
@@ -501,7 +501,7 @@ function PostingsSection({ classified, postings, setLedger, spendFactors, onSave
                       <option value="rules">Følg reglerne</option>
                       <option value="exclude">Ekskluder</option>
                       {c.hit.kind === 'manual' && c.factorId && (
-                        <option value={c.factorId}>Tag: {factorLabel(spendFactors, c.factorId)}</option>
+                        <option value={c.factorId}>Tag: {factorLabel(factors, c.factorId)}</option>
                       )}
                       <option value="search">Tag med faktor…</option>
                     </select>
@@ -517,7 +517,7 @@ function PostingsSection({ classified, postings, setLedger, spendFactors, onSave
         <FactorPicker
           key={picking.posting.id}
           posting={picking}
-          factors={spendFactors}
+          factors={factors}
           onCancel={closePicker}
           onPick={(factorId) => {
             const p = picking.posting
@@ -535,19 +535,11 @@ const factorLabel = (factors: readonly Factor[], factorId: string) => {
   return f ? `${f.name}, ${f.region}` : factorId
 }
 
-const PICKER_LIMIT = 50
-
-/** Picks the factor to tag one posting with, searching name, source and country (region). */
+/** Picks the factor to tag one posting with, from the whole factor table. */
 function FactorPicker({ posting, factors, onPick, onCancel }: {
   posting: ClassifiedPosting; factors: readonly Factor[]; onPick: (factorId: string) => void; onCancel: () => void
 }) {
   const id = useId()
-  const search = useRef<HTMLInputElement>(null)
-  useEffect(() => search.current?.focus(), [])
-  const [query, setQuery] = useState('')
-  const [region, setRegion] = useState('')
-  const regions = useMemo(() => factorRegions(factors), [factors])
-  const found = useMemo(() => searchFactors(factorsInRegion(factors, region), query), [factors, region, query])
   const p = posting.posting
   return (
     <section className="card" aria-labelledby={`${id}-h`} onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }}>
@@ -555,40 +547,7 @@ function FactorPicker({ posting, factors, onPick, onCancel }: {
       <p className="muted">
         Postering {p.account}{p.date ? `, ${formatDate(p.date)}` : ''}{p.text ? `, ${p.text}` : ''}. Går forud for kontoreglen og alle andre regler.
       </p>
-      <div className="field">
-        <label htmlFor={`${id}-region`}>Land/område</label>
-        <select id={`${id}-region`} value={region} onChange={(e) => setRegion(e.target.value)} aria-describedby={`${id}-count`}>
-          <option value="">Alle lande og områder</option>
-          {regions.map((r) => <option key={r} value={r}>{r}</option>)}
-        </select>
-      </div>
-      <div className="field wide">
-        <label htmlFor={`${id}-q`}>Søg type</label>
-        <input
-          id={`${id}-q`}
-          ref={search}
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          aria-describedby={`${id}-hint ${id}-count`}
-        />
-        <span id={`${id}-hint`} className="muted">Vælg land eller område, og søg på navn eller kilde. Flere ord skal alle passe.</span>
-      </div>
-      <p id={`${id}-count`} className="muted" role="status">
-        {found.length === 0 ? 'Ingen faktorer passer.' : found.length > PICKER_LIMIT ? `Viser ${PICKER_LIMIT} af ${found.length} faktorer. Søg for at indsnævre.` : `${found.length} ${found.length === 1 ? 'faktor' : 'faktorer'}.`}
-      </p>
-      {found.length > 0 && (
-        <ul className="plain">
-          {found.slice(0, PICKER_LIMIT).map((f) => (
-            <li key={f.id}>
-              <button type="button" className="link" onClick={() => onPick(f.id)} aria-current={posting.factorId === f.id || undefined}>
-                {f.name}{f.value === null ? ' (faktor mangler)' : ''}
-              </button>
-              <span className="sub">{f.region} · {f.source}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <FactorSearchList factors={factors} fits={fitsAmount} misfit="Ikke pr. beløb" selectedId={posting.factorId ?? ''} onPick={onPick} />
       <div className="actions">
         <button type="button" className="secondary" onClick={onCancel}>Annullér</button>
       </div>

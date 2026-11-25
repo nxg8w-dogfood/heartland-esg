@@ -10,7 +10,8 @@ import type { Factor } from '../data/factors'
 import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { Tile } from '../ui'
-import { RegionFactorSelect } from '../factors/RegionFactorSelect'
+import { FactorSearchSelect } from '../factors/FactorSearch'
+import { fitsAmount } from '../calc/factorSearch'
 import type { LedgerState } from './state'
 
 type Props = {
@@ -171,7 +172,6 @@ export function ExceptionForm({ posting, category, factors, onSave, onCancel }: 
   const [cat, setCat] = useState(category)
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const spendFactors = factors.filter((f) => f.method === 'spend')
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -238,7 +238,7 @@ export function ExceptionForm({ posting, category, factors, onSave, onCancel }: 
         </div>
         {type === 'tag' && (
           <>
-            <RegionFactorSelect id={`${id}-factor`} label="Faktor" value={factorId} factors={spendFactors} emptyLabel="Vælg faktor" onChange={setFactorId} />
+            <FactorSearchSelect id={`${id}-factor`} label="Faktor" value={factorId} factors={factors} fits={fitsAmount} misfit="Ikke pr. beløb" emptyLabel="Vælg faktor" onChange={setFactorId} />
             <div className="field">
               <label htmlFor={`${id}-cat`}>Kategori</label>
               <select id={`${id}-cat`} value={cat} onChange={(e) => setCat(Number(e.target.value))}>

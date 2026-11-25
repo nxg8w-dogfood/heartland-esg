@@ -1,12 +1,12 @@
 import { Fragment, useId, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react'
 import type { Factor } from '../data/factors'
-import { factorOptions, type ActivityGroup, type ActivityLine, type ActivityResult, type ActivitySummary } from '../calc/activity'
+import { type ActivityGroup, type ActivityLine, type ActivityResult, type ActivitySummary } from '../calc/activity'
 import { parseNumber } from '../calc/parseNumber'
 import { groupLines, type LineGrouping } from './groupLines'
 import { formatDate, formatNumber } from '../format'
 import { FactorCell } from '../factors/FactorCell'
 import { lineFactorChoice } from '../factors/choice'
-import { factorLabel } from '../factors/label'
+import { FactorSearchSelect } from '../factors/FactorSearch'
 import { newId } from '../newId'
 import { useRowDocuments } from '../documents/useRowDocuments'
 
@@ -207,8 +207,10 @@ function AddLineForm({
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const group = groups.find((g) => g.id === groupId)!
-  const options = factorOptions(group, factors)
-  const chosen = options.some((f) => f.id === factorId) ? factorId : group.factorId
+  // Any factor in the table with the group's unit, so the quantity still fits (docs/adr/0037).
+  const unit = factors.find((f) => f.id === group.factorId)?.unit
+  const fits = (f: Factor) => !!unit && f.unit === unit
+  const chosen = factorId && factors.some((f) => f.id === factorId && fits(f)) ? factorId : group.factorId
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -251,17 +253,11 @@ function AddLineForm({
             {groups.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
           </select>
         </div>
-        {options.length > 1 && (
-          <div className="field">
-            <label htmlFor={`${id}-factor-choice`}>Emissionsfaktor</label>
-            <select id={`${id}-factor-choice`} value={chosen} onChange={(e) => setFactorId(e.target.value)}>
-              {options.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {factorLabel(f)}{f.value === null ? ' (afventer)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
+        {factors.some((f) => f.id !== group.factorId && fits(f)) && (
+          <FactorSearchSelect
+            key={groupId} id={`${id}-factor-choice`} label="Emissionsfaktor" factors={factors} fits={fits} misfit="Anden enhed"
+            value={chosen} emptyLabel="Vælg faktor" onChange={(v) => setFactorId(v)}
+          />
         )}
         <div className="field">
           <label htmlFor={`${id}-date`}>Dato</label>

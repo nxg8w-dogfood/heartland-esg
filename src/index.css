@@ -1053,13 +1053,59 @@ input.year {
   }
 }
 
-/* The factor dropdown on a line; long factor names wrap the cell rather than widen the table */
-.factor-choice {
-  display: block;
-  margin: var(--hl-sp-1) 0 0 auto;
+/* The factor search (FactorSearch.tsx): a field-like button that opens the search below it. On a
+   line it sits in a table cell, so the panel floats over the table instead of widening it. */
+button.factor-search-button {
+  justify-content: space-between;
+  width: 100%;
+  min-width: 12rem;
+  padding: var(--hl-sp-2) var(--hl-sp-3);
+  border: 1px solid var(--hl-rule-strong);
+  background: var(--hl-surface-raised);
+  color: var(--hl-text);
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  text-align: left;
+  line-height: 1.3;
+}
+
+button.factor-search-button::after {
+  content: '▾';
+  margin-left: var(--hl-sp-2);
+}
+
+button.factor-search-button:hover {
+  background: var(--hl-surface-raised);
+  border-color: var(--hl-text-strong);
+}
+
+td .factor-search {
+  margin-top: var(--hl-sp-1);
+  text-align: left;
+}
+
+td button.factor-search-button {
+  min-width: 0;
   max-width: 16rem;
+  margin-left: auto;
   font-size: var(--hl-fs-xs);
-  min-height: var(--hl-row-h);
+}
+
+/* The search's dialog: wide enough for the table of factors. */
+.factor-search-dialog {
+  width: min(56rem, calc(100vw - 2 * var(--hl-sp-4)));
+}
+
+.factor-search-list .table-wrap {
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.factor-search-table tr.muted th,
+.factor-search-table tr.muted td {
+  color: var(--hl-text-muted);
 }
 
 .unit-choice {

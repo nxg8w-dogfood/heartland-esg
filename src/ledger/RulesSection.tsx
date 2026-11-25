@@ -18,7 +18,8 @@ import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { useConfirm } from '../confirm'
 import { blankException } from './textRule'
-import { RegionFactorSelect } from '../factors/RegionFactorSelect'
+import { FactorSearchSelect } from '../factors/FactorSearch'
+import { fitsAmount } from '../calc/factorSearch'
 
 const fieldOptions: { value: ConditionField; label: string }[] = [
   { value: 'account', label: 'Kontonummer' },
@@ -105,10 +106,10 @@ function RuleFilterBar({ label, filter, setFilter, shown, total, noun, state }: 
   )
 }
 
-type ExceptionsProps = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[] }
+type ExceptionsProps = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; factors: readonly Factor[] }
 
 /** Kontoplan → Undtagelser: the user's own rules for this company, in order, filtered. */
-export function ExceptionsSection({ ledger, setLedger, classified, spendFactors }: ExceptionsProps) {
+export function ExceptionsSection({ ledger, setLedger, classified, factors }: ExceptionsProps) {
   const rules = ledger.rules
   const { open, setOpen, close, toggle } = useOpenRow()
   const [draft, setDraft] = useState<Rule | null>(null)
@@ -123,7 +124,7 @@ export function ExceptionsSection({ ledger, setLedger, classified, spendFactors 
       return next
     })
   const hits = (ruleId: string) => classified.filter((c) => c.hit.kind === 'exception' && c.hit.rule.id === ruleId).length
-  const factorName = (id: string | null) => (id ? (spendFactors.find((f) => f.id === id)?.name ?? id) : '')
+  const factorName = (id: string | null) => (id ? (factors.find((f) => f.id === id)?.name ?? id) : '')
   const shown = filterExceptions(rules, filter, factorName)
   const { confirm, dialog } = useConfirm()
 
@@ -145,7 +146,7 @@ export function ExceptionsSection({ ledger, setLedger, classified, spendFactors 
           rule={draft}
           title="Ny undtagelse"
           postings={ledger.postings}
-          spendFactors={spendFactors}
+          factors={factors}
           onSave={(r) => { setRules((rs) => [...rs, r]); setDraft(null) }}
           onCancel={() => setDraft(null)}
         />
@@ -203,7 +204,7 @@ export function ExceptionsSection({ ledger, setLedger, classified, spendFactors 
                             rule={r}
                             title={`Undtagelse ${i + 1}`}
                             postings={ledger.postings}
-                            spendFactors={spendFactors}
+                            factors={factors}
                             onSave={(saved) => { setRules((rs) => rs.map((x) => (x.id === r.id ? saved : x))); close() }}
                             onCancel={close}
                             extra={
@@ -242,8 +243,8 @@ export function ExceptionsSection({ ledger, setLedger, classified, spendFactors 
  * An exception's settings, edited on a copy: nothing changes until Gem, and Annullér leaves the
  * rule as it was. Used for a new exception, one made from a posting, and an existing one.
  */
-export function RuleEditor({ rule, title, postings, spendFactors, onSave, onCancel, extra }: {
-  rule: Rule; title: string; postings: readonly Posting[]; spendFactors: Factor[]
+export function RuleEditor({ rule, title, postings, factors, onSave, onCancel, extra }: {
+  rule: Rule; title: string; postings: readonly Posting[]; factors: readonly Factor[]
   onSave: (rule: Rule) => void; onCancel: () => void
   /** More actions next to Gem and Annullér, such as moving or deleting the rule */
   extra?: ReactNode
@@ -287,7 +288,7 @@ export function RuleEditor({ rule, title, postings, spendFactors, onSave, onCanc
           </select>
         </div>
         {r.type === 'tag' && (
-          <RegionFactorSelect id={`${id}-factor`} label="Faktor" value={r.factorId ?? ''} factors={spendFactors} emptyLabel="Vælg faktor" onChange={(factorId) => change({ factorId: factorId || null })} />
+          <FactorSearchSelect id={`${id}-factor`} label="Faktor" value={r.factorId ?? ''} factors={factors} fits={fitsAmount} misfit="Ikke pr. beløb" emptyLabel="Vælg faktor" onChange={(factorId) => change({ factorId: factorId || null })} />
         )}
         <div className="field">
           <label htmlFor={`${id}-reason`}>Begrundelse</label>
@@ -334,10 +335,10 @@ export function RuleEditor({ rule, title, postings, spendFactors, onSave, onCanc
   )
 }
 
-type StandardProps = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[] }
+type StandardProps = { ledger: LedgerState; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; factors: readonly Factor[] }
 
 /** Kontoplan → Regler: the ESG owner's posting rules (with this company's changes), account rules and factor register. */
-export function StandardRulesSection({ ledger, setLedger, classified, spendFactors }: StandardProps) {
+export function StandardRulesSection({ ledger, setLedger, classified, factors }: StandardProps) {
   return (
     <>
       <p className="lead">
@@ -345,7 +346,7 @@ export function StandardRulesSection({ ledger, setLedger, classified, spendFacto
         posteringsregler, og til sidst kontoreglen. En manuel handling på en postering går forud for
         alle regler. En regel medtager eller udelader.
       </p>
-      <PostingRulesTable edits={ledger.ruleEdits} setLedger={setLedger} classified={classified} spendFactors={spendFactors} />
+      <PostingRulesTable edits={ledger.ruleEdits} setLedger={setLedger} classified={classified} factors={factors} />
       <AccountRulesTable />
       <FactorRegisterTable />
     </>
@@ -353,14 +354,14 @@ export function StandardRulesSection({ ledger, setLedger, classified, spendFacto
 }
 
 /** The ESG owner's posting rules, with this company's changes; each can be changed or restored. */
-function PostingRulesTable({ edits, setLedger, classified, spendFactors }: {
-  edits: PostingRuleEdit[]; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; spendFactors: Factor[]
+function PostingRulesTable({ edits, setLedger, classified, factors }: {
+  edits: PostingRuleEdit[]; setLedger: Dispatch<SetStateAction<LedgerState>>; classified: ClassifiedPosting[]; factors: readonly Factor[]
 }) {
   const { open, close, toggle } = useOpenRow()
   const [filter, setFilter] = useState<RuleFilter>(emptyRuleFilter)
   const rules = withRuleEdits(builtinRuleBook, edits).postingRules
   const hits = (id: string) => classified.filter((c) => c.hit.kind === 'posting' && c.hit.rule.id === id).length
-  const factorName = (id: string | null) => (id ? (spendFactors.find((f) => f.id === id)?.name ?? id) : '')
+  const factorName = (id: string | null) => (id ? (factors.find((f) => f.id === id)?.name ?? id) : '')
   const ruleFactor = (r: EffectivePostingRule) => (r.edit ? (factorName(r.edit.factorId) || 'Kontoens') : (r.factorCode ?? ''))
   const shown = filterPostingRules(rules, filter, ruleFactor)
   const setEdits = (f: (es: PostingRuleEdit[]) => PostingRuleEdit[]) => setLedger((l) => ({ ...l, ruleEdits: f(l.ruleEdits) }))
@@ -424,7 +425,7 @@ function PostingRulesTable({ edits, setLedger, classified, spendFactors }: {
                   <td colSpan={9}>
                     <PostingRuleEditor
                       rule={r}
-                      spendFactors={spendFactors}
+                      factors={factors}
                       onSave={(edit) => { setEdits((es) => [...es.filter((e) => e.ruleId !== r.id), edit]); close() }}
                       onRestore={() => { setEdits((es) => es.filter((e) => e.ruleId !== r.id)); close() }}
                       onCancel={close}
@@ -442,8 +443,8 @@ function PostingRulesTable({ edits, setLedger, classified, spendFactors }: {
 
 const postingRuleById = (id: string) => builtinRuleBook.postingRules.find((r) => r.id === id)
 
-function PostingRuleEditor({ rule, spendFactors, onSave, onRestore, onCancel }: {
-  rule: EffectivePostingRule; spendFactors: Factor[]
+function PostingRuleEditor({ rule, factors, onSave, onRestore, onCancel }: {
+  rule: EffectivePostingRule; factors: readonly Factor[]
   onSave: (edit: PostingRuleEdit) => void; onRestore: () => void; onCancel: () => void
 }) {
   const id = useId()
@@ -452,7 +453,7 @@ function PostingRuleEditor({ rule, spendFactors, onSave, onRestore, onCancel }: 
   const [factorId, setFactorId] = useState<string | null>(rule.edit ? rule.edit.factorId : builtinRuleBook.factorFor(rule.factorCode))
   const [moveTo, setMoveTo] = useState<number | null>(rule.moveTo)
   const [reason, setReason] = useState(rule.reason)
-  const chosen = spendFactors.find((f) => f.id === factorId)
+  const chosen = factors.find((f) => f.id === factorId)
 
   return (
     <form
@@ -474,7 +475,7 @@ function PostingRuleEditor({ rule, spendFactors, onSave, onRestore, onCancel }: 
         </div>
         {handling !== 'exclude' && (
           <>
-            <RegionFactorSelect id={`${id}-factor`} label="Faktor" value={factorId ?? ''} factors={spendFactors} emptyLabel="Kontoens faktor" onChange={(v) => setFactorId(v || null)} />
+            <FactorSearchSelect id={`${id}-factor`} label="Faktor" value={factorId ?? ''} factors={factors} fits={fitsAmount} misfit="Ikke pr. beløb" emptyLabel="Kontoens faktor" allowEmpty onChange={(v) => setFactorId(v || null)} />
             <div className="field">
               <label htmlFor={`${id}-move`}>Flyt til kategori</label>
               <select id={`${id}-move`} value={moveTo ?? ''} onChange={(e) => setMoveTo(e.target.value ? Number(e.target.value) : null)}>

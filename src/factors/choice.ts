@@ -1,13 +1,13 @@
 import type { Dispatch, SetStateAction } from 'react'
-import { factorChoices } from '../calc/factorChoices'
 import type { Factor } from '../data/factors'
 import type { FactorChoice } from './FactorCell'
 
 type LineWithFactor = { id: string; factorId?: string | null }
 
 /**
- * The dropdown for one line: the factors it may use, and an update that stores the choice on
- * the line. Choosing the default stores nothing, so the line follows the default if it changes.
+ * The factor picker for one line: every factor in the table whose unit is the default's, so the
+ * line's quantity still fits, whatever its scope. Choosing the default stores nothing, so the
+ * line follows the default if it changes.
  */
 export function lineFactorChoice<L extends LineWithFactor>(
   line: L,
@@ -16,8 +16,10 @@ export function lineFactorChoice<L extends LineWithFactor>(
   setLines: Dispatch<SetStateAction<L[]>>,
   lineName: string,
 ): FactorChoice {
+  const unit = factors.find((f) => f.id === defaultId)?.unit
   return {
-    options: factorChoices(defaultId, factors),
+    options: factors,
+    fits: (f) => !!unit && f.unit === unit,
     selectedId: line.factorId ?? defaultId,
     onChoose: (id) => setLines((ls) => ls.map((l) => (l.id === line.id ? { ...l, factorId: id === defaultId ? null : id } : l))),
     lineName,
