@@ -90,6 +90,14 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
           de måneder, der overlapper, tælles dobbelt.
         </p>
       )}
+      {cat15.decidedCount > 0 && (
+        <p className={cat15.completeCount === cat15.decidedCount ? 'muted' : 'warning'} role="status">
+          {cat15.completeCount === cat15.decidedCount
+            ? `Alle ${formatNumber(cat15.decidedCount, 0)} investeringer er markeret færdige.`
+            : `${formatNumber(cat15.completeCount, 0)} af ${formatNumber(cat15.decidedCount, 0)} investeringer er markeret færdige; ${formatNumber(cat15.decidedCount - cat15.completeCount, 0)} er ikke færdige.`}
+          {cat15.excludedCount > 0 && ` ${formatNumber(cat15.excludedCount, 0)} ${cat15.excludedCount === 1 ? 'medtages' : 'medtages'} ikke.`}
+        </p>
+      )}
       {cat15.pendingCount > 0 && (
         <p className="warning">
           {cat15.pendingCount === 1 ? '1 investering mangler' : `${cat15.pendingCount} investeringer mangler`} data
@@ -166,7 +174,9 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
   const id = useId()
   const inv = result.investment
   const trimmed = result.owned && result.covers && (result.owned.start !== result.covers.start || result.owned.end !== result.covers.end)
-  const status = result.covers && !result.owned
+  const status = result.excluded
+    ? `Medtages ikke${inv.excludedReason?.trim() ? `: ${inv.excludedReason.trim()}` : ' — angiv en begrundelse'}`
+    : result.covers && !result.owned
     ? 'Ejet fra/til passer ikke med de 12 måneder — tæller ikke med'
     : !counted
       ? `${trimmed ? `Ejet ${ownedLabel(result.owned!)}` : coverLabel(result.covers)} ligger uden for perioden — tæller ikke med`
@@ -175,12 +185,11 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
       : !result.included
         ? '> 50 % — konsolideret i Scope 1 og 2, tæller ikke med her'
         : result.pending
-          ? inv.basis === 'Investment' && inv.investmentDKK === null ? 'Investeringsbeløb mangler'
-            : inv.basis === 'Investment' && inv.investmentDKK! < 0 ? 'Investeringsbeløbet er negativt — tæller ikke med'
-              : inv.basis !== 'CO2e' && result.factorKgPerEUR === null
-                ? (result.factor && result.factor.value === null ? 'Faktorens værdi mangler' : 'Faktor mangler')
-                : 'Mangler data'
+          ? `${result.missing ?? 'Mangler data'} — tæller ikke med`
           : null
+  // A holding that counts, or is left out on purpose, can be marked complete once nothing is missing.
+  const decided = result.excluded || (counted && result.included)
+  const canComplete = decided && (result.excluded || !result.pending)
 
   // Folded to one line, so an import of a hundred holdings stays readable. A new, empty one
   // opens, since it has to be filled in.
@@ -197,9 +206,43 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
           {' '}· {inv.ownershipPct === null ? 'ejerandel mangler' : `${formatNumber(inv.ownershipPct, 2)} %`}
           {documentCount > 0 && ` · ${documentCount} ${documentCount === 1 ? 'dokument' : 'dokumenter'}`}
         </span>
-        {status && <span className="pending"> · {status}</span>}
+        {status && <span className={result.excluded ? 'muted' : 'pending'}> · {status}</span>}
+        {decided && (inv.complete && canComplete
+          ? <span className="investment-status done"> · Færdig</span>
+          : <span className="investment-status"> · Ikke færdig</span>)}
         {!status && result.kgCO2e > 0 && <strong className="investment-value">{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>}
       </summary>
+      <fieldset className="conditions investment-decision">
+        <legend>Medtagelse og status</legend>
+        <label className="check">
+          <input type="checkbox" checked={inv.excluded === true} onChange={(e) => onChange(e.target.checked ? { excluded: true, excludedReason: inv.excludedReason ?? '' } : { excluded: undefined, excludedReason: undefined })} />
+          Medtages ikke
+        </label>
+        {inv.excluded && (
+          <div className="field wide">
+            <label htmlFor={`${id}-reason`}>Begrundelse</label>
+            <input
+              id={`${id}-reason`} value={inv.excludedReason ?? ''} onChange={(e) => onChange({ excludedReason: e.target.value })}
+              aria-invalid={!inv.excludedReason?.trim()} aria-describedby={!inv.excludedReason?.trim() ? `${id}-reason-err` : undefined}
+            />
+            {!inv.excludedReason?.trim() && <p id={`${id}-reason-err`} className="error">Angiv, hvorfor investeringen ikke medtages.</p>}
+          </div>
+        )}
+        <label className="check">
+          <input
+            type="checkbox" checked={inv.complete === true && canComplete} disabled={!canComplete}
+            aria-describedby={!canComplete ? `${id}-complete-hint` : undefined}
+            onChange={(e) => onChange({ complete: e.target.checked || undefined })}
+          />
+          Beregningen er færdig
+        </label>
+        {!canComplete && (
+          <p id={`${id}-complete-hint`} className="muted">
+            {decided ? 'Kan markeres færdig, når der ikke mangler data.' : 'Kan markeres færdig, når investeringen tæller med eller er markeret Medtages ikke.'}
+          </p>
+        )}
+        {inv.complete && decided && !canComplete && <p className="warning-text">Var markeret færdig, men mangler nu data.</p>}
+      </fieldset>
       <div className="location-settings">
         <div className="field">
           <label id={`${id}-name-label`} htmlFor={`${id}-name`}>Selskab</label>

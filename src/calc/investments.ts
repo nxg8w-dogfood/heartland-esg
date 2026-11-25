@@ -64,6 +64,11 @@ export type Investment = {
   ownedFrom?: string
   /** Last day the group owned the company, when it was sold during the 12 months */
   ownedTo?: string
+  /** Left out of category 15 on purpose, with the reason (docs/adr/0038) */
+  excluded?: boolean
+  excludedReason?: string
+  /** The calculation is final: someone has checked the holding's figures */
+  complete?: boolean
 }
 
 export type InvestmentResult = {
@@ -97,6 +102,10 @@ export type InvestmentResult = {
   kgCO2e: number
   /** The data needed for this basis is missing, or the amount invested is negative */
   pending: boolean
+  /** What is missing, in a few words, e.g. "Omsætning mangler"; null when nothing is */
+  missing: string | null
+  /** Left out on purpose (Medtages ikke); counts nothing */
+  excluded: boolean
 }
 
 export type Category15 = {
@@ -106,6 +115,11 @@ export type Category15 = {
   /** Holdings over 50 %, left out because they're consolidated */
   consolidatedCount: number
   pendingCount: number
+  /** Holdings left out on purpose (Medtages ikke) */
+  excludedCount: number
+  /** Holdings that count, or are left out on purpose, and are marked complete; and how many there are */
+  completeCount: number
+  decidedCount: number
   /** Companies with holdings whose months overlap, which would count those months twice */
   duplicates: { company: string; covers: string }[]
 }
@@ -138,6 +152,7 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
   let investmentEUR: number | null = null
   let annualKgCO2e: number
   let pending: boolean
+  let noRevenue = false
   if (investment.basis === 'CO2e') {
     annualKgCO2e = finiteOrZero(investment.totalKgCO2e) * share
     pending = investment.totalKgCO2e === null
@@ -148,7 +163,9 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
         : finiteOrZero(investment.revenueLocal) * finiteOrZero(investment.rateLocalToDKK)
     revenueEUR = perEUR === null ? null : revenueDKK / perEUR
     annualKgCO2e = finiteOrZero(revenueEUR) * finiteOrZero(regulatedKgPerEUR) * share
-    pending = revenueDKK !== 0 && (factorKgPerEUR === null || perEUR === null)
+    // No revenue gives no estimate at all, so it waits rather than counting as zero (docs/adr/0038).
+    noRevenue = revenueDKK === 0
+    pending = noRevenue || factorKgPerEUR === null || perEUR === null
   } else {
     // A negative amount (a written-down holding, say) would give negative emissions: it waits.
     const amount = investment.investmentDKK
@@ -160,7 +177,19 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
   // A company bought or sold during the 12 months counts for the days it was owned (docs/adr/0027).
   const owned = covers && ownedPart(covers, investment)
   const inPeriod = covers && owned ? overlapDays(owned, period) / overlapDays(covers, covers) : 0
-  return { investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, deflation: d, regulatedKgPerEUR, annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: annualKgCO2e * inPeriod, pending }
+  const missing = !pending ? null
+    : investment.basis === 'CO2e' ? 'Selskabets udledning mangler'
+    : noRevenue ? 'Omsætning mangler'
+    : investment.basis === 'Investment' && investment.investmentDKK === null ? 'Investeringsbeløb mangler'
+    : investment.basis === 'Investment' && investment.investmentDKK! < 0 ? 'Investeringsbeløbet er negativt'
+    : factorKgPerEUR === null ? (factor && factor.value === null ? 'Faktorens værdi mangler' : 'Faktor mangler')
+    : perEUR === null ? 'Kurs til EUR mangler'
+    : 'Mangler data'
+  const excluded = investment.excluded === true
+  return {
+    investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, deflation: d, regulatedKgPerEUR,
+    annualKgCO2e: excluded ? 0 : annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: excluded ? 0 : annualKgCO2e * inPeriod, pending, missing, excluded,
+  }
 }
 
 /** The 12 months, cut to the dates the company was owned. ISO dates compare as text. */
@@ -195,9 +224,12 @@ export function category15(investments: readonly Investment[], rates: RateSource
   }
   return {
     rows,
-    total: rows.filter((r) => r.included).reduce((t, r) => t + r.kgCO2e, 0) / 1000,
+    total: rows.filter((r) => r.included && !r.excluded).reduce((t, r) => t + r.kgCO2e, 0) / 1000,
     consolidatedCount: rows.filter((r) => !r.included && r.investment.ownershipPct !== null).length,
-    pendingCount: rows.filter((r) => r.included && r.pending).length,
+    pendingCount: rows.filter((r) => r.included && !r.excluded && r.pending).length,
+    excludedCount: rows.filter((r) => r.excluded).length,
+    completeCount: rows.filter((r) => (r.included || r.excluded) && r.investment.complete).length,
+    decidedCount: rows.filter((r) => r.included || r.excluded).length,
     duplicates,
   }
 }
