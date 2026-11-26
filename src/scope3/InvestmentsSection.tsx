@@ -15,6 +15,7 @@ import { useConfirm } from '../confirm'
 import { useDocumentList } from '../storage/documents'
 import { DocumentsPanel } from '../documents/DocumentsPanel'
 import { InvestmentsImport } from './InvestmentsImport'
+import { findInvestments, largestEmitters, previousYear, type InvestmentSort, type PreviousYear } from '../calc/investmentHistory'
 
 const blank = (date: string): Investment => ({
   id: newId(), date, company: '', ownershipPct: null, accountingMethod: 'Other investments', climateMethod: 'Investment-specific method',
@@ -47,6 +48,10 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
   const documents = useDocumentList('investment')
   /** Deleting a holding deletes its documents too (the lookup cascades), so the question says so. */
   const andDocuments = (ids: ReadonlySet<string>, whose: 'Dens' | 'Deres') => ([...ids].some((i) => documents.count(i) > 0) ? ` ${whose} dokumenter slettes også.` : '')
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<InvestmentSort>('list')
+  const results = investments.map((inv) => investmentResult(inv, appRates, period, factors, deflation))
+  const shown = findInvestments(results, query, sort)
 
   return (
     <section aria-labelledby={`${id}-heading`}>
@@ -105,16 +110,40 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
         </p>
       )}
 
+      <LargestEmitters cat15={cat15} />
+
+      {investments.length > 1 && (
+        <div className="location-settings investment-filter" role="search" aria-label="Find investering">
+          <div className="field wide">
+            <label htmlFor={`${id}-q`}>Søg investering</label>
+            <input id={`${id}-q`} type="search" value={query} onChange={(e) => setQuery(e.target.value)} aria-describedby={`${id}-shown`} />
+          </div>
+          <div className="field">
+            <label htmlFor={`${id}-sort`}>Sortér</label>
+            <select id={`${id}-sort`} value={sort} onChange={(e) => setSort(e.target.value as InvestmentSort)}>
+              <option value="list">Som importeret</option>
+              <option value="largest">Størst udledning først</option>
+              <option value="smallest">Mindst udledning først</option>
+              <option value="name">Navn A–Å</option>
+            </select>
+          </div>
+          <p id={`${id}-shown`} className="muted" role="status">
+            {shown.length === investments.length ? `${formatNumber(shown.length, 0)} investeringer.` : `${formatNumber(shown.length, 0)} af ${formatNumber(investments.length, 0)} investeringer passer på søgningen.`}
+          </p>
+        </div>
+      )}
+
       {investments.length === 0 && (
         <div className="empty">
           <p>Ingen investeringer.</p>
         </div>
       )}
 
-      {investments.map((inv) => (
+      {shown.map((result) => { const inv = result.investment; return (
         <InvestmentCard
           key={inv.id}
-          result={investmentResult(inv, appRates, period, factors, deflation)}
+          result={result}
+          lastYear={previousYear(inv, investments, appRates, factors, deflation)}
           options={options}
           counted={counted.has(inv.id)}
           onChange={(patch) => update(inv.id, patch)}
@@ -129,7 +158,7 @@ export function InvestmentsSection({ cat15, investments, setInvestments, period,
           }
           documentCount={documents.count(inv.id)}
         />
-      ))}
+      ) })}
 
       {cat15.rows.length > 0 && (
         <p className="strong">
@@ -161,8 +190,10 @@ function BulkFactor({ count, options, onApply }: { count: number; options: reado
   )
 }
 
-function InvestmentCard({ result, options, counted, onChange, onDelete, documents, documentCount }: {
+function InvestmentCard({ result, lastYear, options, counted, onChange, onDelete, documents, documentCount }: {
   result: InvestmentResult
+  /** The same company's holding the year before, and what it came to */
+  lastYear: PreviousYear | null
   options: readonly Factor[]
   counted: boolean
   onChange: (patch: Partial<Investment>) => void
@@ -200,6 +231,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
       <summary>
         <span className="investment-name">{inv.company || 'Ny investering'}</span>
         <span className="muted">
+          {inv.organizationId && ` · ${inv.organizationId}`}
           {' '}· {coverLabel(result.covers)}
           {inv.ownedFrom && ` · købt ${formatDate(inv.ownedFrom)}`}
           {inv.ownedTo && ` · solgt ${formatDate(inv.ownedTo)}`}
@@ -210,6 +242,7 @@ function InvestmentCard({ result, options, counted, onChange, onDelete, document
         {decided && (inv.complete && canComplete
           ? <span className="investment-status done"> · Færdig</span>
           : <span className="investment-status"> · Ikke færdig</span>)}
+        {lastYear && <LastYear lastYear={lastYear} />}
         {!status && result.kgCO2e > 0 && <strong className="investment-value">{formatNumber(result.kgCO2e / 1000, 3)} tCO2e</strong>}
       </summary>
       <fieldset className="conditions investment-decision">
@@ -391,5 +424,48 @@ function ImportedList({ investments, onDelete }: { investments: readonly Investm
         ))}
       </ul>
     </section>
+  )
+}
+
+/** What the same company's holding came to the year before: short on the line, the details on hover. */
+function LastYear({ lastYear: { holding, result } }: { lastYear: PreviousYear }) {
+  const value = result.excluded ? 'medtaget ikke' : result.pending ? 'manglede data' : !result.included ? 'konsolideret' : `${formatNumber(result.kgCO2e / 1000, 3)} t`
+  const factor = result.factor ? factorLabel(result.factor) : result.factorKgPerEUR !== null ? 'egen faktor' : null
+  const details = [
+    `Sidste år (${coverLabel(result.covers)}): ${value}`,
+    holding.ownershipPct !== null && `ejerandel ${formatNumber(holding.ownershipPct, 2)} %`,
+    factor && result.factorKgPerEUR !== null && `faktor ${factor}, ${formatFactor(result.factorKgPerEUR)} kg CO2e/EUR`,
+  ].filter(Boolean).join(' · ')
+  return <span className="muted last-year" title={details}> · Sidste år: {value}<span className="visually-hidden"> ({details})</span></span>
+}
+
+/** The holdings that emit most in the period, with each one's share of category 15 */
+function LargestEmitters({ cat15 }: { cat15: Category15 }) {
+  const top = largestEmitters(cat15.rows.filter((r) => r.included && !r.excluded && !r.pending), 10)
+  if (top.length < 2) return null
+  const totalKg = cat15.total * 1000
+  const max = top[0].kgCO2e
+  return (
+    <div className="card largest-emitters">
+      <h3>Største udledere</h3>
+      <div className="table-wrap">
+        <table className="drill-bars">
+          <caption className="visually-hidden">De {top.length} investeringer med størst udledning i perioden</caption>
+          <thead>
+            <tr><th scope="col">Investering</th><td aria-hidden="true" /><th scope="col" className="num">tCO2e</th><th scope="col" className="num">Andel</th></tr>
+          </thead>
+          <tbody>
+            {top.map((r) => (
+              <tr key={r.investment.id}>
+                <th scope="row">{r.investment.company}<span className="sub">{coverLabel(r.covers)}</span></th>
+                <td className="bar-cell" aria-hidden="true"><span className="bar" style={{ width: `${(r.kgCO2e / max) * 100}%` }} /></td>
+                <td className="num">{formatNumber(r.kgCO2e / 1000, 3)}</td>
+                <td className="num">{totalKg > 0 ? `${formatNumber((r.kgCO2e / totalKg) * 100, 1)} %` : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }

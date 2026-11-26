@@ -5,7 +5,7 @@
 
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
 import {
-  CONSOLIDATED_ABOVE_PCT, GroupExportError, IMPORT_SOURCE_PREFIX, importedAccountingMethod, importedBasis, measureLabels, parseGroupExports,
+  CONSOLIDATED_ABOVE_PCT, GroupExportError, IMPORT_SOURCE_PREFIX, importedBasis, measureLabels, parseGroupExports,
   periodEndDate, planInvestments,
   planStatusLabels, type GroupExport, type PlanRow,
 } from '../calc/groupExport'
@@ -13,8 +13,8 @@ import { ImportFileError, readSheets } from '../calc/importFile'
 import { importedFactorId } from '../data/businessAreaFactors'
 import { factors } from '../data/factors'
 import type { Investment } from '../calc/investments'
+import { applyImport, carriedFactor } from '../calc/investmentHistory'
 import { formatNumber } from '../format'
-import { newId } from '../newId'
 
 /** One measure, from a file or from one sheet of a workbook */
 type Loaded = { fileName: string; export: GroupExport }
@@ -96,34 +96,14 @@ export function InvestmentsImport({ investments, setInvestments }: {
     if (!period) return
     const date = periodEndDate(period)
     const source = `${IMPORT_SOURCE_PREFIX}${periodLabel}`
-    setInvestments((current) => {
-      const updates = new Map(importable.filter((r) => r.existingId).map((r) => [r.existingId!, r]))
-      const kept = current.map((inv) => {
-        const r = updates.get(inv.id)
-        if (!r) return inv
-        // A factor the ESG owner chose, or a value of the holding's own, is left alone.
-        const factorId = !inv.factorId && inv.factorKgPerEUR === null ? importedFactorId(r) : null
-        return {
-          ...inv, ownershipPct: r.ownershipPct, revenueDKK: r.revenueDKK ?? inv.revenueDKK, investmentDKK: r.investmentDKK ?? inv.investmentDKK, dataSource: source,
-          ...(r.organizationId ? { organizationId: r.organizationId } : {}), ...(r.businessArea ? { businessArea: r.businessArea } : {}),
-          ...(factorId ? { factorId } : {}),
-        }
-      })
-      const created: Investment[] = importable.filter((r) => !r.existingId).map((r) => ({
-        id: newId(), date, company: r.name, ownershipPct: r.ownershipPct,
-        accountingMethod: importedAccountingMethod(r), climateMethod: 'Investment-specific method', dataSource: source,
-        basis: importedBasis(r), totalKgCO2e: null, revenueDKK: r.revenueDKK, investmentDKK: r.investmentDKK, revenueLocal: null, localCurrency: 'DKK',
-        rateLocalToDKK: null, factorKgPerEUR: null, factorSource: '', country: '',
-        ...(r.organizationId ? { organizationId: r.organizationId } : {}), ...(r.businessArea ? { businessArea: r.businessArea } : {}),
-        ...(importedFactorId(r) ? { factorId: importedFactorId(r)! } : {}),
-      }))
-      return [...kept, ...created]
-    })
+    setInvestments((current) => applyImport(current, importable, date, source))
     const created = importable.filter((r) => !r.existingId).length
-    const updated = importable.length - created
+    const renamed = importable.filter((r) => r.complete).length
+    const updated = importable.length - created - renamed
     setDone(
       `${formatNumber(created, 0)} nye og ${formatNumber(updated, 0)} opdaterede investeringer fra ${periodLabel}. ` +
-      'Udfyld faktor (kg CO2e pr. EUR) på hver investering — først da tæller de med.',
+      (renamed > 0 ? `${formatNumber(renamed, 0)} ${renamed === 1 ? 'færdig investering har' : 'færdige investeringer har'} kun fået nyt navn. ` : '') +
+      'En investering uden faktor tæller først med, når den har en.',
     )
     setFiles([])
     setPeriodLabel('')
@@ -196,7 +176,7 @@ export function InvestmentsImport({ investments, setInvestments }: {
             </p>
           )}
 
-          <PlanTable rows={plan} periodLabel={periodLabel} />
+          <PlanTable rows={plan} periodLabel={periodLabel} investments={investments} />
 
           <div className="actions">
             <button type="button" disabled={importable.length === 0} onClick={apply}>
@@ -218,7 +198,16 @@ function factorLabel(factorId: string | null): string {
   return factor ? `${factor.name} (${factor.region})` : 'Vælges i appen'
 }
 
-function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string }) {
+/** The factor a row gets: last year's, when the company had a holding with one, else its sector's */
+function plannedFactor(r: PlanRow, investments: readonly Investment[]): string {
+  const previous = r.previousId ? investments.find((i) => i.id === r.previousId) : undefined
+  const carried = previous && carriedFactor(previous)
+  if (carried?.factorId) return `${factorLabel(carried.factorId)}, som sidste år`
+  if (carried) return `${formatNumber(carried.factorKgPerEUR!, 4)} kg CO2e/EUR, som sidste år`
+  return factorLabel(importedFactorId(r))
+}
+
+function PlanTable({ rows, periodLabel, investments }: { rows: PlanRow[]; periodLabel: string; investments: readonly Investment[] }) {
   const shown = rows.filter((r) => r.status === 'new' || r.status === 'update')
   const rest = rows.length - shown.length
   // Only a company table says how the cube classes each holding.
@@ -242,13 +231,17 @@ function PlanTable({ rows, periodLabel }: { rows: PlanRow[]; periodLabel: string
           <tbody>
             {shown.slice(0, PREVIEW).map((r) => (
               <tr key={r.name}>
-                <td>{r.name}</td>
+                <td>
+                  {r.name}
+                  {r.organizationId && <span className="sub">OrganizationID {r.organizationId}</span>}
+                  {r.renamedFrom && <span className="sub">Hed før: {r.renamedFrom}</span>}
+                </td>
                 {typed && <td>{r.ownershipType || '—'}</td>}
-                {typed && <td>{factorLabel(importedFactorId(r))}</td>}
+                {typed && <td>{r.complete ? '—' : plannedFactor(r, investments)}</td>}
                 <td className="num">{r.ownershipPct === null ? '—' : `${formatNumber(r.ownershipPct, 2)} %`}</td>
                 <td className="num">{r.revenueDKK === null ? <span className="pending">Mangler</span> : formatNumber(r.revenueDKK, 2)}</td>
                 <td className="num">{r.investmentDKK === null ? '—' : formatNumber(r.investmentDKK, 2)}</td>
-                <td>{planStatusLabels[r.status]}{r.status === 'new' && (importedBasis(r) === 'Investment' ? ' · investeringsbeløb' : ' · omsætning')}</td>
+                <td>{r.complete ? 'Færdig — kun navnet opdateres' : planStatusLabels[r.status]}{r.status === 'new' && (importedBasis(r) === 'Investment' ? ' · investeringsbeløb' : ' · omsætning')}</td>
               </tr>
             ))}
           </tbody>

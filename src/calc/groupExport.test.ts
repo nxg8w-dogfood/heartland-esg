@@ -296,17 +296,18 @@ describe('parseCompanyTable', () => {
   })
 
   it('keys each company by OrganizationID, with how the cube classes it', () => {
-    expect(ownership.rows[1]).toEqual({ name: 'Delejet', id: '401_464', ownershipType: 'Associated', businessArea: 'Apparel', values: [0.25] })
+    expect(ownership.rows[1]).toEqual({ name: 'Delejet SE', friendlyName: 'Delejet', id: '401_464', ownershipType: 'Associated', businessArea: 'Apparel', values: [0.25] })
     expect(ownership.rows[0]).toMatchObject({ ownershipType: 'Subsidiary', businessArea: '' })
   })
 
-  it('names a company by its legal name when the FriendlyName is shared', () => {
-    expect(ownership.rows.map((r) => r.name)).toEqual(['Alfa Holding', 'Delejet', 'Gamma Fashion Ltd', 'Epsilon Ltd', 'Zeta'])
+  it('names a company by its legal name (OrganizationName), keeping the FriendlyName it had before (ADR 0040)', () => {
+    expect(ownership.rows.map((r) => r.name)).toEqual(['Alfa Holding A/S', 'Delejet SE', 'Gamma Fashion Ltd', 'Epsilon Ltd', 'Zeta Farms ApS'])
+    expect(ownership.rows.map((r) => r.friendlyName)).toEqual(['Alfa Holding', 'Delejet', undefined, undefined, 'Zeta'])
     expect(ownership.rows[2]).toMatchObject({ id: '157', ownershipType: '', businessArea: '' })
   })
 
   it('leaves out empty and zero cells, and counts them', () => {
-    expect(turnover.rows.map((r) => r.name)).toEqual(['Alfa Holding', 'Delejet'])
+    expect(turnover.rows.map((r) => r.name)).toEqual(['Alfa Holding A/S', 'Delejet SE'])
     expect(turnover.skipped).toBe(3)
   })
 
@@ -341,12 +342,13 @@ describe('planInvestments from a company table (ADR 0025)', () => {
   const row = (rows: ReturnType<typeof plan>, name: string) => rows.find((r) => r.name === name)!
 
   it('joins the measures by OrganizationID, with revenue as the table gives it', () => {
-    expect(row(plan(), 'Delejet')).toEqual({
-      name: 'Delejet', organizationId: '401_464', ownershipType: 'Associated', businessArea: 'Apparel',
-      ownershipPct: 25, revenueDKK: 120_000_000_000.5, investmentDKK: 4_000_000_000, existingId: null, status: 'new',
+    expect(row(plan(), 'Delejet SE')).toEqual({
+      name: 'Delejet SE', organizationId: '401_464', ownershipType: 'Associated', businessArea: 'Apparel',
+      ownershipPct: 25, revenueDKK: 120_000_000_000.5, investmentDKK: 4_000_000_000, existingId: null,
+      complete: false, renamedFrom: null, previousId: null, status: 'new',
     })
-    expect(row(plan(), 'Alfa Holding').status).toBe('consolidated')
-    expect(row(plan(), 'Zeta')).toMatchObject({ ownershipPct: 5, revenueDKK: null, investmentDKK: 12_000_000, status: 'new' })
+    expect(row(plan(), 'Alfa Holding A/S').status).toBe('consolidated')
+    expect(row(plan(), 'Zeta Farms ApS')).toMatchObject({ ownershipPct: 5, revenueDKK: null, investmentDKK: 12_000_000, status: 'new' })
   })
 
   it('keeps companies that share a FriendlyName apart', () => {
@@ -354,13 +356,29 @@ describe('planInvestments from a company table (ADR 0025)', () => {
   })
 
   it('updates the holding with the same OrganizationID on the same date, even if it was renamed', () => {
-    expect(row(plan([{ id: 'inv-9', company: 'Delejet (gammelt navn)', date: '2026-07-31', organizationId: '401_464' }]), 'Delejet'))
-      .toMatchObject({ existingId: 'inv-9', status: 'update' })
-    expect(row(plan([{ id: 'inv-8', company: 'Delejet', date: '2026-07-31', organizationId: '999' }]), 'Delejet').existingId).toBeNull()
+    expect(row(plan([{ id: 'inv-9', company: 'Delejet (gammelt navn)', date: '2026-07-31', organizationId: '401_464' }]), 'Delejet SE'))
+      .toMatchObject({ existingId: 'inv-9', status: 'update', renamedFrom: 'Delejet (gammelt navn)', complete: false })
+    expect(row(plan([{ id: 'inv-8', company: 'Delejet SE', date: '2026-07-31', organizationId: '999' }]), 'Delejet SE').existingId).toBeNull()
   })
 
-  it('matches a holding saved before OrganizationIDs on its name', () => {
-    expect(row(plan([{ id: 'inv-7', company: 'delejet', date: '2026-07-31' }]), 'Delejet').existingId).toBe('inv-7')
+  it('matches a holding saved before OrganizationIDs on its legal name or its FriendlyName', () => {
+    expect(row(plan([{ id: 'inv-7', company: 'delejet se', date: '2026-07-31' }]), 'Delejet SE').existingId).toBe('inv-7')
+    expect(row(plan([{ id: 'inv-6', company: 'Delejet', date: '2026-07-31' }]), 'Delejet SE')).toMatchObject({ existingId: 'inv-6', renamedFrom: 'Delejet' })
+  })
+
+  it('says when the holding it updates is marked complete, so only its name changes', () => {
+    expect(row(plan([{ id: 'inv-5', company: 'Delejet', date: '2026-07-31', organizationId: '401_464', complete: true }]), 'Delejet SE'))
+      .toMatchObject({ existingId: 'inv-5', complete: true, renamedFrom: 'Delejet' })
+  })
+
+  it("points a new holding at the same company's latest holding before it, for last year's factor", () => {
+    const existing = [
+      { id: 'y24', company: 'Delejet', date: '2024-07-31', organizationId: '401_464' },
+      { id: 'y25', company: 'Delejet', date: '2025-07-31', organizationId: '401_464' },
+      { id: 'other', company: 'Delejet SE', date: '2025-07-31', organizationId: '999' },
+    ]
+    expect(row(plan(existing), 'Delejet SE')).toMatchObject({ existingId: null, previousId: 'y25', status: 'new' })
+    expect(row(plan(existing), 'Zeta Farms ApS').previousId).toBeNull()
   })
 })
 

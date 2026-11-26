@@ -32,7 +32,7 @@ is positive. A notes sheet explains the setup: July 2026, YTD, i.e. the fiscal y
    `hlesg_investering.hlesg_organisationid` and `hlesg_forretningsomraade`. The ID makes the
    next import update the right holding even if the name changes. The business area is shown on
    the holding, because it's the sector the data manual's factor is chosen for (ADR 0022).
-4. **The name is the FriendlyName, or the OrganizationName when the FriendlyName is
+4. *(Replaced by ADR 0040: the name is now the OrganizationName.)* **The name is the FriendlyName, or the OrganizationName when the FriendlyName is
    *Not Available*,** so companies that share it can be told apart.
 5. **Revenue's sign is read from the values.** If most are negative, the export is the cube's own
    and the credit is reversed; if most are positive, it's taken as it is.
