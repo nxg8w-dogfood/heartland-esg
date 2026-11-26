@@ -38,6 +38,8 @@ export type GroupExportRow = {
   name: string
   /** The company's key in the cube (OrganizationID), when the export has one */
   id?: string
+  /** The cube's FriendlyName, when the name is the OrganizationName: holdings saved before were named by it */
+  friendlyName?: string
   /** How the cube classes the holding: Subsidiary, Associated, Other, Cost … */
   ownershipType?: string
   /** The company's business area in the cube, e.g. Apparel */
@@ -221,9 +223,11 @@ export function parseCompanyTable(sheet: readonly (readonly CellValue[])[]): Gro
   const companies = sheet.slice(headerAt + 1).flatMap((row) => {
     const id = text(row[idColumn])
     if (!id) return []
-    // FriendlyName can be shared (dozens are "Not Available"); the legal name tells those apart.
-    const name = cell(row, friendlyColumn) || cell(row, nameColumn) || id
-    return [{ row, id, name, ownershipType: cell(row, typeColumn), businessArea: cell(row, areaColumn) }]
+    // The legal name (OrganizationName), as the ESG owner asked on 2026-11-26 (docs/adr/0040). The
+    // FriendlyName is kept to find holdings saved under it before.
+    const friendlyName = cell(row, friendlyColumn)
+    const name = cell(row, nameColumn) || friendlyName || id
+    return [{ row, id, name, ...(friendlyName && friendlyName !== name ? { friendlyName } : {}), ownershipType: cell(row, typeColumn), businessArea: cell(row, areaColumn) }]
   })
   const exports = measures.map(({ c, measure, heading, period }): GroupExport => {
     const rows: GroupExportRow[] = []
@@ -292,7 +296,21 @@ export type PlanRow = {
   investmentDKK: number | null
   /** The investment this updates: the same company (by OrganizationID if both have one), on the same date */
   existingId: string | null
+  /** The holding being updated is marked complete: only its name and OrganizationID change */
+  complete: boolean
+  /** The name the holding being updated has now, when the import renames it */
+  renamedFrom: string | null
+  /** The same company's latest holding before this date, whose factor a new holding takes over */
+  previousId: string | null
   status: PlanStatus
+}
+
+type ExistingHolding = { id: string; company: string; date: string; organizationId?: string; complete?: boolean }
+
+/** The same company: by OrganizationID when both have one, otherwise by name (or the cube's FriendlyName). */
+export function isSameCompany(holding: Pick<ExistingHolding, 'company' | 'organizationId'>, row: Pick<GroupExportRow, 'name' | 'id' | 'friendlyName'>): boolean {
+  if (row.id && holding.organizationId) return holding.organizationId === row.id
+  return sameCompany(holding.company, row.name) || (!!row.friendlyName && sameCompany(holding.company, row.friendlyName))
 }
 
 const sameCompany = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
@@ -308,7 +326,7 @@ export const CONSOLIDATED_ABOVE_PCT = 50
 export function planInvestments(
   exports: readonly GroupExport[],
   periodLabel: string,
-  existing: readonly { id: string; company: string; date: string; organizationId?: string }[],
+  existing: readonly ExistingHolding[],
 ): PlanRow[] {
   // A holding covers the 12 months up to its date (docs/adr/0023), and an imported one is dated
   // at the end of its period. The same company on the same date is the same holding; any other
@@ -336,11 +354,15 @@ export function planInvestments(
   const companies = new Map<string, GroupExportRow>()
   for (const e of exports) for (const r of e.rows) if (!companies.has(keyOf(r))) companies.set(keyOf(r), r)
 
-  return [...companies].map(([key, { name, id, ownershipType, businessArea }]) => {
+  return [...companies].map(([key, company]) => {
+    const { name, id, ownershipType, businessArea } = company
     const share = valueOf('ownership', key)
     // What's left of a sold holding can be a rounding residue, even below zero: no holding.
     const ownershipPct = share === null || Math.round(share * factor * 1e4) <= 0 ? null : share * factor
-    const same = (i: (typeof existing)[number]) => (id && i.organizationId ? i.organizationId === id : sameCompany(i.company, name))
+    const same = (i: ExistingHolding) => isSameCompany(i, company)
+    const current = existing.find((i) => same(i) && i.date === date)
+    // Next year's import keeps the factor used last year (ESG owner, 2026-11-26).
+    const previous = date ? existing.filter((i) => same(i) && i.date < date).sort((a, b) => b.date.localeCompare(a.date))[0] : undefined
     const row = {
       name,
       organizationId: id ?? null,
@@ -349,7 +371,10 @@ export function planInvestments(
       ownershipPct,
       revenueDKK: valueOf('turnover', key),
       investmentDKK: valueOf('investment', key),
-      existingId: existing.find((i) => same(i) && i.date === date)?.id ?? null,
+      existingId: current?.id ?? null,
+      complete: current?.complete === true,
+      renamedFrom: current && current.company !== name ? current.company : null,
+      previousId: previous?.id ?? null,
     }
     if (ownershipPct === null) return { ...row, status: 'unknownShare' as const }
     if (ownershipPct > CONSOLIDATED_ABOVE_PCT) return { ...row, status: 'consolidated' as const }

@@ -138,4 +138,23 @@ describe('a holding left out or marked complete (ADR 0038)', () => {
   it('says a holding on revenue without revenue is missing it', () => {
     expect(render([onRevenue({ revenueDKK: 0, factorKgPerEUR: 0.1 })])).toContain('· Omsætning mangler — tæller ikke med</span>')
   })
+
+  it('shows the largest emitters with their share of category 15', () => {
+    const html = render([holding({ id: 'a', company: 'Stor A/S', totalKgCO2e: 3_000_000 }), holding({ id: 'b', company: 'Lille ApS', totalKgCO2e: 1_000_000 })])
+    expect(html).toContain('Største udledere')
+    expect(html.indexOf('Stor A/S')).toBeLessThan(html.indexOf('Lille ApS'))
+    expect(html).toContain('75,0 %')
+  })
+
+  it('offers a search and a sort when there is more than one holding', () => {
+    expect(render([holding({ id: 'a' }), holding({ id: 'b' })])).toContain('Søg investering')
+    expect(render([holding({})])).not.toContain('Søg investering')
+  })
+
+  it("shows the OrganizationID on the folded line, and last year's emissions with the details on hover", () => {
+    const before = holding({ id: 'y25', date: '2025-07-31', organizationId: '401', totalKgCO2e: 500_000 })
+    const html = render([before, holding({ id: 'y26', organizationId: '401' })])
+    expect(html).toContain(' · 401')
+    expect(html).toMatch(/class="muted last-year" title="Sidste år \([^"]*\): 200,000 t · ejerandel 40,00 %"/)
+  })
 })

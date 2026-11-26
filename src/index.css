@@ -1546,3 +1546,26 @@ td button.factor-search-button {
 .investment-decision {
   margin-bottom: var(--hl-sp-4);
 }
+
+/* Category 15: the largest emitters above the holdings, and the search over them. */
+.largest-emitters {
+  margin: var(--hl-sp-4) 0;
+}
+
+.largest-emitters h3 {
+  margin-top: 0;
+}
+
+.investment-filter {
+  margin-top: var(--hl-sp-4);
+  align-items: end;
+}
+
+.investment-filter p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.last-year {
+  cursor: help;
+}
