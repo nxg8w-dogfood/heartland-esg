@@ -1,5 +1,6 @@
 import { useId, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { currencyRates } from '../data/currencies'
+import { dailyRates } from '../data/exchangeRates'
 import type { Factor } from '../data/factors'
 import type { Period } from '../calc/dates'
 import { appRates, type DkkRate } from '../calc/exchangeRates'
@@ -338,10 +339,10 @@ function InvestmentCard({ result, lastYear, options, counted, onChange, onDelete
             <div className="field">
               <label htmlFor={`${id}-cur`}>Valuta</label>
               <select id={`${id}-cur`} value={inv.localCurrency} onChange={(e) => onChange({ localCurrency: e.target.value })}>
-                {currencyRates.map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
+                {localCurrencies(inv.localCurrency).map((code) => <option key={code} value={code}>{code}</option>)}
               </select>
             </div>
-            <NumberField label="Kurs (DKK pr. enhed)" value={inv.rateLocalToDKK} onCommit={(v) => onChange({ rateLocalToDKK: v })} />
+            <NumberField label="Kurs (DKK pr. enhed)" hint="tom: ECB-kursen på datoen" value={inv.rateLocalToDKK} onCommit={(v) => onChange({ rateLocalToDKK: v })} />
           </>
         )}
         {inv.basis === 'Investment' && (
@@ -382,6 +383,7 @@ function InvestmentCard({ result, lastYear, options, counted, onChange, onDelete
       <p className={status ? 'warning' : 'muted'}>
         {inv.basis === 'Revenue' && result.revenueEUR !== null && <>Omsætning {formatNumber(result.revenueEUR, 0)} EUR · </>}
         {inv.basis === 'Investment' && result.investmentEUR !== null && <>Investeret {formatNumber(result.investmentEUR, 0)} EUR · </>}
+        {result.localRate && (inv.localCurrency || 'DKK') !== 'DKK' && <>{localRateLabel(result.localRate, inv.localCurrency, inv.date)} · </>}
         {inv.basis !== 'CO2e' && <>{rateLabel(result.eurRate, inv.date)} · </>}
         {(deflationWarning(result.deflation) ?? deflationNote(result.deflation)) && <>{deflationWarning(result.deflation) ?? deflationNote(result.deflation)} · </>}
         Ejerandel {formatNumber(result.share * 100, 1)} % · hele {coverLabel(result.covers)}: {formatNumber(result.annualKgCO2e / 1000, 3)} tCO2e
@@ -401,6 +403,21 @@ function rateLabel({ value, rateDate }: DkkRate, date: string): string {
   return rateDate
     ? `${rate} (ECB-referencekurs ${formatDate(rateDate)})`
     : `${rate} (fast kurs; ingen ECB-kurs ${formatDate(date)})`
+}
+
+/** The rate the local revenue was converted with: the one entered, or the ECB rate it fell back to. */
+function localRateLabel({ value, rateDate, note }: DkkRate, code: string, date: string): string {
+  if (value === null) return `Ingen ECB-kurs for ${code} ${formatDate(date)} — angiv kursen`
+  const rate = `Kurs ${formatNumber(value, 4)} DKK pr. ${code}`
+  if (rateDate) return `${rate} (ECB-referencekurs ${formatDate(rateDate)})`
+  return note ? `${rate} (fast kurs; ingen ECB-kurs ${formatDate(date)})` : `${rate} (angivet)`
+}
+
+/** The currencies to choose from: the fixed ones and those with ECB rates, plus the holding's own. */
+function localCurrencies(current: string): string[] {
+  const codes = [...currencyRates.map((c) => c.code), ...dailyRates.codes]
+  if (current) codes.push(current)
+  return [...new Set(codes)]
 }
 
 const ownedLabel = (owned: Period) => `${formatDate(owned.start)}–${formatDate(owned.end)}`

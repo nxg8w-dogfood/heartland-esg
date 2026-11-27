@@ -7,6 +7,9 @@
 
 import type { AccountData } from '../storage/account'
 
+/** The largest document, in KB: 128 MB, the most Dataverse takes in a single upload request (docs/adr/0042). */
+export const FILE_MAX_KB = 131_072
+
 export const PUBLISHER = {
   uniqueName: 'heartland',
   friendlyName: 'Heartland',
@@ -378,7 +381,7 @@ export const tables: readonly Table[] = [
     // Belongs to its investment, which belongs to the company, like a posting to its import.
     columns: [
       { kind: 'lookup', name: n('investeringid'), label: 'Investering', target: n('investering'), required: true, onDelete: 'Cascade' },
-      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: 32_768 },
+      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: FILE_MAX_KB },
       { kind: 'integer', name: n('stoerrelse'), label: 'Størrelse (bytes)', min: 0, max: 2_147_483_647 },
       text('filtype', 'Filtype', 200),
     ],
@@ -394,7 +397,7 @@ export const tables: readonly Table[] = [
     // relationship, so lines and surveys each have their own document table.
     columns: [
       { kind: 'lookup', name: n('linjeid'), label: 'Linje', target: n('linje'), required: true, onDelete: 'Cascade' },
-      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: 32_768 },
+      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: FILE_MAX_KB },
       { kind: 'integer', name: n('stoerrelse'), label: 'Størrelse (bytes)', min: 0, max: 2_147_483_647 },
       text('filtype', 'Filtype', 200),
     ],
@@ -408,7 +411,7 @@ export const tables: readonly Table[] = [
     separate: true,
     columns: [
       { kind: 'lookup', name: n('pendlingid'), label: 'Pendlerundersøgelse', target: n('pendling'), required: true, onDelete: 'Cascade' },
-      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: 32_768 },
+      { kind: 'file', name: n('fil'), label: 'Fil', maxSizeKB: FILE_MAX_KB },
       { kind: 'integer', name: n('stoerrelse'), label: 'Størrelse (bytes)', min: 0, max: 2_147_483_647 },
       text('filtype', 'Filtype', 200),
     ],

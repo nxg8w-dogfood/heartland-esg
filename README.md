@@ -96,7 +96,7 @@ invested are converted from DKK to EUR at the ECB's reference rate on the holdin
 holding shows the rate and its date (ADR 0028).
 
 Each holding has a **Dokumentation** list for the files behind its figures, such as the company's
-own ESG report (ADR 0029). Files are saved in Dataverse the moment they're added, up to 32 MB
+own ESG report (ADR 0029). Files are saved in Dataverse the moment they're added, up to 128 MB
 each, and can be downloaded or deleted from the holding. Deleting a holding deletes its documents.
 Documents need Dataverse, so `npm run dev` on its own doesn't offer them.
 

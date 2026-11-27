@@ -4,7 +4,9 @@
 //   npm run dataverse:apply -- --url https://<org>.crm4.dynamics.com [--dry-run] [--no-roles]
 //
 // - Publisher, solution, tables, columns and lookups: created when missing. Nothing that exists
-//   is changed or deleted; an existing column of another type is reported, not touched.
+//   is changed or deleted; an existing column of another type is reported, not touched. The one
+//   exception: a file column whose maximum size is below the schema's is raised to it, never
+//   lowered (docs/adr/0042).
 // - Security roles: created when missing, and their hlesg_ privileges set to exactly what
 //   roles.ts says, since the roles belong to this app. Other privileges are left alone.
 //   `--no-roles` leaves the roles untouched: on a shared environment where an unmerged branch
@@ -88,6 +90,7 @@ async function schema(lcid: number) {
       const type = existing.get(c.name)
       if (type) {
         if (type !== expectedType(c)) warnings.push(`${t.name}.${c.name} is ${type} in the environment, ${expectedType(c)} in the schema; left as it is.`)
+        else if (c.kind === 'file') await raiseFileSize(t.name, c.name, c.maxSizeKB)
         continue
       }
       if (c.kind === 'lookup') await change(`lookup ${t.name}.${c.name} → ${c.target}`, 'POST', 'RelationshipDefinitions', relationship(c, t.name, lcid))
@@ -152,6 +155,17 @@ async function securityRoles() {
 }
 
 const count = (p: Record<string, Partial<Record<Operation, unknown>>>) => Object.values(p).reduce((n, ops) => n + Object.keys(ops).length, 0)
+
+/** Raises a file column's maximum size to the schema's. The maker portal can't; the Web API can. */
+async function raiseFileSize(table: string, column: string, maxSizeKB: number) {
+  const path = `EntityDefinitions(LogicalName='${table}')/Attributes(LogicalName='${column}')/Microsoft.Dynamics.CRM.FileAttributeMetadata`
+  const current = (await get(path)).json!
+  if (Number(current.MaxSizeInKB) >= maxSizeKB) return
+  const definition = Object.fromEntries(Object.entries(current).filter(([k]) => !k.startsWith('@odata.') || k === '@odata.type'))
+  await change(`file size ${table}.${column}: ${Number(current.MaxSizeInKB) / 1024} → ${maxSizeKB / 1024} MB`, 'PUT',
+    `EntityDefinitions(LogicalName='${table}')/Attributes(LogicalName='${column}')`,
+    { ...definition, '@odata.type': 'Microsoft.Dynamics.CRM.FileAttributeMetadata', MaxSizeInKB: maxSizeKB })
+}
 
 function expectedType(c: Column): string {
   return { text: 'String', memo: 'Memo', decimal: 'Decimal', integer: 'Integer', date: 'DateTime', datetime: 'DateTime', boolean: 'Boolean', choice: 'Picklist', lookup: 'Lookup', file: 'Virtual' }[c.kind]

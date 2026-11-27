@@ -46,7 +46,7 @@ export type Investment = {
   revenueDKK: number | null
   revenueLocal: number | null
   localCurrency: string
-  /** DKK per unit of the local currency */
+  /** DKK per unit of the local currency. Blank: the ECB rate on the holding's date (docs/adr/0042). */
   rateLocalToDKK: number | null
   /** The amount invested in the company, in DKK (basis Investment) */
   investmentDKK: number | null
@@ -82,6 +82,9 @@ export type InvestmentResult = {
   investmentEUR: number | null
   /** DKK per EUR on the holding's date, and the day of the ECB rate used */
   eurRate: DkkRate
+  /** DKK per unit of the local currency used for revenue in local currency: the rate entered, else the ECB
+   * rate on the holding's date. null when the revenue is in DKK or no local revenue is used. */
+  localRate: DkkRate | null
   /** The factor table's factor, when the holding uses one */
   factor: Factor | null
   /** kg CO2e per EUR used: the chosen factor's value, or the holding's own; null when missing */
@@ -153,19 +156,27 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
   let annualKgCO2e: number
   let pending: boolean
   let noRevenue = false
+  let localRate: DkkRate | null = null
+  let noLocalRate = false
   if (investment.basis === 'CO2e') {
     annualKgCO2e = finiteOrZero(investment.totalKgCO2e) * share
     pending = investment.totalKgCO2e === null
   } else if (investment.basis === 'Revenue') {
+    if (investment.revenueDKK === null && investment.revenueLocal !== null) {
+      localRate = investment.rateLocalToDKK !== null
+        ? { value: investment.rateLocalToDKK, rateDate: null, note: null }
+        : dkkRate(rates, investment.localCurrency, investment.date)
+    }
     const revenueDKK =
       investment.revenueDKK !== null
         ? finiteOrZero(investment.revenueDKK)
-        : finiteOrZero(investment.revenueLocal) * finiteOrZero(investment.rateLocalToDKK)
+        : finiteOrZero(investment.revenueLocal) * finiteOrZero(localRate?.value)
+    noLocalRate = localRate !== null && localRate.value === null
     revenueEUR = perEUR === null ? null : revenueDKK / perEUR
     annualKgCO2e = finiteOrZero(revenueEUR) * finiteOrZero(regulatedKgPerEUR) * share
     // No revenue gives no estimate at all, so it waits rather than counting as zero (docs/adr/0038).
-    noRevenue = revenueDKK === 0
-    pending = noRevenue || factorKgPerEUR === null || perEUR === null
+    noRevenue = revenueDKK === 0 && !noLocalRate
+    pending = noRevenue || noLocalRate || factorKgPerEUR === null || perEUR === null
   } else {
     // A negative amount (a written-down holding, say) would give negative emissions: it waits.
     const amount = investment.investmentDKK
@@ -179,6 +190,7 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
   const inPeriod = covers && owned ? overlapDays(owned, period) / overlapDays(covers, covers) : 0
   const missing = !pending ? null
     : investment.basis === 'CO2e' ? 'Selskabets udledning mangler'
+    : noLocalRate ? `Kurs for ${investment.localCurrency} mangler`
     : noRevenue ? 'Omsætning mangler'
     : investment.basis === 'Investment' && investment.investmentDKK === null ? 'Investeringsbeløb mangler'
     : investment.basis === 'Investment' && investment.investmentDKK! < 0 ? 'Investeringsbeløbet er negativt'
@@ -187,7 +199,7 @@ export function investmentResult(investment: Investment, rates: RateSource, peri
     : 'Mangler data'
   const excluded = investment.excluded === true
   return {
-    investment, share, included, revenueEUR, investmentEUR, eurRate, factor, factorKgPerEUR, deflation: d, regulatedKgPerEUR,
+    investment, share, included, revenueEUR, investmentEUR, eurRate, localRate, factor, factorKgPerEUR, deflation: d, regulatedKgPerEUR,
     annualKgCO2e: excluded ? 0 : annualKgCO2e, covers, owned, shareInPeriod: inPeriod, kgCO2e: excluded ? 0 : annualKgCO2e * inPeriod, pending, missing, excluded,
   }
 }

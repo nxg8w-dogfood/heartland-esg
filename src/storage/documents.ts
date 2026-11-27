@@ -1,3 +1,4 @@
+import { FILE_MAX_KB } from '../dataverse/schema'
 // Documents on a category 15 holding (docs/adr/0029), and on a Scope 3 line or commuting survey
 // (docs/adr/0035), such as the company's ESG report or a supplier's invoice. They're files in
 // Dataverse, uploaded and deleted the moment the user adds or removes one, apart from the group's
@@ -33,7 +34,7 @@ export type DocumentStore = {
 export type DocumentStores = Record<DocumentKind, DocumentStore>
 
 /** The largest file a document may be: the file column's limit (src/dataverse/schema.ts). */
-export const MAX_DOCUMENT_BYTES = 32 * 1024 * 1024
+export const MAX_DOCUMENT_BYTES = FILE_MAX_KB * 1024
 
 export type Documents = {
   stores: DocumentStores

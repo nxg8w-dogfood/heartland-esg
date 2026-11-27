@@ -21,10 +21,10 @@ describe('DocumentsPanel', () => {
     expect(html).toContain('Slet<span class="visually-hidden"> ESG-rapport 2025.pdf</span>')
   })
 
-  it('takes several files at once, up to 32 MB each', () => {
+  it('takes several files at once, up to 128 MB each', () => {
     const html = render(list([]))
     expect(html).toContain('Ingen dokumenter endnu.')
-    expect(html).toMatch(/Tilføj dokument<span class="optional"> \(fx selskabets ESG-rapport, højst 32 MB\)<\/span><\/label><input id="[^"]+" type="file" multiple=""/)
+    expect(html).toMatch(/Tilføj dokument<span class="optional"> \(fx selskabets ESG-rapport, højst 128 MB\)<\/span><\/label><input id="[^"]+" type="file" multiple=""/)
   })
 
   it('waits for the holding or line to be saved before a file can be added', () => {
@@ -32,7 +32,7 @@ describe('DocumentsPanel', () => {
     const html = render(list([], { saved: false }), 'linjen', 'en faktura')
     expect(html).toMatch(/type="file" multiple="" disabled=""/)
     expect(html).toContain('Dokumenter kan tilføjes, når linjen er gemt.')
-    expect(html).toContain('(fx en faktura, højst 32 MB)')
+    expect(html).toContain('(fx en faktura, højst 128 MB)')
   })
 
   it('says while loading, and when loading failed', () => {

@@ -37,10 +37,10 @@ describe('dataverseDocuments', () => {
     expect(client.deleteRecordAsync).toHaveBeenCalledWith('hlesg_dokuments', id)
   })
 
-  it('refuses a file over 32 MB before sending anything', async () => {
+  it('refuses a file over 128 MB before sending anything', async () => {
     const client = fakeClient()
-    const big = { name: 'stor.pdf', size: 32 * 1024 * 1024 + 1, type: 'application/pdf' } as File
-    await expect(dataverseDocuments('investment', client as never).add('inv-1', big)).rejects.toThrow('stor.pdf er større end 32 MB.')
+    const big = { name: 'stor.pdf', size: 128 * 1024 * 1024 + 1, type: 'application/pdf' } as File
+    await expect(dataverseDocuments('investment', client as never).add('inv-1', big)).rejects.toThrow('stor.pdf er større end 128 MB.')
     expect(client.createRecordAsync).not.toHaveBeenCalled()
   })
 
