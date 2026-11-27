@@ -59,6 +59,26 @@ describe('investmentResult', () => {
     expect(r.kgCO2e).toBeCloseTo((6_688_000 / 7.4604) * 0.0768 * 0.25, 6)
   })
 
+  it('converts local revenue at the ECB rate on its date when no rate is entered (ADR 0042)', () => {
+    const daily: DailyRates = { codes: ['DKK', 'CNY'], days: [['2026-07-31', [7.4752, 8.0]]] }
+    const rates = { fixed: currencyRates, daily }
+    const r = investmentResult(holding({ date: '2026-07-31', basis: 'Revenue', revenueLocal: 8_000_000, localCurrency: 'CNY', factorKgPerEUR: 0.1, ownershipPct: 50 }), rates, { start: '2025-08-01', end: '2026-07-31' }, [])
+    expect(r.localRate).toMatchObject({ rateDate: '2026-07-31' })
+    expect(r.localRate!.value).toBeCloseTo(7.4752 / 8, 10)
+    expect(r.revenueEUR).toBeCloseTo(1_000_000, 6)
+    expect(r).toMatchObject({ pending: false, missing: null })
+    expect(r.kgCO2e).toBeCloseTo(1_000_000 * 0.1 * 0.5, 6)
+  })
+
+  it('prefers an entered rate, and waits when the currency has no rate at all', () => {
+    const daily: DailyRates = { codes: ['DKK', 'CNY'], days: [['2026-07-31', [7.4752, 8.0]]] }
+    const rates = { fixed: currencyRates, daily }
+    const entered = investmentResult(holding({ date: '2026-07-31', basis: 'Revenue', revenueLocal: 100, localCurrency: 'CNY', rateLocalToDKK: 1, factorKgPerEUR: 0.1 }), rates, year2025, [])
+    expect(entered.localRate).toEqual({ value: 1, rateDate: null, note: null })
+    const unknown = investmentResult(holding({ date: '2026-07-31', basis: 'Revenue', revenueLocal: 100, localCurrency: 'XYZ', factorKgPerEUR: 0.1 }), rates, year2025, [])
+    expect(unknown).toMatchObject({ pending: true, missing: 'Kurs for XYZ mangler' })
+  })
+
   it('is pending on revenue without a factor, and without revenue (ADR 0038)', () => {
     expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 1_000_000 }), currencyRates, year2025, [])).toMatchObject({ pending: true, missing: 'Faktor mangler' })
     expect(investmentResult(holding({ basis: 'Revenue', revenueDKK: 0, factorKgPerEUR: 0.1 }), currencyRates, year2025, [])).toMatchObject({ pending: true, missing: 'Omsætning mangler' })
