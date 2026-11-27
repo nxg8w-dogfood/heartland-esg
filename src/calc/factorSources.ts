@@ -93,7 +93,17 @@ function chooseSources(
     if (choice.kind === 'publication') {
       const p = publications.find((x) => x.id === choice.publicationId)
       if (!p || !(f.id in p.values)) return f
-      return { ...f, value: p.values[f.id], source: p.name, reference: p.rows?.[f.id] ? `${p.rows[f.id]} (${p.url ?? p.name})` : (p.url ?? p.name) }
+      const where = p.rows?.[f.id] ? `${p.rows[f.id]} (${p.url ?? p.name})` : (p.url ?? p.name)
+      // A publication that only restates someone else's figure names that party as the source,
+      // and itself as where the value was read: Kilde has to say EXIOBASE, not the factor list
+      // that transcribed EXIOBASE.
+      const origin = p.originators?.[f.id]
+      return {
+        ...f,
+        value: p.values[f.id],
+        source: origin ?? p.name,
+        reference: origin ? `${origin}, gengivet i ${where}` : where,
+      }
     }
     if (choice.kind === 'manual') return { ...f, value: choice.value, source: choice.source || 'Indtastet', reference: choice.date ? `Indtastet, kildens dato ${choice.date}` : 'Indtastet' }
     return { ...f, value: choice.value, source: apiProviders.find((a) => a.id === choice.providerId)?.name ?? choice.providerId, reference: `${choice.request}, hentet ${choice.fetchedAt}` }
