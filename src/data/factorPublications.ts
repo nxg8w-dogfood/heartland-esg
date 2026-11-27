@@ -18,9 +18,22 @@ export type FactorPublication = {
   values: Record<string, number>
   /** Factor id → where in the publication the value is, when it has many */
   rows?: Record<string, string>
+  /**
+   * Factor id → the party whose data this publication restates, for a document that compiles
+   * other parties' factors (the company's own factor list, say) rather than being the source
+   * itself. Kilde then names that party and the reference names this document and its row: a
+   * climate account cites where a figure came from, not the spreadsheet that copied it.
+   */
+  originators?: Record<string, string>
 }
 
 const g = (gPerKWh: number) => Math.round(gPerKWh * 1e6) / 1e9
+
+/**
+ * Every spend factor in Heartland's own factor list comes from the same database and price year
+ * (the list's own note). It is the source of those values; the list only restates them.
+ */
+const exiobase = 'EXIOBASE, kg CO2e pr. EUR, faktorår 2021'
 
 export const factorPublications: readonly FactorPublication[] = [
   {
@@ -304,6 +317,57 @@ export const factorPublications: readonly FactorPublication[] = [
       'f-s2-fjernvarme-aarhus-2025': 'Faktor-ID DK-FV-AAR (8,6 kg CO2e/MWh)',
       'f-k3-nettab': 'Arket »Parametre«, Tabsandel i elnettet (Scope 3.3)',
       'f-k3-wtt-ratio': 'Arket »Parametre«, WTT/direct-ratio (Scope 3.3)',
+    },
+    originators: {
+      'f-exio-air': exiobase,
+      'f-exio-rail': exiobase,
+      'f-exio-sea': exiobase,
+      'f-exio-land': exiobase,
+      'f-exio-hotel': exiobase,
+      'f-exio-computer': exiobase,
+      'f-exio-construction': exiobase,
+      'f-exio-food': exiobase,
+      'f-exio-furniture': exiobase,
+      'f-exio-insurance': exiobase,
+      'f-exio-office': exiobase,
+      'f-exio-obs-dk': exiobase,
+      'f-exio-post': exiobase,
+      'f-exio-print': exiobase,
+      'f-exio-retail': exiobase,
+      'f-exio-vehicle-repair': exiobase,
+      'f-exio-obs-cn': exiobase,
+      'f-exio-apparel-cn': exiobase,
+      'f-exio-animal-sk': exiobase,
+      'f-exio-leather-pt': exiobase,
+      'f-exio-obs-de': exiobase,
+      'f-exio-obs-nl': exiobase,
+      'f-exio-obs-fr': exiobase,
+      'f-exio-obs-se': exiobase,
+      'f-exio-obs-scot': exiobase,
+      'f-exio-motor': exiobase,
+      'f-exio-machinery': exiobase,
+      'f-exio-electrical': exiobase,
+      'f-exio-transport-equipment': exiobase,
+      'f-exio-crops': exiobase,
+      'f-exio-forestry': exiobase,
+      'f-exio-wholesale': exiobase,
+      'f-exio-retail-de': exiobase,
+      'f-exio-retail-gb': exiobase,
+      'f-exio-finance-dk': exiobase,
+      'f-exio-finance-se': exiobase,
+      'f-exio-finance-gb': exiobase,
+      'f-exio-rnd': exiobase,
+      'f-exio-education': exiobase,
+      'f-exio-real-estate': exiobase,
+      'f-exio-recreation': exiobase,
+      'f-beis-rent': 'BEIS, lejefaktor pr. GBP',
+      'f-s1-benzin-mineral': 'DESNZ GHG Conversion Factors 2025',
+      'f-s2-el-dk1-200-2025': 'Energinet, miljødeklaration (200 %-metoden)',
+      'f-s2-el-aarhus-200-2025': 'Energinet, miljødeklaration (200 %-metoden)',
+      'f-s2-el-residual-2025': 'Energinet, Generelle Eldeklaration 2025 (med revision)',
+      'f-s2-fjernvarme-aarhus-2025': 'Kredsløb, fjernvarme i Aarhus',
+      'f-k3-nettab': 'Energinet Miljøredegørelse',
+      'f-k3-wtt-ratio': 'BEIS 2025 metodepapir',
     },
   },
 ]

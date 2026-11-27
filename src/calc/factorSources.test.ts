@@ -36,7 +36,36 @@ describe('applyFactorSources', () => {
   it("fills blank EXIOBASE factors from Heartland's own factor list, which has no public address", () => {
     const out = applyFactorSources(factors, { 'f-exio-air': { kind: 'publication', publicationId: 'heartland-emissionsfaktorer-2025-26' } }, factorPublications)
     expect(byId(factors, 'f-exio-air').value).toBeNull()
-    expect(byId(out, 'f-exio-air')).toMatchObject({ value: 0.4696, priceYear: 2021, source: expect.stringContaining('Heartland'), reference: 'Faktor-ID EXIO-AIR (Heartland, Emissionsfaktorer i klimaregnskabsmodellen 2025/26)' })
+    expect(byId(out, 'f-exio-air')).toMatchObject({
+      value: 0.4696,
+      priceYear: 2021,
+      // The source is the database the figure comes from, not the list that transcribed it, and
+      // the reference says which list and row it was read from.
+      source: 'EXIOBASE, kg CO2e pr. EUR, faktorår 2021',
+      reference: 'EXIOBASE, kg CO2e pr. EUR, faktorår 2021, gengivet i Faktor-ID EXIO-AIR (Heartland, Emissionsfaktorer i klimaregnskabsmodellen 2025/26)',
+    })
+  })
+
+  it("names the originator, not Heartland's list, for every factor the list restates", () => {
+    const list = factorPublications.find((p) => p.id === 'heartland-emissionsfaktorer-2025-26')!
+    const ids = Object.keys(list.values)
+    const out = applyFactorSources(factors, Object.fromEntries(ids.map((id) => [id, { kind: 'publication', publicationId: list.id } as const])), factorPublications)
+    // Every restated value must say where it came from: an unnamed originator would leave Kilde
+    // reading either "Heartland, Emissionsfaktorer …" or "Afventer indtastning" next to a value.
+    expect(ids.filter((id) => !list.originators?.[id])).toEqual([])
+    for (const id of ids) {
+      expect(byId(out, id).source).toBe(list.originators![id])
+      expect(byId(out, id).source).not.toContain('Heartland, Emissionsfaktorer')
+      expect(byId(out, id).source).not.toContain('Afventer indtastning')
+    }
+  })
+
+  it('still shows the publication itself as the source when it is the source', () => {
+    const out = applyFactorSources(factors, { 'f-s2-el-dk-2025': { kind: 'publication', publicationId: ens } }, factorPublications)
+    expect(byId(out, 'f-s2-el-dk-2025')).toMatchObject({
+      source: 'Energistyrelsen, El-emissionsfaktoren (2025-2035)',
+      reference: 'https://ens.dk/media/7359/download',
+    })
   })
 
   it('takes value, source and reference from a chosen publication', () => {
