@@ -11,6 +11,7 @@ import {
   type LedgerField, type ManualAction, type Posting, type TableRow,
 } from '../calc/ledger'
 import type { LedgerState } from './state'
+import { deleteImportQuestion } from './deleteImport'
 import { formatDate, formatNumber } from '../format'
 import { newId } from '../newId'
 import { Tile } from '../ui'
@@ -98,7 +99,7 @@ export function LedgerPage({ ledger, setLedger, factors, subpage = 'posteringer'
                       type="button"
                       className="link"
                       onClick={async () => {
-                        if (!(await confirm(`Slet importen ${b.fileName} og dens ${b.count} posteringer?`, 'Slet import'))) return
+                        if (!(await confirm(deleteImportQuestion(b.fileName, stored.get(b.id) ?? 0), 'Slet import'))) return
                         setLedger((l) => {
                           const gone = new Set(l.postings.filter((p) => p.importId === b.id).map((p) => p.id))
                           return {
